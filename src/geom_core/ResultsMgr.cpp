@@ -765,7 +765,13 @@ void Results::WriteWaveDragFile( const string & file_name )
         double CD0w = Find( "CDWave" ).GetDouble( 0 );
         fprintf( fid, "CDWave: %19.8f \n", CD0w );
 
-        fclose( fid );
+		double Mach = Find( "Mach" ).GetDouble(0);
+		fprintf( fid, "Mach: %19.8f \n", Mach);
+
+		string Set_Name = Find("Set_Name").GetString(0);
+		fprintf(fid, "Set Name: %s \n", Set_Name.c_str());
+
+		fclose( fid );
     }
 
 }
