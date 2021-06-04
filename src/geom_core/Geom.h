@@ -350,7 +350,7 @@ public:
     virtual void LoadMainDrawObjs( vector< DrawObj* > & draw_obj_vec );
     virtual void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec );
 
-    virtual void SetColor( int r, int g, int b );
+    virtual void SetColor( double r, double g, double b );
     virtual vec3d GetColor();
 
     virtual void SetMaterialToDefault();
@@ -418,7 +418,7 @@ public:
     /*
     * Reset m_GeomChanged flag in DrawObj to false.
     */
-    virtual void ResetGeomChangedFlag();
+    virtual void ResetGeomChangedFlag( bool flag = false );
 
     virtual vec3d CompPnt01(const double &u, const double &w);
     virtual vec3d CompPnt01(const int &indx, const double &u, const double &w);

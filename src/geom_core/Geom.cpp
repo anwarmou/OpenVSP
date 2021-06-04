@@ -1114,14 +1114,22 @@ void Geom::Update( bool fullupdate )
     if ( m_SurfDirty )
         UpdateEndCaps();
 
-    if ( fullupdate && m_SurfDirty )
+    if ( fullupdate )
     {
-        UpdateFeatureLines();
+        if ( m_SurfDirty )
+            UpdateFeatureLines();
     }
 
     if ( m_SurfDirty )
     {
         UpdateFlags();  // Needs to be after m_MainSurfVec is populated, but before m_SurfVec
+    }
+
+    // Sets cluster parameters on m_MainSurfVec[0] for wings etc.
+    // Needs to be before m_MainSurfVec is copied to m_SurfVec.
+    if ( m_SurfDirty || m_TessDirty )
+    {
+        UpdatePreTess();
     }
 
     if ( m_XFormDirty || m_SurfDirty )
@@ -1148,17 +1156,16 @@ void Geom::Update( bool fullupdate )
         }
     }
 
-    // Tessellate MainSurfVec
-    if ( m_SurfDirty || m_TessDirty )
+    if ( fullupdate )
     {
-        UpdatePreTess();
-        UpdateMainTessVec();
-        UpdateMainDegenGeomPreview();
-    }
+        // Tessellate MainSurfVec
+        if ( m_SurfDirty || m_TessDirty )
+        {
+            UpdateMainTessVec();
+            UpdateMainDegenGeomPreview();
+        }
 
-    // Copy Tessellation for symmetry and XForm
-    if ( m_XFormDirty || m_SurfDirty || m_TessDirty )
-    {
+        // Copy Tessellation for symmetry and XForm
         UpdateTessVec();
         UpdateDegenGeomPreview();
     }
@@ -1170,10 +1177,7 @@ void Geom::Update( bool fullupdate )
 
     if ( fullupdate )
     {
-        if ( m_XFormDirty || m_SurfDirty || m_TessDirty )
-        {
-            UpdateDrawObj();  // Needs to happen for both XForm and Surf updates.
-        }
+        UpdateDrawObj();
     }
 
     m_UpdateXForm = false;
@@ -3105,11 +3109,11 @@ void Geom::ReadV2File( xmlNodePtr &root )
 */
 }
 
-void Geom::ResetGeomChangedFlag()
+void Geom::ResetGeomChangedFlag( bool flag )
 {
     for ( int i = 0 ; i < ( int )m_WireShadeDrawObj_vec.size() ; i++ )
     {
-        m_WireShadeDrawObj_vec[i].m_GeomChanged = false;
+        m_WireShadeDrawObj_vec[i].m_GeomChanged = flag;
     }
 }
 
@@ -3481,7 +3485,7 @@ void Geom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
     }
 }
 
-void Geom::SetColor( int r, int g, int b )
+void Geom::SetColor( double r, double g, double b )
 {
     m_GuiDraw.SetWireColor( r, g, b );
 }

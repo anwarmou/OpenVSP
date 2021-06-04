@@ -152,6 +152,7 @@ public:
     FractionParm m_XSecImageH;
     FractionParm m_XSecImageXOffset;
     FractionParm m_XSecImageYOffset;
+    BoolParm m_XSecFlipImageFlag;
 
     virtual void SetImageFile( const string & file ) { m_ImageFile = file; }
     virtual string GetImageFile() { return m_ImageFile; }
@@ -317,10 +318,15 @@ public:
 
     Parm m_Width;
     Parm m_Height;
-    Parm m_Radius;
+    IntParm m_RadiusSymmetryType;
+    Parm m_RadiusBR;
+    Parm m_RadiusBL;
+    Parm m_RadiusTL;
+    Parm m_RadiusTR;
     Parm m_Skew;
     Parm m_Keystone;
     BoolParm m_KeyCornerParm;
+    Parm m_VSkew;
 };
 
 //==========================================================================//
@@ -515,7 +521,7 @@ public:
     virtual string GetHeightParmID() { return m_Height.GetID(); }
 
     BoolParm m_CloseFlag;
-    IntParm m_SymType;
+    BoolParm m_SymType;
     IntParm m_ShapeType;
     Parm m_Width;
     Parm m_Height;
@@ -528,6 +534,8 @@ public:
     // Parms for XSec background image in GUI
     Parm m_XSecPointSize;
     Parm m_XSecLineThickness;
+    BoolParm m_XSecPointColorFlag;
+    IntParm m_XSecPointColorWheel;
 
     vector < Parm* > m_UParmVec; // vector of U (0-1) values for each control point (in reallity 0-4 for XSec curves; T)
     vector < FractionParm* > m_XParmVec; // vector of control point x coordinates

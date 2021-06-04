@@ -174,14 +174,8 @@ int VspGlWindow::handle( int fl_event )
     int x = Fl::event_x();
     int y = h() - Fl::event_y();
 
-#ifdef __APPLE__
-    if ( shown() )
-    {
-        double factor = pixel_w()/w();
-        x *= factor;
-        y *= factor;
-    }
-#endif
+    x *= pixels_per_unit();
+    y *= pixels_per_unit();
 
     m_mouse_x = x;
     m_mouse_y = y;
@@ -423,7 +417,6 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             id = 0xFFFFFFFF;
         }
 
-        Renderable * rObj;
         VSPGraphic::Entity * eObj;
 
         switch( objects[i]->m_Type )
@@ -2263,11 +2256,7 @@ int EditXSecWindow::handle( int fl_event )
     if ( fl_event == FL_PUSH && !Fl::event_button2() )
     {
         // Diameter of point + 10% considered "hit" 
-        double hit_r = 1.2 * edit_curve_xs->m_XSecPointSize.Get() / 2;
-
-#ifdef __APPLE__
-        hit_r *= 2;
-#endif
+        double hit_r = pixels_per_unit() * 1.2 * edit_curve_xs->m_XSecPointSize.Get() / 2;
 
         m_LastHit = ihit( m_mouse_x, m_mouse_y, hit_r );
 
@@ -2312,7 +2301,7 @@ int EditXSecWindow::handle( int fl_event )
             curve_editor->UpdateIndexSelector( new_pnt );
         }
     }
-    else if ( fl_event == FL_DRAG && m_LastHit != -1 )
+    else if ( fl_event == FL_DRAG && m_LastHit != -1 && !Fl::event_button2() )
     {
         if ( edit_curve_xs->m_AbsoluteFlag() )
         {

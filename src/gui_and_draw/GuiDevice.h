@@ -430,6 +430,10 @@ protected:
 };
 
 //==== Toggle Button ====//
+// WARNING: Updating a ToggleButton with an IntParm when the range of the IntParm 
+// is 0 to 1 will cause the button to initially appear Off when the Parm value is 
+// 1. If this is the case, the IntParm should be changed to a BoolParm if the 
+// ToggleButton is not part of a ToggleRadioGroup.
 class ToggleButton : public GuiDevice
 {
 public:
@@ -1327,7 +1331,6 @@ public:
 
     ColResizeBrowser( int X, int Y, int W, int H, const char* L = 0 );
 
-    ~ColResizeBrowser()         { if ( m_Widths ) delete m_Widths; }
 
     // GET/SET COLUMN SEPARATOR LINE COLOR
     Fl_Color GetColSepColor() const {
@@ -1373,11 +1376,7 @@ private:
 
     // CHANGE CURSOR
     //     Does nothing if cursor already set to value specified.
-    void change_cursor( Fl_Cursor newcursor ) {
-        if ( newcursor == m_LastCursor ) return;
-        window()->cursor( newcursor );
-        m_LastCursor = newcursor;
-    }
+    void change_cursor( Fl_Cursor newcursor );
 
     // RETURN THE COLUMN MOUSE IS 'NEAR'
     //     Returns -1 if none.
@@ -1393,6 +1392,7 @@ private:
     int       m_DragCol;         // col# user is dragging (-1 = not dragging)
     int*      m_Widths;          // pointer to user's width[] array
     size_t    m_NumCol;          // number of columns
+    int       m_HPos;            // Horizontal scroll position
 
 };
 

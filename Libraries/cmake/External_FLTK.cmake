@@ -15,7 +15,7 @@ ENDIF()
 
 ExternalProject_Add( FLTK
 
-	URL ${CMAKE_SOURCE_DIR}/fltk-0c70362e63d6.zip
+	URL ${CMAKE_SOURCE_DIR}/fltk-47ba6632b1be.zip
 	CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
 		-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
 		-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
@@ -30,3 +30,11 @@ ExternalProject_Add( FLTK
 )
 ExternalProject_Get_Property( FLTK INSTALL_DIR )
 SET( FLTK_INSTALL_DIR ${INSTALL_DIR} )
+
+IF( APPLE )
+	ExternalProject_Add_Step( FLTK PostInstall
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${INSTALL_DIR}/FLTK
+		COMMAND ${CMAKE_COMMAND} -E rename ${INSTALL_DIR}/FLTK.framework ${INSTALL_DIR}/FLTK/.framework
+		DEPENDEES install
+	)
+ENDIF()

@@ -438,12 +438,8 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     m_CpSlicerLayout.SetFitWidthFlag( true );
 
     // Pointer for the widths of each column in the browser to support resizing
-    int *cp_col_widths = new int[3]; // 3 columns
-
-    // Initial column widths & keep the memory address
-    cp_col_widths[0] = ( m_CpSlicerLayout.GetW() / 3 ) + 10;
-    cp_col_widths[1] = m_CpSlicerLayout.GetW() / 3;
-    cp_col_widths[2] = ( m_CpSlicerLayout.GetW() / 3 ) + 10;
+    // Last column width must be 0
+    static int cp_col_widths[] = { ( m_CpSlicerLayout.GetW() / 3 ) + 10, m_CpSlicerLayout.GetW() / 3, ( m_CpSlicerLayout.GetW() / 3 ) + 10, 0 }; // widths for each column
 
     int CpBrowserHeight = 55;
     m_CpSliceBrowser = m_CpSlicerLayout.AddColResizeBrowser( cp_col_widths, 3, CpBrowserHeight );
@@ -617,17 +613,8 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
 
     m_PropElemLayout.AddDividerBox( "Rotor Disk Element Settings" );
 
-    // Pointer for the widths of each column in the browser to support resizing
-    int *prop_col_widths = new int[7]; // 7 columns
-
-    // Initial column widths & keep the memory address
-    prop_col_widths[0] = 0.12 * VSPAERO_SCREEN_WIDTH;
-    prop_col_widths[1] = 0.2 * VSPAERO_SCREEN_WIDTH;
-    prop_col_widths[2] = 0.12 * VSPAERO_SCREEN_WIDTH;
-    prop_col_widths[3] = 0.12 * VSPAERO_SCREEN_WIDTH;
-    prop_col_widths[4] = 0.12 * VSPAERO_SCREEN_WIDTH;
-    prop_col_widths[5] = 0.12 * VSPAERO_SCREEN_WIDTH;
-    prop_col_widths[6] = 0.12 * VSPAERO_SCREEN_WIDTH;
+    // Initial column widths
+    static int prop_col_widths[] = { 73, 122, 73, 73, 73, 73, 73, 73, 0 };
 
     m_PropElemBrowser = m_PropElemLayout.AddColResizeBrowser( prop_col_widths, 7, prop_elem_browser_h );
     m_PropElemBrowser->callback( staticScreenCB, this );
@@ -739,12 +726,8 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     m_UnsteadyGroupRightLayout.AddDividerBox( "Propellers" );
 
     // Pointer for the widths of each column in the browser to support resizing
-    int *unsteady_col_widths = new int[3]; // 3 columns
-
-    // Initial column widths & keep the memory address
-    unsteady_col_widths[0] = 0.21 * VSPAERO_SCREEN_WIDTH;
-    unsteady_col_widths[1] = 0.17 * VSPAERO_SCREEN_WIDTH;
-    unsteady_col_widths[2] = 0.12 * VSPAERO_SCREEN_WIDTH;
+    // Last column width must be 0
+    static int unsteady_col_widths[] = { 128, 104, 73, 0 }; // widths for each column
 
     int UnsteadyBrowserHeight = 125;
     m_UnsteadyGroupBrowser = m_UnsteadyGroupRightLayout.AddColResizeBrowser( unsteady_col_widths, 3, UnsteadyBrowserHeight );
@@ -994,6 +977,28 @@ void VSPAEROScreen::GuiDeviceCallBack( GuiDevice* device )
 
                 // Clear the solver console
                 m_SolverBuffer->text( "" );
+
+                // Check for transonic Mach numbers and warn the user if found
+                double transonic_mach_min = 0.8;
+                double transonic_mach_max = 1.2;
+                double mach_delta = 0.0;
+                vector < double > mach_vec( VSPAEROMgr.m_MachNpts.Get() );
+
+                // Identify Mach flow condition vector
+                if( VSPAEROMgr.m_MachNpts.Get() > 1 )
+                {
+                    mach_delta = ( VSPAEROMgr.m_MachEnd.Get() - VSPAEROMgr.m_MachStart.Get() ) / ( VSPAEROMgr.m_MachNpts.Get() - 1.0 );
+                }
+                for( size_t iMach = 0; iMach < VSPAEROMgr.m_MachNpts.Get(); iMach++ )
+                {
+                    mach_vec[iMach] = VSPAEROMgr.m_MachStart.Get() + double( iMach ) * mach_delta;
+
+                    if( mach_vec[iMach] > transonic_mach_min && mach_vec[iMach] < transonic_mach_max )
+                    {
+                        AddOutputText( m_SolverDisplay, "WARNING: Possible transonic Mach number detected - transonic flow is not supported.\n\n" );
+                        break;
+                    }
+                }
 
                 m_SolverProcess.StartThread( solver_thread_fun, ( void* ) &m_SolverPair );
             }
@@ -1571,6 +1576,7 @@ void VSPAEROScreen::UpdatePropElemDevices()
 void VSPAEROScreen::UpdatePropElemBrowser()
 {
     char str[256];
+    int h_pos = m_PropElemBrowser->hposition();
     m_PropElemBrowser->clear();
 
     m_PropElemBrowser->column_char(':');         // use : as the column character
@@ -1590,6 +1596,8 @@ void VSPAEROScreen::UpdatePropElemBrowser()
         }
     }
     SelectPropBrowser(VSPAEROMgr.GetCurrentRotorDiskIndex() + 2);
+
+    m_PropElemBrowser->hposition( h_pos );
 }
 
 void VSPAEROScreen::UpdateControlSurfaceBrowsers()
@@ -2016,6 +2024,7 @@ void VSPAEROScreen::UpdateCpSlices()
 void VSPAEROScreen::UpdateCpSliceBrowser()
 {
     char str[256];
+    int h_pos = m_CpSliceBrowser->hposition();
     m_CpSliceBrowser->clear();
 
     m_CpSliceBrowser->column_char( ':' );         // use : as the column character
@@ -2035,6 +2044,8 @@ void VSPAEROScreen::UpdateCpSliceBrowser()
     }
 
     SelectCpSliceBrowser( VSPAEROMgr.GetCurrentCpSliceIndex() + 2 );
+
+    m_CpSliceBrowser->hposition( h_pos );
 }
 
 void VSPAEROScreen::SelectCpSliceBrowser( int cur_index )
@@ -2118,6 +2129,7 @@ void VSPAEROScreen::UpdateUnsteadyGroups()
 
 void VSPAEROScreen::UpdateUnsteadyGroupBrowser()
 {
+    int h_pos = m_UnsteadyGroupBrowser->hposition();
     m_UnsteadyGroupBrowser->clear();
 
     m_UnsteadyGroupBrowser->column_char( ':' );         // use : as the column character
@@ -2153,6 +2165,8 @@ void VSPAEROScreen::UpdateUnsteadyGroupBrowser()
             SelectUnsteadyGroupBrowser( VSPAEROMgr.GetCurrentUnsteadyGroupIndex() + jump );
         }
     }
+
+    m_UnsteadyGroupBrowser->hposition( h_pos );
 }
 void VSPAEROScreen::SelectUnsteadyGroupBrowser( int cur_index )
 {

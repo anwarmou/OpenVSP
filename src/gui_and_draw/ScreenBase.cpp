@@ -499,13 +499,8 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SubSurfLayout.SetGroupAndScreen( subsurf_group, this );
     m_SubSurfLayout.AddDividerBox( "Sub-Surface List" );
 
-    // Pointer for the widths of each column in the browser to support resizing
-    int *col_widths = new int[3]; // 3 columns
-
-    // Initial column widths & keep the memory address
-    col_widths[0] = m_SubSurfLayout.GetW() / 2;
-    col_widths[1] = m_SubSurfLayout.GetW() / 3;
-    col_widths[2] = m_SubSurfLayout.GetW() / 6;
+    // Initial column widths
+    static int col_widths[] = { m_SubSurfLayout.GetW() / 2, m_SubSurfLayout.GetW() / 3, m_SubSurfLayout.GetW() / 6 }; // 3 columns
 
     int browser_h = 100;
     m_SubSurfBrowser = m_SubSurfLayout.AddColResizeBrowser( col_widths, 3, browser_h );
@@ -1009,6 +1004,7 @@ bool GeomScreen::Update()
     }
 
     //==== SubSurfBrowser ====//
+    int h_pos = m_SubSurfBrowser->hposition();
     m_SubSurfBrowser->clear();
 
     m_SubSurfBrowser->column_char( ':' );
@@ -1065,6 +1061,7 @@ bool GeomScreen::Update()
         m_SubSurfBrowser->select( SubSurfaceMgr.GetCurrSurfInd() + 2 );
     }
 
+    m_SubSurfBrowser->hposition( h_pos );
 
     return true;
 }
@@ -2042,11 +2039,18 @@ XSecViewScreen::XSecViewScreen( ScreenMgr* mgr ) : BasicScreen( mgr, 310, 600, "
     m_ImageLayout.ForceNewLine();
     m_ImageLayout.AddYGap();
 
-    m_ImageLayout.SetFitWidthFlag( true );
-    m_ImageLayout.SetSameLineFlag( false );
+    m_ImageLayout.SetFitWidthFlag( false );
+    m_ImageLayout.SetSameLineFlag( true );
+    m_ImageLayout.SetButtonWidth( m_ImageLayout.GetRemainX() / 2 );
 
     m_ImageLayout.AddButton( m_PreserveAspect, "Preserve Aspect" );
+    m_ImageLayout.AddButton( m_FlipImageToggle, "Flip Image" );
+    m_ImageLayout.ForceNewLine();
+
+    m_ImageLayout.SetFitWidthFlag( true );
+    m_ImageLayout.SetSameLineFlag( false );
     m_ImageLayout.AddYGap();
+
     m_ImageLayout.SetButtonWidth( 60 );
     m_ImageLayout.SetInputWidth( 50 );
     m_ImageLayout.AddSlider( m_WScale, "W Scale", 1.0, "%7.3f" );
@@ -2125,6 +2129,9 @@ bool XSecViewScreen::Update()
 
     m_PreserveAspect.Update( xs->GetXSecCurve()->m_XSecImagePreserveAR.GetID() );
     viewport->getBackground()->preserveAR( (bool)xs->GetXSecCurve()->m_XSecImagePreserveAR.Get() );
+
+    m_FlipImageToggle.Update( xs->GetXSecCurve()->m_XSecFlipImageFlag.GetID() );
+    viewport->getBackground()->flipX( (bool)xs->GetXSecCurve()->m_XSecFlipImageFlag.Get() );
 
     if ( xs->GetXSecCurve()->m_XSecImagePreserveAR() )
     {

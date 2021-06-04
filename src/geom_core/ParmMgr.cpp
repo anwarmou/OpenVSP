@@ -21,6 +21,7 @@ ParmMgrSingleton::ParmMgrSingleton()
     m_ChangeCnt = 0;
     m_LastUndoFlag = false;
     m_LastReset = "";
+    m_DirtyFlag = true;
 }
 
 //==== Add Parm To Map ====//
@@ -47,6 +48,8 @@ bool ParmMgrSingleton::AddParm( Parm* p  )
     m_NumParmChanges++;
     m_ParmMap[id] = p;
 
+    m_DirtyFlag = true;
+
     return true;
 }
 
@@ -61,6 +64,8 @@ void ParmMgrSingleton::RemoveParm( Parm* p  )
         m_NumParmChanges++;
         m_ParmMap.erase( iter );
     }
+
+    m_DirtyFlag = true;
 }
 
 //==== Add Parm Container To Map ====//
@@ -71,6 +76,8 @@ void ParmMgrSingleton::AddParmContainer( ParmContainer* pc  )
         m_NumParmChanges++;
         m_ParmContainerMap[pc->GetID()] = pc;
     }
+
+    m_DirtyFlag = true;
 }
 
 //==== Remove Parm Container From Map ====//
@@ -84,6 +91,8 @@ void ParmMgrSingleton::RemoveParmContainer( ParmContainer* pc  )
         m_NumParmChanges++;
         m_ParmContainerMap.erase( iter );
     }
+
+    m_DirtyFlag = true;
 }
 
 //==== Find Parm GivenID ====//

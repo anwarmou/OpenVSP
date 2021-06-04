@@ -89,7 +89,7 @@ XSecCurve::XSecCurve()
     m_LETrimThickChord.SetDescript( "T/C to trim leading edge" );
 
     m_TECapType.Init( "TE_Cap_Type", "Cap", this, FLAT_END_CAP, FLAT_END_CAP, NUM_END_CAP_OPTIONS - 1 );
-    m_TECapLength.Init( "TE_Cap_Length", "Cap", this, 1, 0, 20 );
+    m_TECapLength.Init( "TE_Cap_Length", "Cap", this, 1, -20, 20 );
     m_TECapOffset.Init( "TE_Cap_Offset", "Cap", this, 0, -20, 20 );
     m_TECapStrength.Init( "TE_Cap_Strength", "Cap", this, 0.5, 0, 1);
 
@@ -112,6 +112,7 @@ XSecCurve::XSecCurve()
     m_XSecImageH.Init( "XSecImageH", ( m_GroupName + "_Background" ), this, 1.0, -1.0e12, 1.0e12 );
     m_XSecImageXOffset.Init( "XSecImageXOffset", ( m_GroupName + "_Background" ), this, 0.0, -1.0e12, 1.0e12 );
     m_XSecImageYOffset.Init( "XSecImageYOffset", ( m_GroupName + "_Background" ), this, 0.0, -1.0e12, 1.0e12 );
+    m_XSecFlipImageFlag.Init( "XSecFlipImageFlag", ( m_GroupName + "_Background" ), this, false, false, true );
 
     m_FakeWidth = 1.0;
     m_UseFakeWidth = false;
@@ -270,6 +271,7 @@ void XSecCurve::CopyBackgroundSettings( XSecCurve* xsc )
     m_XSecImagePreserveAR.Set( xsc->m_XSecImagePreserveAR.Get() );
     m_XSecImageFlag.Set( xsc->m_XSecImageFlag.Get() );
     m_ImageFile = xsc->GetImageFile();
+    m_XSecFlipImageFlag = xsc->m_XSecFlipImageFlag();
 }
 
 //==== Parm Changed ====//
@@ -1751,17 +1753,47 @@ RoundedRectXSec::RoundedRectXSec( ) : XSecCurve( )
 
     m_Height.Init( "RoundedRect_Height", m_GroupName, this, 1.0, 0.0, 1.0e12 );
     m_Width.Init( "RoundedRect_Width", m_GroupName, this,  1.0, 0.0, 1.0e12 );
-    m_Radius.Init( "RoundRectXSec_Radius", m_GroupName,  this,  0.2, 0.0, 1.0e12 );
-    m_Skew.Init("RoundRect_Skew", m_GroupName, this, 0.0, -10, 10);
+    m_RadiusSymmetryType.Init( "RoundedRect_RadiusSymmetryType", m_GroupName, this, vsp::SYM_ALL, vsp::SYM_NONE, vsp::SYM_ALL );
+    m_RadiusBR.Init( "RoundRectXSec_RadiusBR", m_GroupName, this, 0.2, 0.0, 1.0e12 );
+    m_RadiusBL.Init( "RoundRectXSec_RadiusBL", m_GroupName, this, 0.2, 0.0, 1.0e12 );
+    m_RadiusTL.Init( "RoundRectXSec_RadiusTL", m_GroupName, this, 0.2, 0.0, 1.0e12 );
+    m_RadiusTR.Init( "RoundRectXSec_Radius", m_GroupName, this, 0.2, 0.0, 1.0e12 ); // Primary radius if SYM_ALL
+    m_Skew.Init("RoundRect_Skew", m_GroupName, this, 0.0, -1e6, 1e6 );
     m_Keystone.Init("RoundRect_Keystone", m_GroupName, this, 0.5, 0.0, 1.0 );
     m_KeyCornerParm.Init( "RoundRectXSec_KeyCorner", m_GroupName, this, true, 0, 1 );
+    m_VSkew.Init( "RoundRect_VSkew", m_GroupName, this, 0.0, -1e6, 1e6 );
 }
 
 //==== Update Geometry ====//
 void RoundedRectXSec::Update()
 {
-    double r = m_Curve.CreateRoundedRectangle( m_Width(), m_Height(), m_Keystone(), m_Skew(), m_Radius(), m_KeyCornerParm() );
-    m_Radius.Set( r );
+    double r1 = m_RadiusBR();
+    double r2 = m_RadiusBL();
+    double r3 = m_RadiusTL();
+    double r4 = m_RadiusTR();
+
+    if ( m_RadiusSymmetryType() == vsp::SYM_ALL )
+    {
+        r1 = r4;
+        r2 = r4;
+        r3 = r4;
+    }
+    else if ( m_RadiusSymmetryType() == vsp::SYM_TB )
+    {
+        r2 = r3;
+        r1 = r4;
+    }
+    else if ( m_RadiusSymmetryType() == vsp::SYM_RL )
+    {
+        r2 = r1;
+        r3 = r4;
+    }
+
+    m_Curve.CreateRoundedRectangle( m_Width(), m_Height(), m_Keystone(), m_Skew(), m_VSkew(), r1, r2, r3, r4, m_KeyCornerParm() );
+    m_RadiusBR.Set( r1 );
+    m_RadiusBL.Set( r2 );
+    m_RadiusTL.Set( r3 );
+    m_RadiusTR.Set( r4 );
 
     XSecCurve::Update();
     return;
@@ -1779,7 +1811,10 @@ void RoundedRectXSec::SetScale( double scale )
 {
     XSecCurve::SetScale( scale );
 
-    m_Radius.Set( m_Radius() * scale );
+    m_RadiusBR.Set( m_RadiusBR() * scale );
+    m_RadiusBL.Set( m_RadiusBL() * scale );
+    m_RadiusTL.Set( m_RadiusTL() * scale );
+    m_RadiusTR.Set( m_RadiusTR() * scale );
 }
 
 void RoundedRectXSec::ReadV2FileFuse2( xmlNodePtr &root )
@@ -1790,11 +1825,11 @@ void RoundedRectXSec::ReadV2FileFuse2( xmlNodePtr &root )
 
     if ( v2type == FuselageGeom::V2_FXS_RND_BOX )
     {
-        m_Radius = XmlUtil::FindDouble( root, "Corner_Radius", m_Radius() );
+        m_RadiusTR = XmlUtil::FindDouble( root, "Corner_Radius", m_RadiusTR() );
     }
     else
     {
-        m_Radius = 0.0;
+        m_RadiusTR = 0.0;
     }
 }
 
@@ -1806,8 +1841,12 @@ void RoundedRectXSec::Interp( XSecCurve *start, XSecCurve *end, double frac )
 
     if ( s && e )
     {
-        INTERP_PARM( s, e, frac, m_Radius );
+        INTERP_PARM( s, e, frac, m_RadiusBR );
+        INTERP_PARM( s, e, frac, m_RadiusBL );
+        INTERP_PARM( s, e, frac, m_RadiusTL );
+        INTERP_PARM( s, e, frac, m_RadiusTR );
         INTERP_PARM( s, e, frac, m_Skew );
+        INTERP_PARM( s, e, frac, m_VSkew );
         INTERP_PARM( s, e, frac, m_Keystone );
     }
     XSecCurve::Interp( start, end, frac );
@@ -2402,8 +2441,14 @@ EditCurveXSec::EditCurveXSec() : XSecCurve()
     m_PreserveARFlag.Init( "PreserveARFlag", m_GroupName, this, false, false, true );
     m_PreserveARFlag.SetDescript( "Flag to preserve width to height aspect ratio" );
 
-    m_XSecPointSize.Init( "XSecPointSize", ( m_GroupName + "_Background" ), NULL, 8.0, 1e-4, 1e4 );
-    m_XSecLineThickness.Init( "XSecLineThickness", ( m_GroupName + "_Background" ), NULL, 1.5, 1e-4, 1e4 );
+    m_XSecPointSize.Init( "XSecPointSize", ( m_GroupName + "_Background" ), this, 8.0, 1e-4, 1e4 );
+    m_XSecLineThickness.Init( "XSecLineThickness", ( m_GroupName + "_Background" ), this, 1.5, 1e-4, 1e4 );
+
+    m_XSecPointColorFlag.Init( "XSecPointColorFlag", ( m_GroupName + "_Background" ), this, false, false, true );
+    m_XSecPointColorFlag.SetDescript( "Flag to color XSec points" );
+
+    m_XSecPointColorWheel.Init( "XSecPointColorWheel", ( m_GroupName + "_Background" ), this, -1, -1, 359 );
+    m_XSecPointColorWheel.SetDescript( "Color wheel index for XS_EDIT_CURVE points" );
 
     m_SelectPntID = 0;
     m_EnforceG1Next = true;

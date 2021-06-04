@@ -82,17 +82,8 @@ FitModelScreen::FitModelScreen( ScreenMgr* mgr ) : TabScreen( mgr, 400, 469 + 10
     m_PickPtsLayout.AddDividerBox( "Target Points" );
 
     // Pointer for the widths of each column in the browser to support resizing
-    int *target_col_widths = new int[8]; // 8 columns
-
-    // Initial column widths & keep the memory address
-    target_col_widths[0] = 90;
-    target_col_widths[1] = 42;
-    target_col_widths[2] = 42;
-    target_col_widths[3] = 42;
-    target_col_widths[4] = 42;
-    target_col_widths[5] = 42;
-    target_col_widths[6] = 42;
-    target_col_widths[7] = 50;
+    // Last column width must be 0
+    static int target_col_widths[] = { 90, 42, 42, 42, 42, 42, 42, 50, 0 }; // widths for each column
 
     int browser_h = 150;
     m_TargetPtBrowser = m_PickPtsLayout.AddColResizeBrowser( target_col_widths, 8, browser_h );
@@ -180,12 +171,8 @@ FitModelScreen::FitModelScreen( ScreenMgr* mgr ) : TabScreen( mgr, 400, 469 + 10
     m_PickVarLayout.AddDividerBox( "Variable List" );
 
     // Pointer for the widths of each column in the browser to support resizing
-    int *var_col_widths = new int[3]; // 3 columns
-
-    // Initial column widths & keep the memory address
-    var_col_widths[0] = 120;
-    var_col_widths[1] = 160;
-    var_col_widths[2] = 120;
+    // Last column width must be 0
+    static int var_col_widths[] = { 120, 160, 120, 0 }; // widths for each column
 
     browser_h = 265;
     m_VarBrowser = m_PickVarLayout.AddColResizeBrowser( var_col_widths, 3, browser_h );
@@ -324,6 +311,7 @@ bool FitModelScreen::Update()
     m_SelBoxButton.Update( FitModelMgr.m_SelectBoxFlag.GetID() );
 
     // Update Fixed target point browser
+    int h_pos = m_TargetPtBrowser->hposition();
     m_TargetPtBrowser->clear();
 
     m_TargetPtBrowser->column_char( ':' );         // use : as the column character
@@ -373,6 +361,8 @@ bool FitModelScreen::Update()
         m_TargetPtBrowser->select( index + 2 );
     }
 
+    m_TargetPtBrowser->hposition( h_pos );
+
     sprintf( str, "%d", num_fix );
     m_NTgtOutput.Update( str );
 
@@ -393,6 +383,7 @@ bool FitModelScreen::Update()
     m_ParmTreePicker.Update( FitModelMgr.GetVarVec() );
 
     //==== Update Parm Browser ====//
+    h_pos = m_VarBrowser->hposition();
     m_VarBrowser->clear();
 
     m_VarBrowser->column_char( ':' );         // use : as the column character
@@ -415,6 +406,8 @@ bool FitModelScreen::Update()
     {
         m_VarBrowser->select( index + 2 );
     }
+
+    m_VarBrowser->hposition( h_pos );
 
     sprintf( str, "%d", num_vars );
     m_NVarOutput.Update( str );

@@ -20,7 +20,7 @@
 #include "Util.h"
 
 //==== Constructor ====//
-CurveEditScreen::CurveEditScreen( ScreenMgr* mgr ) : TabScreen( mgr, 750, 610, "Edit Curve", 180, 425 )
+CurveEditScreen::CurveEditScreen( ScreenMgr* mgr ) : TabScreen( mgr, 750, 615, "Edit Curve", 180, 425 )
 {
     m_FLTK_Window->callback( staticCloseCB, this );
     m_MainLayout.SetGroupAndScreen( m_FLTK_Window, this );
@@ -145,8 +145,21 @@ CurveEditScreen::CurveEditScreen( ScreenMgr* mgr ) : TabScreen( mgr, 750, 610, "
 
     m_DrawLayout.AddColorPicker( m_ColorPicker );
 
+    int button_w = m_DrawLayout.GetRemainX() / 4;
+
+    m_DrawLayout.SetSameLineFlag( true );
+    m_DrawLayout.SetFitWidthFlag( false );
+
+    m_DrawLayout.SetButtonWidth( 20 );
+    m_DrawLayout.AddButton( m_PointColorCheck, "" );
+    m_DrawLayout.SetButtonWidth( button_w + 5 );
+    m_DrawLayout.SetFitWidthFlag( true );
+    m_DrawLayout.AddSlider( m_PointColorWheelSlider, "Point Color", 100, "%5.0f" );
+
+    m_DrawLayout.ForceNewLine();
     m_DrawLayout.AddYGap();
-    m_DrawLayout.SetButtonWidth( m_DrawLayout.GetRemainX() / 4 );
+    m_DrawLayout.SetSameLineFlag( false );
+    m_DrawLayout.SetButtonWidth( button_w );
 
     m_DrawLayout.AddSlider( m_PointSizeSlider, "Point Size", 10, "%7.4f" );
     m_DrawLayout.AddSlider( m_LineThicknessSlider, "Line Thick", 10, "%7.4f" );
@@ -192,12 +205,12 @@ CurveEditScreen::CurveEditScreen( ScreenMgr* mgr ) : TabScreen( mgr, 750, 610, "
 
     m_BackgroundImageLayout.SetFitWidthFlag( false );
     m_BackgroundImageLayout.SetSameLineFlag( true );
-    m_BackgroundImageLayout.SetButtonWidth( m_BackgroundImageLayout.GetRemainX() / 2 );
+    m_BackgroundImageLayout.SetButtonWidth( ( m_BackgroundImageLayout.GetW() / 3 ) + 20 );
 
     m_BackgroundImageLayout.AddButton( m_PreserveImageAspect, "Preserve Aspect" );
-    m_PreserveImageAspect.GetFlButton()->value( 1 );
+    m_BackgroundImageLayout.SetButtonWidth( ( m_BackgroundImageLayout.GetW() / 3 ) - 10 );
     m_BackgroundImageLayout.AddButton( m_LockImageToggle, "Lock Image" );
-    m_LockImageToggle.GetFlButton()->value( 0 );
+    m_BackgroundImageLayout.AddButton( m_FlipImageToggle, "Flip Image" );
 
     m_BackgroundImageLayout.SetFitWidthFlag( true );
     m_BackgroundImageLayout.SetSameLineFlag( false );
@@ -329,6 +342,15 @@ void CurveEditScreen::Show()
 
         m_XSecGlWin->InitZoom();
     }
+
+    Geom* geom_ptr = m_ScreenMgr->GetCurrGeom();
+
+    if ( !geom_ptr )
+    {
+        return;
+    }
+
+    geom_ptr->m_SurfDirty = true; // Ensures width/height parms are deactivated
 }
 
 //==== Get the Active XSec Curve ====//
@@ -574,6 +596,18 @@ bool CurveEditScreen::Update()
         m_PointSizeSlider.Update( edit_curve_xs->m_XSecPointSize.GetID() );
         m_LineThicknessSlider.Update( edit_curve_xs->m_XSecLineThickness.GetID() );
 
+        m_PointColorCheck.Update( edit_curve_xs->m_XSecPointColorFlag.GetID() );
+        m_PointColorWheelSlider.Update( edit_curve_xs->m_XSecPointColorWheel.GetID() );
+
+        if ( !edit_curve_xs->m_XSecPointColorFlag() )
+        {
+            m_PointColorWheelSlider.Deactivate();
+        }
+        else
+        {
+            m_PointColorWheelSlider.Activate();
+        }
+
         m_ImageToggle.Update( edit_curve_xs->m_XSecImageFlag.GetID() );
         m_ImageFileOutput.Update( StringUtil::truncateFileName( edit_curve_xs->GetImageFile(), 40 ).c_str() );
 
@@ -603,6 +637,9 @@ bool CurveEditScreen::Update()
 
         m_PreserveImageAspect.Update( edit_curve_xs->m_XSecImagePreserveAR.GetID() );
         m_LockImageToggle.Update( edit_curve_xs->m_XSecLockImageFlag.GetID() );
+
+        m_FlipImageToggle.Update( edit_curve_xs->m_XSecFlipImageFlag.GetID() );
+        viewport->getBackground()->flipX( edit_curve_xs->m_XSecFlipImageFlag.Get() );
 
         if ( edit_curve_xs->m_XSecLockImageFlag() )
         {
@@ -710,13 +747,14 @@ void CurveEditScreen::UpdateDrawObj()
 
     int ndata = control_pts.size();
 
-    double point_size = edit_curve_xs->m_XSecPointSize.Get();
-    double line_thick = edit_curve_xs->m_XSecLineThickness.Get();
+    double point_size = m_XSecGlWin->pixels_per_unit() * edit_curve_xs->m_XSecPointSize.Get();
+    double line_thick = m_XSecGlWin->pixels_per_unit() *edit_curve_xs->m_XSecLineThickness.Get();
+    int point_color = 361; // DrawObj::ColorWheel( 361 ) will return black (0, 0, 0)
 
-#ifdef __APPLE__
-    point_size *= 2;
-    line_thick *= 2;
-#endif
+    if ( edit_curve_xs->m_XSecPointColorFlag.Get() )
+    {
+        point_color = edit_curve_xs->m_XSecPointColorWheel.Get();
+    }
 
     if ( w == 0 && h == 0 )
     {
@@ -793,7 +831,7 @@ void CurveEditScreen::UpdateDrawObj()
         m_XSecCtrlPntsDrawObj.m_PntVec = control_pts;
         m_XSecCtrlPntsDrawObj.m_Type = DrawObj::VSP_POINTS;
         m_XSecCtrlPntsDrawObj.m_PointSize = point_size;
-        m_XSecCtrlPntsDrawObj.m_PointColor = vec3d( 0, 0, 0 );
+        m_XSecCtrlPntsDrawObj.m_PointColor = DrawObj::ColorWheel( point_color );
 
         if( !m_FreezeAxis && m_XSecGlWin )
         {

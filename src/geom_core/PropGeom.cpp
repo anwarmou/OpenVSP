@@ -1608,10 +1608,12 @@ void PropGeom::EnforceOrder( PropXSec* xs, int indx )
     }
     else
     {
+        double tol = 1e-6;
         PropXSec* priorxs = ( PropXSec* ) m_XSecSurf.FindXSec( indx - 1 );
         PropXSec* nextxs = ( PropXSec* ) m_XSecSurf.FindXSec( indx + 1 );
-        double lower = priorxs->m_RadiusFrac();
-        double upper = nextxs->m_RadiusFrac();
+        // Apply tolerance to avoid degenerate surfaces
+        double lower = priorxs->m_RadiusFrac() + tol;
+        double upper = nextxs->m_RadiusFrac() - tol;
         xs->m_RadiusFrac.SetLowerUpperLimits( lower , upper );
     }
 }
@@ -1711,8 +1713,14 @@ void PropGeom::UpdateSplitTesselate( vector<VspSurf> &surf_vec, int indx, vector
 
 void PropGeom::UpdatePreTess()
 {
+    // Update clustering before symmetry is appied for m_SurfVec
     m_FoilSurf.SetClustering( m_LECluster(), m_TECluster() );
-    m_MainSurfVec[0].SetClustering( m_LECluster(), m_TECluster() );
+
+    int nsurf = GetNumMainSurfs();
+    for ( int i = 0; i < nsurf; i++ )
+    {
+        m_MainSurfVec[i].SetClustering( m_LECluster(), m_TECluster() );
+    }
 
     CalculateMeshMetrics();
 }

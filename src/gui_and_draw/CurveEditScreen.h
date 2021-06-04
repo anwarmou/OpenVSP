@@ -90,6 +90,8 @@ private:
     ColorPicker m_ColorPicker;
     SliderAdjRangeInput m_PointSizeSlider;
     SliderAdjRangeInput m_LineThicknessSlider;
+    CheckButton m_PointColorCheck;
+    SliderAdjRangeInput m_PointColorWheelSlider;
 
     ToggleButton m_BorderToggle;
     ToggleButton m_AxisToggle;
@@ -104,6 +106,7 @@ private:
     SliderAdjRangeInput m_ImageWScale;
     SliderAdjRangeInput m_ImageHScale;
     ToggleButton m_PreserveImageAspect;
+    ToggleButton m_FlipImageToggle;
 
     SliderAdjRangeInput m_ImageXOffset;
     SliderAdjRangeInput m_ImageYOffset;

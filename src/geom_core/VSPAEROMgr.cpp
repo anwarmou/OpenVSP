@@ -713,6 +713,17 @@ void VSPAEROMgrSingleton::UpdateRotorDisks()
 
         vector <string> currgeomvec = veh->GetGeomSet( m_GeomSet() );
 
+        // Ensure that a deleted component is still not in the DegenGeom vector
+        vector < Geom* > geom_ptr_vec = veh->FindGeomVec( currgeomvec );
+        vector < DegenGeom > degen_vec;
+        for ( size_t k = 0; k < m_DegenGeomVec.size(); ++k )
+        {
+            if ( std::find( geom_ptr_vec.begin(), geom_ptr_vec.end(), m_DegenGeomVec[k].getParentGeom() ) != geom_ptr_vec.end() )
+            {
+                degen_vec.push_back( m_DegenGeomVec[k] );
+            }
+        }
+
         for ( size_t i = 0; i < currgeomvec.size(); ++i )
         {
             Geom* geom = veh->FindGeom(currgeomvec[i]);
@@ -730,13 +741,13 @@ void VSPAEROMgrSingleton::UpdateRotorDisks()
                             {
                                 contained = true;
                                 temp.push_back(m_RotorDiskVec[j]);
-                                for (size_t k = 0; k < m_DegenGeomVec.size(); ++k)
+                                for (size_t k = 0; k < degen_vec.size(); ++k)
                                 {
-                                    if (m_DegenGeomVec[k].getParentGeom()->GetID().compare(m_RotorDiskVec[j]->m_ParentGeomId) == 0)
+                                    if ( degen_vec[k].getParentGeom()->GetID().compare(m_RotorDiskVec[j]->m_ParentGeomId) == 0)
                                     {
                                         int indxToSearch = k + temp.back()->m_ParentGeomSurfNdx;
-                                        temp.back()->m_XYZ = m_DegenGeomVec[indxToSearch].getDegenDisk().x;
-                                        temp.back()->m_Normal = m_DegenGeomVec[indxToSearch].getDegenDisk().nvec * -1.0;
+                                        temp.back()->m_XYZ = degen_vec[indxToSearch].getDegenDisk().x;
+                                        temp.back()->m_Normal = degen_vec[indxToSearch].getDegenDisk().nvec * -1.0;
                                         if ( geom->GetFlipNormal( iSubsurf ) ) temp.back()->m_FlipNormalFlag = true;
                                         break;
                                     }
@@ -842,7 +853,8 @@ void VSPAEROMgrSingleton::UpdateControlSurfaceGroups()
             }
             // Remove Deleted Sub Surfaces and Sub Surfaces with Parent Geoms That No Longer Exist
             Geom* parent = VehicleMgr.GetVehicle()->FindGeom( m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].parentGeomId );
-            if ( !parent || !parent->GetSubSurf( m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].SSID ) )
+            SubSurface* ss = parent->GetSubSurf( m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].SSID );
+            if ( !parent || !ss || ( ss && parent->GetNumSymmCopies() <= m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].iReflect ) )
             {
                 m_ControlSurfaceGroupVec[i]->RemoveSubSurface( m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].SSID,
                         m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].iReflect );
@@ -1645,7 +1657,7 @@ void VSPAEROMgrSingleton::GetSweepVectors( vector<double> &alphaVec, vector<doub
     }
     for ( int iBeta = 0; iBeta < betaNpts; iBeta++ )
     {
-        //Set current alpha value
+        //Set current beta value
         betaVec.push_back( betaStart + double( iBeta ) * betaDelta );
     }
 
@@ -1656,7 +1668,7 @@ void VSPAEROMgrSingleton::GetSweepVectors( vector<double> &alphaVec, vector<doub
     }
     for ( int iMach = 0; iMach < machNpts; iMach++ )
     {
-        //Set current alpha value
+        //Set current Mach value
         machVec.push_back( machStart + double( iMach ) * machDelta );
     }
 }
@@ -1676,10 +1688,8 @@ string VSPAEROMgrSingleton::ComputeSolver( FILE * logFile )
         // is not called from the main VSP thread
         MessageData errMsgData;
         errMsgData.m_String = "VSPAEROSolverMessage";
-        errMsgData.m_StringVec.emplace_back( string( "Error: No Geometry in VSPAERO Set\n" ) );
+        errMsgData.m_StringVec.emplace_back( string( "Error: No Geometry in DegenGeom Vector\n" ) );
         MessageMgr::getInstance().SendAll( errMsgData );
-
-        return string();
     }
 
     if ( m_CpSliceFlag() )
@@ -1890,10 +1900,6 @@ string VSPAEROMgrSingleton::ComputeSolverSingle( FILE * logFile )
 
                     // ==== MonitorSolverProcess ==== //
                     MonitorSolver( logFile );
-
-                    // Clear DegenGeom vec to prevent UpdateRotorDisks finding a 
-                    // disk that has been deleted from the Geom browser
-                    m_DegenGeomVec.clear();
 
                     // Check if the kill solver flag has been raised, if so clean up and return
                     //  note: we could have exited the IsRunning loop if the process was killed
@@ -2156,10 +2162,6 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
 
         // ==== MonitorSolverProcess ==== //
         MonitorSolver( logFile );
-
-        // Clear DegenGeom vec to prevent UpdateRotorDisks finding a 
-        // disk that has been deleted from the Geom browser
-        m_DegenGeomVec.clear();
 
         // Check if the kill solver flag has been raised, if so clean up and return
         //  note: we could have exited the IsRunning loop if the process was killed
@@ -3511,6 +3513,15 @@ string VSPAEROMgrSingleton::ComputeCpSlices( FILE * logFile )
 {
     string resID = string();
 
+    UpdateFilenames();
+
+    if ( !FileExist( m_AdbFile ) )
+    {
+        fprintf( stderr, "\nError: Aerothermal database (*.adb) file not found. "
+            "Execute VSPAERO before running the CpSlicer\n" );
+        return resID;
+    }
+
     CreateCutsFile();
 
     resID = ExecuteCpSlicer( logFile );
@@ -4312,16 +4323,22 @@ void VSPAEROMgrSingleton::UpdateUnsteadyGroups()
     // Make sure the fixed compomnet group is always first
     if ( m_UnsteadyGroupVec.size() > NumUnsteadyRotorGroups() && m_UnsteadyGroupVec[0]->m_GeomPropertyType() != UnsteadyGroup::GEOM_FIXED )
     {
-        vector < UnsteadyGroup* >::const_iterator iter;
-        for ( iter = m_UnsteadyGroupVec.begin(); iter != m_UnsteadyGroupVec.end(); ++iter )
+        UnsteadyGroup* fixed_group = NULL;
+        size_t fixed_group_index = -1;
+        for ( size_t i = 0; i < m_UnsteadyGroupVec.size(); ++i )
         {
-            if ( ( *iter )->m_GeomPropertyType() == UnsteadyGroup::GEOM_FIXED )
+            if ( m_UnsteadyGroupVec[i]->m_GeomPropertyType() == UnsteadyGroup::GEOM_FIXED )
             {
-                UnsteadyGroup* group = ( *iter );
-                m_UnsteadyGroupVec.erase( iter );
-                m_UnsteadyGroupVec.insert( m_UnsteadyGroupVec.begin(), group );
+                fixed_group = m_UnsteadyGroupVec[i];
+                fixed_group_index = i;
                 break;
             }
+        }
+
+        if ( fixed_group && fixed_group_index >= 0 )
+        {
+            m_UnsteadyGroupVec.erase( m_UnsteadyGroupVec.begin() + fixed_group_index );
+            m_UnsteadyGroupVec.insert( m_UnsteadyGroupVec.begin(), fixed_group );
         }
     }
 
@@ -5537,18 +5554,18 @@ xmlNodePtr UnsteadyGroup::DecodeXml( xmlNodePtr& node )
 
 void UnsteadyGroup::ParmChanged( Parm* parm_ptr, int type )
 {
+    if ( type == Parm::SET )
+    {
+        m_LateUpdateFlag = true;
+        return;
+    }
+
     // Identify if unsteady prop RPM is changed. If so, update it to be the "master" that 
     // all other unsteady prop RPM will be set to
     if ( VSPAEROMgr.m_RotateBladesFlag() && VSPAEROMgr.m_UniformPropRPMFlag() &&
          &m_RPM == parm_ptr && m_GeomPropertyType() == UnsteadyGroup::GEOM_ROTOR )
     {
         VSPAEROMgr.SetCurrentUnsteadyGroupIndex( m_ID );
-    }
-
-    if ( type == Parm::SET )
-    {
-        m_LateUpdateFlag = true;
-        return;
     }
 
     Update();

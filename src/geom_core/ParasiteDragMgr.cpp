@@ -980,7 +980,6 @@ double ParasiteDragMgrSingleton::CalculateFormFactor( int isurf, int irow )
     // Initialize Variables
     vector<double>::const_iterator it;
     double toc;
-    double longF, FR, Area;
     vector <double> hVec, wVec;
     double formfactor = 1.0;
 
@@ -2114,7 +2113,7 @@ double ParasiteDragMgrSingleton::GetGeometryCD()
     double sum = 0;
     for ( int i = 0; i < m_geo_CD.size(); i++ )
     {
-        if ( !m_geo_masterRow[i] )
+        if ( m_geo_masterRow[i] )
         {
             if ( m_geo_CD[i] > 0.0 )
             {

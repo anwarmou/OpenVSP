@@ -101,12 +101,8 @@ VarPresetScreen::VarPresetScreen( ScreenMgr* mgr ) : TabScreen( mgr, 300, 600, "
     m_PickLayout.AddDividerBox( "Variable List" );
 
     // Pointer for the widths of each column in the browser to support resizing
-    int *col_widths = new int[3]; // 73 columns
-
-    // Initial column widths & keep the memory address
-    col_widths[0] = 100;
-    col_widths[1] = 100;
-    col_widths[2] = 90;
+    // Last column width must be 0
+    static int col_widths[] = { 100, 100, 90, 0 }; // widths for each column
 
     int browser_h = 210;
     m_VarBrowser = m_PickLayout.AddColResizeBrowser( col_widths, 3, browser_h );
@@ -216,6 +212,7 @@ bool VarPresetScreen::Update()
     m_ParmPicker.Update();
 
     //==== Update Parm Browser ====//
+    int h_pos = m_VarBrowser->hposition();
     m_VarBrowser->clear();
 
     m_VarBrowser->column_char( ':' );         // use : as the column character
@@ -240,6 +237,8 @@ bool VarPresetScreen::Update()
     {
         m_VarBrowser->select( index + 2 );
     }
+
+    m_VarBrowser->hposition( h_pos );
 
     // Parameter GUI got out of sync.  Probably from File->New or similar.
     if ( m_NVarLast != num_vars )

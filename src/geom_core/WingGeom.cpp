@@ -1787,12 +1787,12 @@ void WingGeom::UpdateSurf()
                     else if ( rect )
                     {
                         double h = xsc->GetHeight();
-                        double r = rect->m_Radius();
+                        double r = rect->m_RadiusTR();
                         xsc->SetWidthHeight( 1.0, h/w );
-                        rect->m_Radius = r / w;
+                        rect->m_RadiusTR = r / w;
                         utc = ws->GetUntransformedCurve();
                         xsc->SetWidthHeight( w, h );
-                        rect->m_Radius = r;
+                        rect->m_RadiusTR = r;
                     }
                     else
                     {
@@ -2252,6 +2252,10 @@ void WingGeom::UpdateSplitTesselate( vector<VspSurf> &surf_vec, int indx, vector
 
 void WingGeom::UpdatePreTess()
 {
+    // Update clustering before symmetry is appied for m_SurfVec
+    m_FoilSurf.SetClustering( m_LECluster(), m_TECluster() );
+    m_MainSurfVec[0].SetClustering( m_LECluster(), m_TECluster() );
+
     m_TessUVec.clear();
     m_RootClusterVec.clear();
     m_TipClusterVec.clear();
@@ -2272,9 +2276,6 @@ void WingGeom::UpdatePreTess()
             }
         }
     }
-
-    m_FoilSurf.SetClustering( m_LECluster(), m_TECluster() );
-    m_MainSurfVec[0].SetClustering( m_LECluster(), m_TECluster() );
 
     CalculateMeshMetrics();
 }

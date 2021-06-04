@@ -1639,7 +1639,7 @@ vector < BezierSegment > VspCurve::GetBezierSegments()
     return seg_vec;
 }
 
-double VspCurve::CreateRoundedRectangle( double w, double h, double k, double sk, double r, bool keycorner )
+void VspCurve::CreateRoundedRectangle( double w, double h, double k, double sk, double vsk, double & r1, double & r2, double & r3, double & r4, bool keycorner )
 {
     VspCurve edge;
     vector<vec3d> pt;
@@ -1652,20 +1652,60 @@ double VspCurve::CreateRoundedRectangle( double w, double h, double k, double sk
     double wt2 = 0.5 * wt;
     double wb2 = 0.5 * wb;
     double w2 = 0.5 * w;
-    double off = sk * w2;
+    double w_off = sk * w2;
     double h2 = 0.5 * h;
+    double h_off = vsk * h2;
 
-    if ( r > wt2 )
+    if ( r1 > wt2 )
     {
-        r = wt2;
+        r1 = wt2;
     }
-    if ( r > wb2 )
+    if ( r1 > wb2 )
     {
-        r = wb2;
+        r1 = wb2;
     }
-    if ( r > h2 )
+    if ( r1 > h2 )
     {
-        r = h2;
+        r1 = h2;
+    }
+
+    if ( r2 > wt2 )
+    {
+        r2 = wt2;
+    }
+    if ( r2 > wb2 )
+    {
+        r2 = wb2;
+    }
+    if ( r2 > h2 )
+    {
+        r2 = h2;
+    }
+
+    if ( r3 > wt2 )
+    {
+        r3 = wt2;
+    }
+    if ( r3 > wb2 )
+    {
+        r3 = wb2;
+    }
+    if ( r3 > h2 )
+    {
+        r3 = h2;
+    }
+
+    if ( r4 > wt2 )
+    {
+        r4 = wt2;
+    }
+    if ( r4 > wb2 )
+    {
+        r4 = wb2;
+    }
+    if ( r4 > h2 )
+    {
+        r4 = h2;
     }
 
     // catch special cases of degenerate cases
@@ -1696,14 +1736,14 @@ double VspCurve::CreateRoundedRectangle( double w, double h, double k, double sk
         u.resize( 9 );
 
         // set the segment points
-        pt[0].set_xyz( w,                0, 0 );
-        pt[1].set_xyz( w2 + wb2 - off, -h2, 0 );
-        pt[2].set_xyz( w2 - off,       -h2, 0 );
-        pt[3].set_xyz( w2 - wb2 - off, -h2, 0 );
-        pt[4].set_xyz( 0,                0, 0 );
-        pt[5].set_xyz( w2 - wt2 + off,  h2, 0 );
-        pt[6].set_xyz( w2 + off,        h2, 0 );
-        pt[7].set_xyz( w2 + wt2 + off,  h2, 0 );
+        pt[0].set_xyz( w,                 h_off,        0 );
+        pt[1].set_xyz( w2 + wb2 - w_off, -h2 + h_off,   0 );
+        pt[2].set_xyz( w2 - w_off,       -h2,           0 );
+        pt[3].set_xyz( w2 - wb2 - w_off, -h2 - h_off,   0 );
+        pt[4].set_xyz( 0,                -h_off,        0 );
+        pt[5].set_xyz( w2 - wt2 + w_off,  h2 - h_off,   0 );
+        pt[6].set_xyz( w2 + w_off,        h2,           0 );
+        pt[7].set_xyz( w2 + wt2 + w_off,  h2 + h_off,   0 );
 
         // set the corresponding parameters
         u[0] = 0;
@@ -1757,10 +1797,29 @@ double VspCurve::CreateRoundedRectangle( double w, double h, double k, double sk
     // round all joints if needed
     if ( round_curve )
     {
-        RoundAllJoints( r );
-    }
+        vector < double > r_vec{ r1, r2, r3, r4 };
+        int i = 1;
 
-    return r;
+        for ( size_t r = 0; r < r_vec.size(); r++ )
+        {
+            if ( r_vec[r] > 1e-12 )
+            {
+                RoundJoint( r_vec[r], i );
+
+                // Indexing adjustments when rounding with max values
+                if ( r_vec[r] != wt2 && r_vec[r] != wb2 && r_vec[r] != h2 )
+                {
+                    i += 1;
+                }
+                else if ( r_vec[r] == wt2 && r_vec[r] == wb2 && r_vec[r] == h2 )
+                {
+                    i -= 1;
+                }
+            }
+
+            i += 2;
+        }
+    }
 }
 
 void VspCurve::ToCubic( double tol )

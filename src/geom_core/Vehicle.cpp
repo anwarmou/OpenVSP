@@ -817,6 +817,9 @@ string Vehicle::AddGeom( const GeomType & type )
                     errMsgData.m_StringVec.push_back( string( "Error:  Conformal component not supported for this parent type." ) );
 
                     MessageMgr::getInstance().SendAll( errMsgData );
+
+                    DeleteGeom( geom_id );
+                    return "NONE";
                 }
             }
             else
@@ -827,6 +830,9 @@ string Vehicle::AddGeom( const GeomType & type )
                 errMsgData.m_StringVec.push_back( string( "Error:  Conformal component not supported for this parent type." ) );
 
                 MessageMgr::getInstance().SendAll( errMsgData );
+
+                DeleteGeom( geom_id );
+                return "NONE";
             }
 
         }
@@ -2105,17 +2111,19 @@ vector < string > Vehicle::GetPtCloudGeoms()
 }
 
 //==== Write STL File ====//
-void Vehicle::WriteSTLFile( const string & file_name, int write_set )
+string Vehicle::WriteSTLFile( const string & file_name, int write_set )
 {
+    string mesh_id = string();
+
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
     if ( !geom_vec[0] )
     {
-        return;
+        return mesh_id;
     }
 
     if ( !ExistMesh( write_set ) )
     {
-        string mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom* gPtr = FindGeom( mesh_id );
@@ -2135,26 +2143,32 @@ void Vehicle::WriteSTLFile( const string & file_name, int write_set )
     {
         if ( geom_vec[i]->GetSetFlag( write_set ) && geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
+            mesh_id = geom_vec[i]->GetID(); // Set ID in case mesh already existed
+
             geom_vec[i]->WriteStl( fid );
         }
     }
 
     fprintf( fid, "endsolid\n" );
     fclose( fid );
+
+    return mesh_id;
 }
 
 //==== Write STL File ====//
-void Vehicle::WriteTaggedMSSTLFile( const string & file_name, int write_set )
+string Vehicle::WriteTaggedMSSTLFile( const string & file_name, int write_set )
 {
+    string mesh_id = string();
+
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
     if ( !geom_vec[0] )
     {
-        return;
+        return mesh_id;
     }
 
     if ( !ExistMesh( write_set ) )
     {
-        string mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom* gPtr = FindGeom( mesh_id );
@@ -2199,6 +2213,7 @@ void Vehicle::WriteTaggedMSSTLFile( const string & file_name, int write_set )
                 if ( geom_vec[j]->GetSetFlag( write_set ) && geom_vec[j]->GetType().m_Type == MESH_GEOM_TYPE )
                 {
                     MeshGeom* mg = ( MeshGeom* )geom_vec[j];            // Cast
+                    mesh_id = geom_vec[j]->GetID(); // Set ID in case mesh already existed
 
                     mg->WriteStl( file_id, tags[i] );
                 }
@@ -2208,21 +2223,25 @@ void Vehicle::WriteTaggedMSSTLFile( const string & file_name, int write_set )
 
         fclose( file_id );
     }
+
+    return mesh_id;
 }
 
 //==== Write Facet File ====//
-void Vehicle::WriteFacetFile( const string & file_name, int write_set )
+string Vehicle::WriteFacetFile( const string & file_name, int write_set )
 {
+    string mesh_id = string();
+
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
     if ( !geom_vec[0] )
     {
-        return;
+        return mesh_id;
     }
 
     // Note: If there is already a mesh geometry for the write_set, a new one is not created.
     if ( !ExistMesh( write_set ) )
     {
-        string mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom* gPtr = FindGeom( mesh_id );
@@ -2275,6 +2294,8 @@ void Vehicle::WriteFacetFile( const string & file_name, int write_set )
             if ( geom_vec[i]->GetSetFlag( write_set ) && geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
             {
                 MeshGeom* mg = (MeshGeom*)geom_vec[i];
+                mesh_id = geom_vec[i]->GetID(); // Set ID in case mesh already existed
+
                 mg->WriteFacetNodes( fid );
             }
         }
@@ -2305,22 +2326,26 @@ void Vehicle::WriteFacetFile( const string & file_name, int write_set )
 
         fclose( fid );
     }
+
+    return mesh_id;
 }
 
 //==== Write Tri File ====//
-void Vehicle::WriteTRIFile( const string & file_name, int write_set )
+string Vehicle::WriteTRIFile( const string & file_name, int write_set )
 {
+    string mesh_id = string();
+
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
     if ( geom_vec.size()==0 )
     {
         printf("WARNING: No geometry to write \n\tFile: %s \tLine:%d\n",__FILE__,__LINE__);
-        return;
+        return mesh_id;
     }
 
     // Add a new mesh if one does not exist
     if ( !ExistMesh( write_set ) )
     {
-        string mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom* geom_ptr = FindGeom( mesh_id );
@@ -2340,7 +2365,7 @@ void Vehicle::WriteTRIFile( const string & file_name, int write_set )
 
     if ( !file_id )
     {
-        return;
+        return mesh_id;
     }
 
     //==== Count Number of Points & Tris ====//
@@ -2370,6 +2395,8 @@ void Vehicle::WriteTRIFile( const string & file_name, int write_set )
                 geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE  )
         {
             MeshGeom* mg = ( MeshGeom* )geom_vec[i];            // Cast
+            mesh_id = geom_vec[i]->GetID(); // Set ID in case mesh already existed
+
             mg->WriteCart3DPnts( file_id );
         }
     }
@@ -2402,22 +2429,25 @@ void Vehicle::WriteTRIFile( const string & file_name, int write_set )
 
     SubSurfaceMgr.WriteKeyFile( file_name );
 
+    return mesh_id;
 }
 
 //==== Write OBJ File ====//
-void Vehicle::WriteOBJFile( const string & file_name, int write_set )
+string Vehicle::WriteOBJFile( const string & file_name, int write_set )
 {
+    string mesh_id = string();
+
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
     if ( geom_vec.size()==0 )
     {
         printf("WARNING: No geometry to write \n\tFile: %s \tLine:%d\n",__FILE__,__LINE__);
-        return;
+        return mesh_id;
     }
 
     // Add a new mesh if one does not exist
     if ( !ExistMesh( write_set ) )
     {
-        string mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom* geom_ptr = FindGeom( mesh_id );
@@ -2437,7 +2467,7 @@ void Vehicle::WriteOBJFile( const string & file_name, int write_set )
 
     if ( !file_id )
     {
-        return;
+        return mesh_id;
     }
 
     //==== Count Number of Points & Tris ====//
@@ -2465,6 +2495,8 @@ void Vehicle::WriteOBJFile( const string & file_name, int write_set )
              geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE  )
         {
             MeshGeom* mg = ( MeshGeom* )geom_vec[i];            // Cast
+            mesh_id = geom_vec[i]->GetID(); // Set ID in case mesh already existed
+
             mg->WriteOBJPnts( file_id );
         }
     }
@@ -2485,6 +2517,8 @@ void Vehicle::WriteOBJFile( const string & file_name, int write_set )
     }
 
     fclose( file_id );
+
+    return mesh_id;
 }
 
 /*
@@ -2510,18 +2544,20 @@ nnwake in1 in2 in3 in4...inn // Last wake line
 */
 
 //==== Write VSPGeom File ====//
-void Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
+string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
 {
+    string mesh_id = string();
+
     vector< Geom * > geom_vec = FindGeomVec( GetGeomVec( false ) );
     if ( !geom_vec[0] )
     {
-        return;
+        return mesh_id;
     }
 
     // Add a new mesh if one does not exist
     if ( !ExistMesh( write_set ) )
     {
-        string mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom *geom_ptr = FindGeom( mesh_id );
@@ -2541,7 +2577,7 @@ void Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
 
     if ( !file_id )
     {
-        return;
+        return mesh_id;
     }
 
     //==== Count Number of Points & Tris ====//
@@ -2571,6 +2607,8 @@ void Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
              geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom *mg = ( MeshGeom * ) geom_vec[i];            // Cast
+            mesh_id = geom_vec[i]->GetID(); // Set ID in case mesh already existed
+
             mg->WriteVSPGeomPnts( file_id );
         }
     }
@@ -2617,22 +2655,26 @@ void Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
 
     SubSurfaceMgr.WriteKeyFile( file_name );
 
+    return mesh_id;
+
 }
 
 
 //==== Write Nascart Files ====//
-void Vehicle::WriteNascartFiles( const string & file_name, int write_set )
+string Vehicle::WriteNascartFiles( const string & file_name, int write_set )
 {
+    string mesh_id = string();
+
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
     if ( !geom_vec[0] )
     {
-        return;
+        return mesh_id;
     }
 
     // Add a new mesh if one does not exist
     if ( !ExistMesh( write_set ) )
     {
-        string mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom* geom_ptr = FindGeom( mesh_id );
@@ -2651,7 +2693,7 @@ void Vehicle::WriteNascartFiles( const string & file_name, int write_set )
 
     if ( !file_id )
     {
-        return;
+        return mesh_id;
     }
 
     //==== Count Number of Points & Tris ====//
@@ -2678,6 +2720,8 @@ void Vehicle::WriteNascartFiles( const string & file_name, int write_set )
         if ( geom_vec[i]->GetSetFlag( write_set ) && geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom* mg = ( MeshGeom* )geom_vec[i];            // Cast
+            mesh_id = geom_vec[i]->GetID(); // Set ID in case mesh already existed
+
             mg->WriteNascartPnts( file_id );
         }
     }
@@ -2710,20 +2754,24 @@ void Vehicle::WriteNascartFiles( const string & file_name, int write_set )
 
     SubSurfaceMgr.WriteKeyFile( file_name );
 
+    return mesh_id;
+
 }
 
-void Vehicle::WriteGmshFile( const string & file_name, int write_set )
+string Vehicle::WriteGmshFile( const string & file_name, int write_set )
 {
+    string mesh_id = string();
+
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
     if ( !geom_vec[0] )
     {
-        return;
+        return mesh_id;
     }
 
     // Add a new mesh if one does not exist
     if ( !ExistMesh( write_set ) )
     {
-        string mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom* geom_ptr = FindGeom( mesh_id );
@@ -2742,7 +2790,7 @@ void Vehicle::WriteGmshFile( const string & file_name, int write_set )
 
     if( !file_id )
     {
-        return;
+        return mesh_id;
     }
 
     //==== Count Number of Points & Tris ====//
@@ -2777,6 +2825,8 @@ void Vehicle::WriteGmshFile( const string & file_name, int write_set )
         if ( geom_vec[i]->GetSetFlag( write_set ) && geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom* mg = ( MeshGeom* )geom_vec[i];            // Cast
+            mesh_id = geom_vec[i]->GetID(); // Set ID in case mesh already existed
+
             node_offset = mg->WriteGMshNodes( file_id, node_offset );
         }
     }
@@ -2798,6 +2848,7 @@ void Vehicle::WriteGmshFile( const string & file_name, int write_set )
 
     fclose( file_id );
 
+    return mesh_id;
 }
 
 void Vehicle::WriteX3DFile( const string & file_name, int write_set )
@@ -4647,6 +4698,7 @@ string Vehicle::ImportFile( const string & file_name, int file_type )
             else
             {
                 SetActiveGeom( id );
+                new_geom->SetDirtyFlag( GeomBase::SURF );
                 new_geom->Update();
             }
         }
@@ -4680,6 +4732,7 @@ string Vehicle::ImportFile( const string & file_name, int file_type )
                 else
                 {
                     SetActiveGeom( id );
+                    prop->SetDirtyFlag( GeomBase::SURF );
                     prop->Update();
                 }
             }
@@ -4741,6 +4794,7 @@ string Vehicle::ImportFile( const string & file_name, int file_type )
             if ( new_geom )
             {
                 new_geom->ReadXSec( fp );
+                new_geom->SetDirtyFlag( GeomBase::SURF );
             }
         }
         fclose( fp );
@@ -4750,7 +4804,6 @@ string Vehicle::ImportFile( const string & file_name, int file_type )
     else if ( file_type == IMPORT_P3D_WIRE )
     {
         FILE *fp;
-        char str[256];
 
         //==== Make Sure File Exists ====//
         if ( ( fp = fopen( file_name.c_str(), "r" ) ) == ( FILE * )NULL )
@@ -4805,6 +4858,7 @@ string Vehicle::ImportFile( const string & file_name, int file_type )
             if ( new_geom )
             {
                 new_geom->ReadP3D( fp, ni[c], nj[c], nk[c] );
+                new_geom->SetDirtyFlag( GeomBase::SURF );
             }
         }
         fclose( fp );
@@ -4853,6 +4907,7 @@ string Vehicle::ImportFile( const string & file_name, int file_type )
             else
             {
                 SetActiveGeom( id );
+                new_geom->SetDirtyFlag( GeomBase::SURF ); // m_TMeshVec has been updated
                 new_geom->Update();
             }
         }
@@ -4994,6 +5049,7 @@ string Vehicle::ImportV2File( const string & file_name )
                 {
                     add_geoms.push_back( id );
                     geom->ReadV2File( comp_node );
+                    geom->SetDirtyFlag( GeomBase::SURF );
 
                     if ( geom->GetParentID().compare( "NONE" ) == 0 )
                     {
@@ -5041,8 +5097,10 @@ void Vehicle::SetApplyAbsIgnoreFlag( const vector< string > &g_vec, bool val )
 }
 
 //==== Import File Methods ====//
-void Vehicle::ExportFile( const string & file_name, int write_set, int file_type )
+string Vehicle::ExportFile( const string & file_name, int write_set, int file_type )
 {
+    string mesh_id = string();
+
     if ( file_type == EXPORT_XSEC )
     {
         WriteXSecFile( file_name, write_set );
@@ -5060,11 +5118,11 @@ void Vehicle::ExportFile( const string & file_name, int write_set, int file_type
 
         if ( !m_STLMultiSolid() )
         {
-            WriteSTLFile( file_name, write_set );
+            mesh_id = WriteSTLFile( file_name, write_set );
         }
         else
         {
-            WriteTaggedMSSTLFile( file_name, write_set );
+            mesh_id = WriteTaggedMSSTLFile( file_name, write_set );
         }
 
         if ( m_STLExportPropMainSurf() )
@@ -5074,23 +5132,23 @@ void Vehicle::ExportFile( const string & file_name, int write_set, int file_type
     }
     else if ( file_type == EXPORT_CART3D )
     {
-        WriteTRIFile( file_name, write_set );
+        mesh_id = WriteTRIFile( file_name, write_set );
     }
     else if ( file_type == EXPORT_OBJ )
     {
-        WriteOBJFile( file_name, write_set );
+        mesh_id = WriteOBJFile( file_name, write_set );
     }
     else if ( file_type == EXPORT_VSPGEOM )
     {
-        WriteVSPGeomFile( file_name, write_set );
+        mesh_id = WriteVSPGeomFile( file_name, write_set );
     }
     else if ( file_type == EXPORT_NASCART )
     {
-        WriteNascartFiles( file_name, write_set );
+        mesh_id = WriteNascartFiles( file_name, write_set );
     }
     else if ( file_type == EXPORT_GMSH )
     {
-        WriteGmshFile( file_name, write_set );
+        mesh_id = WriteGmshFile( file_name, write_set );
     }
     else if ( file_type == EXPORT_POVRAY )
     {
@@ -5150,7 +5208,7 @@ void Vehicle::ExportFile( const string & file_name, int write_set, int file_type
     }
     else if ( file_type == EXPORT_FACET )
     {
-        WriteFacetFile(file_name, write_set);
+        mesh_id = WriteFacetFile(file_name, write_set);
     }
     else if ( file_type == EXPORT_PMARC )
     {
@@ -5166,6 +5224,8 @@ void Vehicle::ExportFile( const string & file_name, int write_set, int file_type
         m_AFExportType.Set( vsp::BEZIER_AF_EXPORT );
         WriteAirfoilFile( file_name, write_set );
     }
+
+    return mesh_id;
 }
 
 void Vehicle::CreateDegenGeom( int set )

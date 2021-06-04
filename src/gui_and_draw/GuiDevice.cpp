@@ -17,6 +17,7 @@
 #include "AdvLinkMgr.h"
 #include "StlHelper.h"
 #include "Util.h"
+#include <cfloat>  //For DBL_EPSILON
 
 // Xlib.h does a horrible '#define Status int' which causes problems for exprparse.
 // This should clean it up locally.
@@ -2344,7 +2345,10 @@ void ParmPicker::Update( )
     int i;
     char str[256];
 
-    LinkMgr.BuildLinkableParmData();
+    if ( ParmMgr.GetDirtyFlag() )
+    {
+        LinkMgr.BuildLinkableParmData();
+    }
 
     if( m_ParmIDChoice.size() == 0 )
     {
@@ -2753,7 +2757,10 @@ void ParmTreePicker::UpdateParmTree()
 
     ResetFlag( true );
 
-    LinkMgr.BuildLinkableParmData();
+    if ( ParmMgr.GetDirtyFlag() )
+    {
+        LinkMgr.BuildLinkableParmData();
+    }
 
     vector< string > containerVec;
     LinkMgr.GetAllContainerVec( containerVec );
@@ -4026,6 +4033,7 @@ ColResizeBrowser::ColResizeBrowser( int X, int Y, int W, int H, const char* L ) 
     m_DragCol = -1;
     m_Widths = NULL;
     m_NumCol = 0;
+    m_HPos = 0;
 }
 
 int ColResizeBrowser::handle( int e )
@@ -4054,6 +4062,7 @@ int ColResizeBrowser::handle( int e )
                 // CLICKED ON RESIZER? START DRAGGING
                 m_DragCol = whichcol;
                 change_cursor( FL_CURSOR_DEFAULT );
+                m_HPos = hposition(); // Save  horizontal scroll position
                 return 1;   // eclipse event from Fl_Browser's handle()
             }               // (prevents FL_PUSH from selecting item)
             break;
@@ -4076,7 +4085,6 @@ int ColResizeBrowser::handle( int e )
                     {
                         m_Widths[m_DragCol] = 2;
                     }
-                    recalc_hscroll();
                     redraw();
                 }
                 return 1;   // eclipse event from Fl_Browser's handle()
@@ -4089,6 +4097,7 @@ int ColResizeBrowser::handle( int e )
             {
                 m_DragCol = -1;                         // disable drag mode
                 change_cursor( FL_CURSOR_DEFAULT );     // ensure normal cursor
+                recalc_hscroll();
                 return 1;        // eclipse event
             }
             ret = 1;
@@ -4120,6 +4129,13 @@ void ColResizeBrowser::draw()
             }
         }
     }
+}
+
+void ColResizeBrowser::change_cursor( Fl_Cursor newcursor )
+{
+    if ( newcursor == m_LastCursor ) return;
+    window()->cursor( newcursor );
+    m_LastCursor = newcursor;
 }
 
 int ColResizeBrowser::which_col_near_mouse() 
@@ -4155,5 +4171,6 @@ void ColResizeBrowser::recalc_hscroll()
     int size = textsize();
     textsize( size + 1 );   // XXX: changing textsize() briefly triggers
     textsize( size );       // XXX: recalc Fl_Browser's scrollbars
+    hposition( m_HPos );    // Set  horizontal scroll position
     redraw();
 }
