@@ -1309,7 +1309,7 @@ void GroupLayout::AddSkinControl( SkinControl & skin_control, const char* label,
 {
     assert( m_Group && m_Screen );
 
-    int sw = FitWidth( 3 * m_StdHeight + m_ButtonWidth + 2 * m_InputWidth + 4 * m_RangeButtonWidth, 2 * m_SliderWidth )/2;
+    int sw = FitWidth( 3 * m_StdHeight + 2 * m_ButtonWidth + 2 * m_InputWidth + 4 * m_RangeButtonWidth, 2 * m_SliderWidth )/2;
 
     //==== Left Min Range Button ====//
     Fl_Repeat_Button* minbuttonL = new Fl_Repeat_Button( m_X, m_Y, m_RangeButtonWidth, m_StdHeight, "<" );
