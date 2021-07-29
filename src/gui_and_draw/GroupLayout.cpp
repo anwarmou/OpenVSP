@@ -1351,7 +1351,8 @@ void GroupLayout::AddSkinControl( SkinControl & skin_control, const char* label,
     AddX( m_StdHeight );
 
     //==== Parm Button ====//
-    VspButton* parm_button = AddParmButton( label );
+    VspButton* parm_button_L = AddParmButton( label );
+    VspButton* parm_button_R = AddParmButton( label );
 
     //==== Set Equality Check Button ====//
     Fl_Check_Button* setButtonEqual = new Fl_Check_Button( m_X, m_Y, m_StdHeight, m_StdHeight );
@@ -1412,7 +1413,8 @@ void GroupLayout::AddSkinControl( SkinControl & skin_control, const char* label,
         maxbuttonR,
         inputL,
         inputR,
-        parm_button,
+        parm_button_L,
+        parm_button_R,
         range, format);
 }
 
