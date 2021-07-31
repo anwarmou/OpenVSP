@@ -298,23 +298,15 @@ string WaveDragSingleton::SliceAndAnalyze( int set, int numSlices, int numRots, 
 
     string filename = veh->getExportFileName( vsp::WAVE_DRAG_TXT_TYPE );
 
-	//string str_mach               = "M" + to_string(res->Find("Mach").GetDouble(0));
-	string format = "M%f";
-	double args = res->Find("Mach").GetDouble(0);
-	int size_s = snprintf(nullptr, 0, format.c_str(), args) + 1; // Extra space for '\0'
-	if (size_s <= 0) { throw std::runtime_error("Error during formatting."); }
-	auto size = static_cast<size_t>(size_s);
-	auto buf = make_unique<char[]>(size);
-	snprintf(buf.get(), size, format.c_str(), args);
-	string str_mach(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
+	string str_mach = "M" + std::to_string(res->Find("Mach").GetDouble(0));
 
-	int set_index                 = m_SelectedSetIndex.Get(); //res->Find("Set").GetInt(0);
-	vector< string > set_name_vec = veh->GetSetNameVec();
-	string set_name               = set_name_vec[set_index];
+    vector< string > set_name_vec = veh->GetSetNameVec();
+    
+    int set_index = m_SelectedSetIndex.Get();
+	string set_name = set_name_vec[set_index];
 	res->Add(NameValData("Set_Name", set_name));
 
 	string to_insert = "_" + str_mach + "_" + set_name;
-
 	filename.insert(filename.find(".txt"), to_insert);
 	
     res->WriteWaveDragFile( filename );
