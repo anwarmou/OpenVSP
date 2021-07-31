@@ -1309,7 +1309,7 @@ void GroupLayout::AddSkinControl( SkinControl & skin_control, const char* label,
 {
     assert( m_Group && m_Screen );
 
-    int sw = FitWidth( 3 * m_StdHeight + 2 * m_ButtonWidth + 2 * m_InputWidth + 4 * m_RangeButtonWidth, 2 * m_SliderWidth )/2;
+    int sw = FitWidth( 3 * m_StdHeight + m_ButtonWidth + 2 * m_InputWidth + 4 * m_RangeButtonWidth, 2 * m_SliderWidth )/2;
 
     //==== Left Min Range Button ====//
     Fl_Repeat_Button* minbuttonL = new Fl_Repeat_Button( m_X, m_Y, m_RangeButtonWidth, m_StdHeight, "<" );
@@ -1351,8 +1351,14 @@ void GroupLayout::AddSkinControl( SkinControl & skin_control, const char* label,
     AddX( m_StdHeight );
 
     //==== Parm Button ====//
+    int originalWidth = m_ButtonWidth;
+    int rightWidth = 12;
+    int leftWidth = originalWidth - rightWidth;
+    SetButtonWidth(leftWidth);
     VspButton* parm_button_L = AddParmButton( label );
-    VspButton* parm_button_R = AddParmButton( label );
+    SetButtonWidth(rightWidth);
+    VspButton* parm_button_R = AddParmButton( "" );
+    SetButtonWidth(originalWidth);
 
     //==== Set Equality Check Button ====//
     Fl_Check_Button* setButtonEqual = new Fl_Check_Button( m_X, m_Y, m_StdHeight, m_StdHeight );

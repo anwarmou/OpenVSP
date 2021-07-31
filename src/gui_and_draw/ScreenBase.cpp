@@ -1257,7 +1257,7 @@ SkinScreen::SkinScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
 
     m_SkinLayout.AddYGap();
 
-    m_SkinLayout.SetButtonWidth( 62 /*75*/ );
+    m_SkinLayout.SetButtonWidth( 75 );
 
     int oldDH = m_SkinLayout.GetDividerHeight();
     m_SkinLayout.SetDividerHeight( m_SkinLayout.GetStdHeight() );
