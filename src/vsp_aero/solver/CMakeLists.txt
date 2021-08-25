@@ -1,8 +1,4 @@
-if(MSVC)
-  CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
-else()
-  CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
-endif()
+CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
 
 FIND_PACKAGE( OpenMP )
 
@@ -10,7 +6,7 @@ if(OPENMP_FOUND AND NOT CXX_OMP_COMPILER)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS} -DVSPAERO_OPENMP")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -DVSPAERO_OPENMP")
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND APPLE)
     set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
   endif()
 
@@ -68,6 +64,7 @@ if(BUILD_VSPAERO)
   InteractionLoop.C
   RotorDisk.C
   SpanLoadData.C
+  SpanLoadRotorData.C
   VSP_Agglom.C
   VSP_Edge.C
   VSP_Geom.C
@@ -76,9 +73,7 @@ if(BUILD_VSPAERO)
   VSP_Node.C
   VSP_Solver.C
   VSP_Surface.C
-  Vortex.C
   VortexSheetInteractionLoop.C
-  VortexSheetInteractionStreamLine.C
   VortexSheetVortex_To_VortexInteractionSet.C
   Vortex_Bound.C
   Vortex_Sheet.C
@@ -91,6 +86,7 @@ if(BUILD_VSPAERO)
   SearchLeaf.C
   time.C
   utils.C
+  VSPAERO_TYPES.C
   vspaero.C
   WOPWOP.C
   binaryio.H
@@ -104,6 +100,7 @@ if(BUILD_VSPAERO)
   InteractionLoop.H
   RotorDisk.H
   SpanLoadData.H
+  SpanLoadRotorData.H
   VSPAERO_OMP.H
   VSP_Agglom.H
   VSP_Edge.H
@@ -113,9 +110,7 @@ if(BUILD_VSPAERO)
   VSP_Node.H
   VSP_Solver.H
   VSP_Surface.H
-  Vortex.H
   VortexSheetInteractionLoop.H
-  VortexSheetInteractionStreamLine.H
   VortexSheetVortex_To_VortexInteractionSet.H
   Vortex_Bound.H
   Vortex_Sheet.H
@@ -128,11 +123,19 @@ if(BUILD_VSPAERO)
   SearchLeaf.H
   time.H
   utils.H
+  VSPAERO_TYPES.H
   WOPWOP.H
   )
 
-  TARGET_LINK_LIBRARIES(vspaero
-  )
+  if(OPENMP_FOUND)
+    TARGET_INCLUDE_DIRECTORIES( vspaero PRIVATE
+        ${OpenMP_CXX_INCLUDE_DIR}
+    )
+
+    TARGET_LINK_LIBRARIES(vspaero
+        ${OpenMP_CXX_LIBRARIES}
+    )
+  endif()
 
   if ( NOT EP_BUILD )
 

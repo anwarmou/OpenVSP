@@ -19,21 +19,23 @@
 using namespace vsp;
 
 //==== Constructor ====//
-ExportScreen::ExportScreen( ScreenMgr* mgr ) : BasicScreen( mgr, 180, 25 + 20 + 22*20 + 2*15 + 4*6, "Export" )
+ExportScreen::ExportScreen( ScreenMgr* mgr ) : BasicScreen( mgr, 200, 25 + 2*20 + 22*20 + 2*15 + 4*6, "Export" )
 {
     m_SelectedSetIndex = DEFAULT_SET;
+    m_DegenSetIndex = vsp::SET_NONE;
 
     m_MainLayout.SetGroupAndScreen( m_FLTK_Window, this );
     m_MainLayout.AddX( 5 );
     m_MainLayout.AddY( 25 );
     m_MainLayout.AddSubGroupLayout( m_GenLayout, m_MainLayout.GetRemainX() - 5, m_MainLayout.GetRemainY() );
 
-    m_GenLayout.SetChoiceButtonWidth( 50 );
+    m_GenLayout.SetChoiceButtonWidth( 100 );
 
     m_GenLayout.AddDividerBox( "Export Set" );
     m_GenLayout.AddYGap();
 
-    m_GenLayout.AddChoice( m_ExportSetChoice, "Set:" );
+    m_GenLayout.AddChoice( m_ExportSetChoice, "Normal Set:" );
+    m_GenLayout.AddChoice( m_DegenSetChoice, "Degen Set:" );
     m_GenLayout.AddYGap();
 
     m_GenLayout.AddDividerBox( "File Format" );
@@ -91,18 +93,22 @@ void ExportScreen::LoadSetChoice()
     Vehicle *veh = VehicleMgr.GetVehicle();
 
     m_ExportSetChoice.ClearItems();
+    m_DegenSetChoice.ClearItems();
 
-    vector <string> setVec = veh->GetSetNameVec();
+    vector <string> setVec = veh->GetSetNameVec( true );
     for ( int i = 0; i < setVec.size(); i++ )
     {
-        m_ExportSetChoice.AddItem( setVec[i] );
+        m_ExportSetChoice.AddItem( setVec[i], i - 1 );
+        m_DegenSetChoice.AddItem( setVec[i], i - 1 );
     }
     m_ExportSetChoice.UpdateItems();
+    m_DegenSetChoice.UpdateItems();
 
     m_ExportSetChoice.SetVal( m_SelectedSetIndex );
+    m_DegenSetChoice.SetVal( m_DegenSetIndex );
 }
 
-void ExportScreen::ExportFile( string &newfile, int write_set, int type )
+void ExportScreen::ExportFile( string &newfile, int write_set, int degen_set, int type )
 {
     Vehicle* veh = m_ScreenMgr->GetVehiclePtr();
 
@@ -228,7 +234,7 @@ void ExportScreen::ExportFile( string &newfile, int write_set, int type )
 
     if ( newfile.size() != 0 && newfile[ newfile.size() - 1] != '/' )
     {
-        veh->ExportFile( newfile, write_set, type );
+        veh->ExportFile( newfile, write_set, degen_set, type );
     }
 
 }
@@ -246,86 +252,86 @@ void ExportScreen::GuiDeviceCallBack( GuiDevice* device )
 
     if ( device == &m_XSecButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_XSEC );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_XSEC );
     }
     else if ( device == &m_Plot3DButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_PLOT3D );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_PLOT3D );
     }
     else if (  device == &m_STLButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_STL );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_STL );
     }
     else if (  device == &m_NASCARTButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_NASCART );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_NASCART );
     }
     else if (  device == &m_TRIButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_CART3D );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_CART3D );
     }
     else if (  device == &m_OBJButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_OBJ );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_OBJ );
     }
     else if (  device == &m_VSPGeomButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_VSPGEOM );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_VSPGEOM );
     }
     else if (  device == &m_GMSHButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_GMSH );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_GMSH );
     }
     else if (  device == &m_POVButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_POVRAY );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_POVRAY );
     }
     else if (  device == &m_X3DButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_X3D );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_X3D );
     }
     else if (  device == &m_STEPButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_STEP );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_STEP );
     }
     else if (  device == &m_STEPStructureButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_STEP_STRUCTURE );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_STEP_STRUCTURE );
     }
     else if ( device == &m_IGESButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_IGES );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_IGES );
     }
     else if ( device == &m_IGESStructureButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_IGES_STRUCTURE );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_IGES_STRUCTURE );
     }
     else if ( device == &m_BEMButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_BEM );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_BEM );
     }
     else if ( device == &m_DXFButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_DXF );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_DXF );
     }
     else if ( device == &m_SVGButton )
     {
-        ExportFile( newfile, m_SelectedSetIndex, EXPORT_SVG );
+        ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_SVG );
     }
     else if ( device == &m_FacetButton )
     {
-        ExportFile(newfile, m_SelectedSetIndex, EXPORT_FACET);
+        ExportFile(newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_FACET);
     }
     else if ( device == &m_PMARCButton )
     {
-        ExportFile(newfile, m_SelectedSetIndex, EXPORT_PMARC);
+        ExportFile(newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_PMARC);
     }
     else if ( device == &m_SeligAirfoilButton )
     {
         if ( veh )
         {
             veh->m_AFExportType.Set( vsp::SELIG_AF_EXPORT );
-            ExportFile( newfile, m_SelectedSetIndex, EXPORT_SELIG_AIRFOIL );
+            ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_SELIG_AIRFOIL );
         }
     }
     else if ( device == &m_BezierAirfoilButton )
@@ -333,7 +339,7 @@ void ExportScreen::GuiDeviceCallBack( GuiDevice* device )
         if ( veh )
         {
             veh->m_AFExportType.Set( vsp::BEZIER_AF_EXPORT );
-            ExportFile( newfile, m_SelectedSetIndex, EXPORT_BEZIER_AIRFOIL );
+            ExportFile( newfile, m_SelectedSetIndex, m_DegenSetIndex, EXPORT_BEZIER_AIRFOIL );
         }
     }
     else if (  device == &m_ExportSetChoice )
@@ -344,6 +350,10 @@ void ExportScreen::GuiDeviceCallBack( GuiDevice* device )
         {
             veh->m_SVGSet.Set( m_SelectedSetIndex );
         }
+    }
+    else if (  device == &m_DegenSetChoice )
+    {
+        m_DegenSetIndex = m_DegenSetChoice.GetVal();
     }
     else if ( device == &m_CustomScriptButton )
     {

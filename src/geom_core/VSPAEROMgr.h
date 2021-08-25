@@ -349,9 +349,11 @@ public:
     string m_ModelNameBase; // this is the name used in the execution string
     string m_DegenFileFull; //degengeom file name WITH .csv file extension
     string m_CompGeomFileFull; //geometry file used for panel method
+    string m_VSPGeomFileFull; // Experimental file format for mixed thick/thin surface representation
     string m_SetupFile;
     string m_AdbFile;
     string m_HistoryFile;
+    string m_PolarFile;
     string m_LoadFile;
     string m_StabFile;
     string m_CutsFile;
@@ -383,6 +385,7 @@ public:
     Parm m_AlphaStart, m_AlphaEnd; IntParm m_AlphaNpts;
     Parm m_BetaStart, m_BetaEnd; IntParm m_BetaNpts;
     Parm m_MachStart, m_MachEnd; IntParm m_MachNpts;
+    Parm m_ReCrefStart, m_ReCrefEnd; IntParm m_ReCrefNpts;
 
     // Solver settings
     IntParm m_NCPU;
@@ -393,7 +396,6 @@ public:
     // Other Setup Parameters
     Parm m_Vinf;
     Parm m_Rho;
-    Parm m_ReCref;
     Parm m_Machref;
     Parm m_Vref;
     BoolParm m_ManualVrefFlag;
@@ -401,6 +403,7 @@ public:
     BoolParm m_KTCorrection;
     BoolParm m_Symmetry;
     BoolParm m_Write2DFEMFlag;
+    BoolParm m_ExperimentalInputFormatFlag;
     BoolParm m_ClMaxToggle;
     Parm m_ClMax;
     BoolParm m_MaxTurnToggle;
@@ -506,13 +509,14 @@ protected:
     string m_LastPanelMeshGeomId;
 
     static int WaitForFile( string filename );  // function is used to wait for the result to show up on the file system
-    void GetSweepVectors( vector<double> &alphaVec, vector<double> &betaVec, vector<double> &machVec );
+    void GetSweepVectors( vector<double> &alphaVec, vector<double> &betaVec, vector<double> &machVec, vector<double> &recrefVec );
 
     void MonitorSolver( FILE * logFile );
     bool m_SolverProcessKill;
 
     // helper functions for VSPAERO files
-    void ReadHistoryFile( string filename, vector <string> &res_id_vector, vsp::VSPAERO_ANALYSIS_METHOD analysisMethod );
+    void ReadHistoryFile( string filename, vector <string> &res_id_vector, vsp::VSPAERO_ANALYSIS_METHOD analysisMethod, double recref );
+    void ReadPolarFile( string filename, vector <string> &res_id_vector, double recref );
     void ReadLoadFile( string filename, vector <string> &res_id_vector, vsp::VSPAERO_ANALYSIS_METHOD analysisMethod );
     void ReadStabFile( string filename, vector <string> &res_id_vector, vsp::VSPAERO_ANALYSIS_METHOD analysisMethod, vsp::VSPAERO_STABILITY_TYPE stabilityType );
     static vector <string> ReadDelimLine( FILE * fp, char * delimeters );

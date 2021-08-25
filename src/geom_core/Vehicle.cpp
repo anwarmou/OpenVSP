@@ -1882,6 +1882,9 @@ int Vehicle::ReadXMLFile( const string & file_name )
 {
     string lastreset = ParmMgr.ResetRemapID();
 
+    // Disable link updates when until all geoms are loaded
+    LinkMgr.SetFreezeUpdateFlag( true );
+
     //==== Read Xml File ====//
     xmlDocPtr doc;
 
@@ -1931,6 +1934,9 @@ int Vehicle::ReadXMLFile( const string & file_name )
     ParmMgr.ResetRemapID( lastreset );
 
     Update();
+    AdvLinkMgr.ForceUpdate();
+
+    LinkMgr.SetFreezeUpdateFlag( false );
 
     m_FileOpenVersion = -1;
     return 0;
@@ -2427,7 +2433,7 @@ string Vehicle::WriteTRIFile( const string & file_name, int write_set )
 
     //==== Write Out tag key file ====//
 
-    SubSurfaceMgr.WriteKeyFile( file_name );
+    SubSurfaceMgr.WriteTKeyFile(file_name);
 
     return mesh_id;
 }
@@ -2544,20 +2550,21 @@ nnwake in1 in2 in3 in4...inn // Last wake line
 */
 
 //==== Write VSPGeom File ====//
-string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
+string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set, int degen_set, bool half_flag )
 {
     string mesh_id = string();
 
     vector< Geom * > geom_vec = FindGeomVec( GetGeomVec( false ) );
-    if ( !geom_vec[0] )
+    if ( geom_vec.size() == 0 || !geom_vec[0] )
     {
         return mesh_id;
     }
 
-    // Add a new mesh if one does not exist
-    if ( !ExistMesh( write_set ) )
+    // Add a new mesh if one does not exist in either set
+    if ( ( write_set >= 0 && !ExistMesh( write_set ) ) ||
+         ( degen_set >= 0 && !ExistMesh( degen_set ) ) )
     {
-        mesh_id = AddMeshGeom( write_set );
+        mesh_id = AddMeshGeom( write_set, degen_set );
         if ( mesh_id.compare( "NONE" ) != 0 )
         {
             Geom *geom_ptr = FindGeom( mesh_id );
@@ -2569,6 +2576,15 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
                 geom_ptr->Update();
             }
             HideAllExcept( mesh_id );
+            // Below, we are going to write out _all_ MeshGeoms in write_set.
+            // AddMeshGeom above will create a MeshGeom in write_set if write_set >= SET_FIRST_USER.
+            // Otherwise, the new MeshGeom will be in SET_SHOWN.
+            // HideAllExcept should ensure that the new MeshGeom is the only thing in SET_SHOWN.
+            // If (for example) write_set is SET_NONE and degen_set contains the geometry, then
+            // this will cause trouble.
+            // By changing write_set to SET_SHOWN for this code path, we make sure anything created
+            // through AddMeshGeom will get written.
+            write_set = vsp::SET_SHOWN;
         }
     }
 
@@ -2588,10 +2604,11 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
 
     for ( i = 0; i < ( int ) geom_vec.size(); i++ )
     {
-        if ( geom_vec[i]->GetSetFlag( write_set ) && geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
+        if ( ( geom_vec[i]->GetSetFlag( write_set ) || geom_vec[i]->GetSetFlag( degen_set ) )
+            && geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom *mg = ( MeshGeom * ) geom_vec[i];            // Cast
-            mg->BuildIndexedMesh( num_parts );
+            mg->BuildIndexedMesh( num_parts, half_flag );
             num_parts += mg->GetNumIndexedParts();
             num_pnts += mg->GetNumIndexedPnts();
             num_tris += mg->GetNumIndexedTris();
@@ -2603,7 +2620,7 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
     //==== Dump Points ====//
     for ( i = 0; i < ( int ) geom_vec.size(); i++ )
     {
-        if ( geom_vec[i]->GetSetFlag( write_set ) &&
+        if ( ( geom_vec[i]->GetSetFlag( write_set ) || geom_vec[i]->GetSetFlag( degen_set ) ) &&
              geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom *mg = ( MeshGeom * ) geom_vec[i];            // Cast
@@ -2619,7 +2636,7 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
     //==== Dump Tris ====//
     for ( i = 0; i < ( int ) geom_vec.size(); i++ )
     {
-        if ( geom_vec[i]->GetSetFlag( write_set ) &&
+        if ( ( geom_vec[i]->GetSetFlag( write_set ) || geom_vec[i]->GetSetFlag( degen_set ) ) &&
              geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom *mg = ( MeshGeom * ) geom_vec[i];            // Cast
@@ -2629,7 +2646,7 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
 
     for ( i = 0; i < ( int ) geom_vec.size(); i++ )
     {
-        if ( geom_vec[i]->GetSetFlag( write_set ) &&
+        if ( ( geom_vec[i]->GetSetFlag( write_set ) || geom_vec[i]->GetSetFlag( degen_set ) ) &&
              geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom *mg = ( MeshGeom * ) geom_vec[i];            // Cast
@@ -2641,7 +2658,7 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
     // Wake line data.
     for ( i = 0; i < ( int ) geom_vec.size(); i++ )
     {
-        if ( geom_vec[i]->GetSetFlag( write_set ) &&
+        if ( ( geom_vec[i]->GetSetFlag( write_set ) || geom_vec[i]->GetSetFlag( degen_set ) ) &&
              geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom *mg = ( MeshGeom * ) geom_vec[i];            // Cast
@@ -2653,7 +2670,7 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set )
 
     //==== Write Out tag key file ====//
 
-    SubSurfaceMgr.WriteKeyFile( file_name );
+    SubSurfaceMgr.WriteVSPGEOMKeyFile(file_name);
 
     return mesh_id;
 
@@ -2752,7 +2769,7 @@ string Vehicle::WriteNascartFiles( const string & file_name, int write_set )
 
     SubSurfaceMgr.WriteNascartKeyFile( key_name );
 
-    SubSurfaceMgr.WriteKeyFile( file_name );
+    SubSurfaceMgr.WriteTKeyFile(file_name);
 
     return mesh_id;
 
@@ -4398,6 +4415,10 @@ string Vehicle::getExportFileName( int type )
     {
         doreturn = true;
     }
+    else if ( type == VSPAERO_VSPGEOM_TYPE )
+    {
+        doreturn = true;
+    }
 
     if( doreturn )
     {
@@ -4462,6 +4483,10 @@ void Vehicle::setExportFileName( int type, string f_name )
     {
         doset = true;
     }
+    else if ( type == VSPAERO_VSPGEOM_TYPE )
+    {
+        doset = true;
+    }
 
     if( doset )
     {
@@ -4471,8 +4496,8 @@ void Vehicle::setExportFileName( int type, string f_name )
 
 void Vehicle::resetExportFileNames()
 {
-    const char *suffix[] = {"_CompGeom.txt", "_CompGeom.csv", "_DragBuild.tsv", "_Slice.txt", "_MassProps.txt", "_DegenGeom.csv", "_DegenGeom.m", "_ProjArea.csv", "_WaveDrag.txt", ".tri", "_ParasiteBuildUp.csv" };
-    const int types[] = { COMP_GEOM_TXT_TYPE, COMP_GEOM_CSV_TYPE, DRAG_BUILD_TSV_TYPE, SLICE_TXT_TYPE, MASS_PROP_TXT_TYPE, DEGEN_GEOM_CSV_TYPE, DEGEN_GEOM_M_TYPE, PROJ_AREA_CSV_TYPE, WAVE_DRAG_TXT_TYPE, VSPAERO_PANEL_TRI_TYPE, DRAG_BUILD_CSV_TYPE };
+    const char *suffix[] = {"_CompGeom.txt", "_CompGeom.csv", "_DragBuild.tsv", "_Slice.txt", "_MassProps.txt", "_DegenGeom.csv", "_DegenGeom.m", "_ProjArea.csv", "_WaveDrag.txt", ".tri", "_ParasiteBuildUp.csv", "_VSPGeom.vspgeom" };
+    const int types[] = { COMP_GEOM_TXT_TYPE, COMP_GEOM_CSV_TYPE, DRAG_BUILD_TSV_TYPE, SLICE_TXT_TYPE, MASS_PROP_TXT_TYPE, DEGEN_GEOM_CSV_TYPE, DEGEN_GEOM_M_TYPE, PROJ_AREA_CSV_TYPE, WAVE_DRAG_TXT_TYPE, VSPAERO_PANEL_TRI_TYPE, DRAG_BUILD_CSV_TYPE, VSPAERO_VSPGEOM_TYPE };
     const int ntype = ( sizeof(types) / sizeof(types[0]) );
     int pos;
 
@@ -5097,7 +5122,7 @@ void Vehicle::SetApplyAbsIgnoreFlag( const vector< string > &g_vec, bool val )
 }
 
 //==== Import File Methods ====//
-string Vehicle::ExportFile( const string & file_name, int write_set, int file_type )
+string Vehicle::ExportFile( const string & file_name, int write_set, int degen_set, int file_type )
 {
     string mesh_id = string();
 
@@ -5140,7 +5165,7 @@ string Vehicle::ExportFile( const string & file_name, int write_set, int file_ty
     }
     else if ( file_type == EXPORT_VSPGEOM )
     {
-        mesh_id = WriteVSPGeomFile( file_name, write_set );
+        mesh_id = WriteVSPGeomFile( file_name, write_set, degen_set );
     }
     else if ( file_type == EXPORT_NASCART )
     {

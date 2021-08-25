@@ -6,6 +6,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "GroupLayout.h"
+#include "ScreenBase.h"
 #include <FL/Fl_Value_Slider.H>
 
 //==== Constructor ====//
@@ -1673,6 +1674,29 @@ Fl_Browser* GroupLayout::AddFlBrowser( int height )
 ColResizeBrowser* GroupLayout::AddColResizeBrowser( int* width_array_ptr, size_t num_col, int height )
 {
     assert( m_Group && m_Screen && width_array_ptr );
+
+    if ( width_array_ptr[num_col] != 0 )
+    {
+        printf( "Error:  Column width array not zero terminated or column length mismatch: ");
+
+        BasicScreen *bs = dynamic_cast< BasicScreen* >( m_Screen );
+        if ( bs )
+        {
+            printf( " %s", bs->GetTitle().c_str() );
+        }
+
+        Fl_Group *g = m_Group;
+        while( g )
+        {
+            if( g->label() )
+            {
+                printf( " %s", g->label() );
+            }
+
+            g = g->parent();
+        }
+        printf( "\n" );
+    }
 
     ColResizeBrowser* browser = new ColResizeBrowser( m_X, m_Y, m_W, height );
     browser->type( FL_MULTI_BROWSER );

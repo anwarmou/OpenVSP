@@ -90,6 +90,12 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     m_MachNpts.Init( "MachNpts", groupname, this, 1, 1, 100 );
     m_MachNpts.SetDescript( "Freestream Mach number (Num Points)" );
 
+    m_ReCrefStart.Init( "ReCref", groupname, this, 1.0e7, 0, 1e12 ); // Note Parm nameed for compatibility with pre 3.25.0 models
+    m_ReCrefStart.SetDescript( "Reynolds Number Along Reference Chord (Start)" );
+    m_ReCrefEnd.Init( "ReCrefEnd", groupname, this, 2.0e7, 0, 1e12 );
+    m_ReCrefEnd.SetDescript( "Reynolds Number Along Reference Chord (End)" );
+    m_ReCrefNpts.Init( "ReCrefNpts", groupname, this, 1, 1, 100 );
+    m_ReCrefNpts.SetDescript( "Reynolds Number Along Reference Chord (Num Points)" );
 
     // Case Setup
     m_NCPU.Init( "NCPU", groupname, this, 4, 1, 255 );
@@ -172,8 +178,6 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     m_Vinf.SetDescript( "Freestream Velocity Through Propeller or Actuator Disk or for Stability Analysis" );
     m_Rho.Init( "Rho", groupname, this, 0.002377, 0, 1e3 );
     m_Rho.SetDescript( "Freestream Density. Used to Calculate Propeller or Actuator Disk Coefficients" );
-    m_ReCref.Init( "ReCref", groupname, this, 10000000., 0, 1e12 );
-    m_ReCref.SetDescript( "Reynolds Number Along Reference Chord" );
     m_Vref.Init( "Vref", groupname, this, 100, 0, 1e12 );
     m_Vref.SetDescript( "Reference Velocity. Set to Rotor Tip Speed for Hover Analysis (Vinf = 0)" );
     m_ManualVrefFlag.Init( "ManualVrefFlag", groupname, this, false, false, true );
@@ -189,6 +193,8 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     m_Symmetry.SetDescript( "Toggle X-Z Symmetry to Improve Calculation Time" );
     m_Write2DFEMFlag.Init( "Write2DFEMFlag", groupname, this, false, false, true );
     m_Write2DFEMFlag.SetDescript( "Toggle File Write for 2D FEM" );
+    m_ExperimentalInputFormatFlag.Init( "ExperimentalInputFormatFlag", groupname, this, false, false, true );
+    m_ExperimentalInputFormatFlag.SetDescript( "Flag to Use Experimental VSPGeom Input File Format" );
     m_ClMax.Init( "Clmax", groupname, this, -1, -1, 1e3 );
     m_ClMax.SetDescript( "Cl Max of Aircraft" );
     m_ClMaxToggle.Init( "ClmaxToggle", groupname, this, false, false, true );
@@ -557,9 +563,11 @@ void VSPAEROMgrSingleton::UpdateFilenames()    //A.K.A. SetupDegenFile()
     m_ModelNameBase     = string();
     m_DegenFileFull     = string();
     m_CompGeomFileFull  = string();     // TODO this is set from the get export name
+    m_VSPGeomFileFull   = string();
     m_SetupFile         = string();
     m_AdbFile           = string();
     m_HistoryFile       = string();
+    m_PolarFile         = string();
     m_LoadFile          = string();
     m_StabFile          = string();
     m_CutsFile          = string();
@@ -580,24 +588,46 @@ void VSPAEROMgrSingleton::UpdateFilenames()    //A.K.A. SetupDegenFile()
     {
         // Generate the base name based on the vsp3filename without the extension
         int pos = -1;
-        switch ( m_AnalysisMethod.Get() )
-        {
-        case vsp::VORTEX_LATTICE:
-            // The base_name is dependent on the DegenFileName
-            // TODO extra "_DegenGeom" is added to the m_ModelBase
-            m_DegenFileFull = veh->getExportFileName( vsp::DEGEN_GEOM_CSV_TYPE );
 
-            m_ModelNameBase = m_DegenFileFull;
-            pos = m_ModelNameBase.find( ".csv" );
+        if ( m_ExperimentalInputFormatFlag() )
+        {
+            m_VSPGeomFileFull = veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE );
+            m_CompGeomFileFull = veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE );
+
+            m_ModelNameBase = m_VSPGeomFileFull;
+            pos = m_ModelNameBase.find( ".vspgeom" );
             if ( pos >= 0 )
             {
                 m_ModelNameBase.erase( pos, m_ModelNameBase.length() - 1 );
+            }
+        }
+
+        switch ( m_AnalysisMethod.Get() )
+        {
+        case vsp::VORTEX_LATTICE:
+            if ( m_ExperimentalInputFormatFlag() )
+            {
+                m_DegenFileFull = m_ModelNameBase + string( "_DegenGeom.csv" );
+            }
+            else
+            {
+                // The base_name is dependent on the DegenFileName
+                // TODO extra "_DegenGeom" is added to the m_ModelBase
+                m_DegenFileFull = veh->getExportFileName( vsp::DEGEN_GEOM_CSV_TYPE );
+
+                m_ModelNameBase = m_DegenFileFull;
+                pos = m_ModelNameBase.find( ".csv" );
+                if ( pos >= 0 )
+                {
+                    m_ModelNameBase.erase( pos, m_ModelNameBase.length() - 1 );
+                }
             }
 
             m_CompGeomFileFull  = string(); //This file is not used for vortex lattice analysis
             m_SetupFile         = m_ModelNameBase + string( ".vspaero" );
             m_AdbFile           = m_ModelNameBase + string( ".adb" );
             m_HistoryFile       = m_ModelNameBase + string( ".history" );
+            m_PolarFile         = m_ModelNameBase + string( ".polar" );
             m_LoadFile          = m_ModelNameBase + string( ".lod" );
 
             if ( m_StabilityType() == vsp::STABILITY_P_ANALYSIS )
@@ -634,19 +664,27 @@ void VSPAEROMgrSingleton::UpdateFilenames()    //A.K.A. SetupDegenFile()
             break;
 
         case vsp::PANEL:
-            m_CompGeomFileFull = veh->getExportFileName( vsp::VSPAERO_PANEL_TRI_TYPE );
-
-            m_ModelNameBase = m_CompGeomFileFull;
-            pos = m_ModelNameBase.find( ".tri" );
-            if ( pos >= 0 )
+            if ( m_ExperimentalInputFormatFlag() )
             {
-                m_ModelNameBase.erase( pos, m_ModelNameBase.length() - 1 );
+                m_CompGeomFileFull = m_ModelNameBase + string( ".tri" );
+            }
+            else
+            {
+                m_CompGeomFileFull = veh->getExportFileName( vsp::VSPAERO_PANEL_TRI_TYPE );
+
+                m_ModelNameBase = m_CompGeomFileFull;
+                pos = m_ModelNameBase.find( ".tri" );
+                if ( pos >= 0 )
+                {
+                    m_ModelNameBase.erase( pos, m_ModelNameBase.length() - 1 );
+                }
             }
 
             m_DegenFileFull     = m_ModelNameBase + string( "_DegenGeom.csv" );
             m_SetupFile         = m_ModelNameBase + string( ".vspaero" );
             m_AdbFile           = m_ModelNameBase + string( ".adb" );
             m_HistoryFile       = m_ModelNameBase + string( ".history" );
+            m_PolarFile         = m_ModelNameBase + string( ".polar" );
             m_LoadFile          = m_ModelNameBase + string( ".lod" );
 
             if ( m_StabilityType() == vsp::STABILITY_P_ANALYSIS )
@@ -853,7 +891,10 @@ void VSPAEROMgrSingleton::UpdateControlSurfaceGroups()
             }
             // Remove Deleted Sub Surfaces and Sub Surfaces with Parent Geoms That No Longer Exist
             Geom* parent = VehicleMgr.GetVehicle()->FindGeom( m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].parentGeomId );
-            SubSurface* ss = parent->GetSubSurf( m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].SSID );
+
+            SubSurface* ss = NULL;
+            if ( parent ) ss = parent->GetSubSurf( m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].SSID );
+
             if ( !parent || !ss || ( ss && parent->GetNumSymmCopies() <= m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].iReflect ) )
             {
                 m_ControlSurfaceGroupVec[i]->RemoveSubSurface( m_ControlSurfaceGroupVec[i]->m_ControlSurfVec[k].SSID,
@@ -1066,7 +1107,7 @@ string VSPAEROMgrSingleton::ComputeGeometry()
     // Cleanup previously created meshGeom IDs created from VSPAEROMgr
     Geom* last_mesh = veh->FindGeom( m_LastPanelMeshGeomId );
     vector < string > geom_vec = veh->GetGeomSet( m_GeomSet() );
-    if ( last_mesh && m_AnalysisMethod() == vsp::VORTEX_LATTICE )
+    if ( last_mesh && m_AnalysisMethod() == vsp::VORTEX_LATTICE && !m_ExperimentalInputFormatFlag() )
     {
         veh->ShowOnlySet( m_GeomSet() );
     }
@@ -1075,11 +1116,20 @@ string VSPAEROMgrSingleton::ComputeGeometry()
     {
         // Support mesh generated outside of VSPAERO if it is the only Geom in the set
         Geom* geom = veh->FindGeom( geom_vec[0] );
-        if ( geom->GetType().m_Type == MESH_GEOM_TYPE )
+        // Can't generate VLM VSPGeom file from existing MeshGeom (i.e. imported *.tri file)
+        if ( geom->GetType().m_Type == MESH_GEOM_TYPE && !( m_ExperimentalInputFormatFlag() && m_AnalysisMethod() == vsp::VORTEX_LATTICE ) )
         {
             last_mesh = geom;
             m_LastPanelMeshGeomId = geom_vec[0];
         }
+    }
+    
+    if ( ( last_mesh && ( geom_vec.size() != 1 && last_mesh->GetID() != geom_vec[0] ) ) &&
+        ( m_AnalysisMethod() == vsp::PANEL || m_ExperimentalInputFormatFlag() ) )
+    {
+        // Remove the previous mesh, which has been updated
+        veh->DeleteGeomVec( vector< string >{ m_LastPanelMeshGeomId } );
+        last_mesh = NULL;
     }
 
     m_DegenGeomVec.clear();
@@ -1098,10 +1148,29 @@ string VSPAEROMgrSingleton::ComputeGeometry()
 
     UpdateFilenames();
 
+    int halfFlag = 0;
+
+    if ( m_Symmetry() )
+    {
+        halfFlag = 1;
+    }
+
     // Note: while in panel mode the degen file required by vspaero is
     // dependent on the tri filename and not necessarily what the current
     // setting is for the vsp::DEGEN_GEOM_CSV_TYPE
     string degenGeomFile_orig = veh->getExportFileName( vsp::DEGEN_GEOM_CSV_TYPE );
+
+    if ( m_ExperimentalInputFormatFlag() && m_AnalysisMethod() == vsp::VORTEX_LATTICE )
+    {
+        m_LastPanelMeshGeomId = veh->WriteVSPGeomFile( m_VSPGeomFileFull, -1, m_GeomSet(), halfFlag );
+
+        WaitForFile( m_VSPGeomFileFull );
+        if ( !FileExist( m_VSPGeomFileFull ) )
+        {
+            fprintf( stderr, "WARNING: VSPGeom file not found: %s\n\tFile: %s \tLine:%d\n", m_VSPGeomFileFull.c_str(), __FILE__, __LINE__ );
+        }
+    }
+
     veh->setExportFileName( vsp::DEGEN_GEOM_CSV_TYPE, m_DegenFileFull );
 
     veh->WriteDegenGeomFile();
@@ -1117,37 +1186,38 @@ string VSPAEROMgrSingleton::ComputeGeometry()
         fprintf( stderr, "WARNING: DegenGeom file not found: %s\n\tFile: %s \tLine:%d\n", m_DegenFileFull.c_str(), __FILE__, __LINE__ );
     }
 
+    int mesh_set = m_GeomSet();
+
     // Generate *.tri geometry file for Panel method
     if ( m_AnalysisMethod.Get() == vsp::PANEL )
     {
-        // Compute intersected and trimmed geometry
-        int halfFlag = 0;
-
-        if ( m_Symmetry() )
+        if ( !last_mesh )
         {
-            halfFlag = 1;
-        }
-
-        if ( !last_mesh || !( geom_vec.size() == 1 && last_mesh->GetID() == geom_vec[0] ) )
-        {
-            if ( last_mesh )
-            {
-                // Remove the previous mesh, which has been updated
-                veh->DeleteGeomVec( vector< string >{ m_LastPanelMeshGeomId } );
-            }
-
-            // No previous mesh available, or new mesh is required
+            // Compute intersected and trimmed geometry
             m_LastPanelMeshGeomId = veh->CompGeomAndFlatten( m_GeomSet(), halfFlag );
+            mesh_set = vsp::SET_SHOWN; // Only MeshGeom is shown after geometry is computed
         }
 
-        // After CompGeomAndFlatten() is run all the geometry is hidden and the intersected & trimmed mesh is the only one shown
-        veh->WriteTRIFile( m_CompGeomFileFull , vsp::SET_SHOWN );
-        WaitForFile( m_CompGeomFileFull );
-        if ( !FileExist( m_CompGeomFileFull ) )
+        if ( m_ExperimentalInputFormatFlag() )
         {
-            fprintf( stderr, "WARNING: CompGeom file not found: %s\n\tFile: %s \tLine:%d\n", m_CompGeomFileFull.c_str(), __FILE__, __LINE__ );
+            // Write out mesh to *.vspgeom file. Only the MeshGeom is shown
+            veh->WriteVSPGeomFile( m_VSPGeomFileFull, mesh_set, -1 );
+            WaitForFile( m_VSPGeomFileFull );
+            if ( !FileExist( m_VSPGeomFileFull ) )
+            {
+                fprintf( stderr, "WARNING: VSPGeom file not found: %s\n\tFile: %s \tLine:%d\n", m_VSPGeomFileFull.c_str(), __FILE__, __LINE__ );
+            }
         }
-
+        else
+        {
+            // After CompGeomAndFlatten() is run all the geometry is hidden and the intersected & trimmed mesh is the only one shown
+            veh->WriteTRIFile( m_CompGeomFileFull, mesh_set );
+            WaitForFile( m_CompGeomFileFull );
+            if ( !FileExist( m_CompGeomFileFull ) )
+            {
+                fprintf( stderr, "WARNING: CompGeom file not found: %s\n\tFile: %s \tLine:%d\n", m_CompGeomFileFull.c_str(), __FILE__, __LINE__ );
+            }
+        }
     }
 
     // Clear previous results
@@ -1165,9 +1235,16 @@ string VSPAEROMgrSingleton::ComputeGeometry()
     res->Add( NameValData( "GeometrySet", m_GeomSet() ) );
     res->Add( NameValData( "AnalysisMethod", m_AnalysisMethod.Get() ) );
     res->Add( NameValData( "DegenGeomFileName", m_DegenFileFull ) );
-    if ( m_AnalysisMethod.Get() == vsp::PANEL )
+    if ( m_AnalysisMethod.Get() == vsp::PANEL || m_ExperimentalInputFormatFlag.Get() )
     {
-        res->Add( NameValData( "CompGeomFileName", m_CompGeomFileFull ) );
+        if ( m_ExperimentalInputFormatFlag.Get() )
+        {
+            res->Add( NameValData( "VSPGeomFileName", m_VSPGeomFileFull ) );
+        }
+        else
+        {
+            res->Add( NameValData( "CompGeomFileName", m_CompGeomFileFull ) );
+        }
         res->Add( NameValData( "Mesh_GeomID", m_LastPanelMeshGeomId ) );
     }
     else
@@ -1216,18 +1293,21 @@ string VSPAEROMgrSingleton::CreateSetupFile()
     vector<double> alphaVec;
     vector<double> betaVec;
     vector<double> machVec;
-    GetSweepVectors( alphaVec, betaVec, machVec );
+    vector<double> recrefVec;
+    GetSweepVectors( alphaVec, betaVec, machVec, recrefVec );
 
     if ( !m_BatchModeFlag.Get() )
     {
         // Identify the current VSPAERO flow condition case
-        double mach = machVec[(int)( ( m_iCase ) % m_MachNpts.Get() )];
-        double beta = betaVec[(int)( ( (int)floor( ( m_iCase ) / m_MachNpts.Get() ) ) % m_BetaNpts.Get() )];
-        double alpha = alphaVec[(int)floor( ( m_iCase ) / ( m_MachNpts.Get() * m_BetaNpts.Get() ) )];
+        double recref = recrefVec[(int)( ( m_iCase ) % m_ReCrefNpts.Get() )];
+        double mach = machVec[(int)( ( (int)floor( ( m_iCase ) / m_ReCrefNpts.Get() ) ) % m_MachNpts.Get() )];
+        double beta = betaVec[(int)( ( (int)floor( ( m_iCase ) / ( m_ReCrefNpts.Get() * m_MachNpts.Get() ) ) ) % m_BetaNpts.Get() )];
+        double alpha = alphaVec[(int)floor( ( m_iCase ) / ( m_ReCrefNpts.Get() * m_MachNpts.Get() * m_BetaNpts.Get() ) )];
 
         machVec = { mach };
         alphaVec = { alpha };
         betaVec = { beta };
+        recrefVec = { recref };
     }
 
     unsigned int i;
@@ -1270,7 +1350,14 @@ string VSPAEROMgrSingleton::CreateSetupFile()
     }
 
     fprintf( case_file, "Rho = %lf \n", m_Rho() );
-    fprintf( case_file, "ReCref = %lf \n", m_ReCref() );
+
+    fprintf( case_file, "ReCref = " );
+    for ( i = 0; i < recrefVec.size() - 1; i++ )
+    {
+        fprintf( case_file, "%lf, ", recrefVec[i] );
+    }
+    fprintf( case_file, "%lf \n", recrefVec[i++] );
+
     fprintf( case_file, "ClMax = %lf \n", m_ClMax() );
     fprintf( case_file, "MaxTurningAngle = %lf \n", m_MaxTurnAngle() );
     fprintf( case_file, "Symmetry = %s \n", sym.c_str() );
@@ -1483,13 +1570,27 @@ string VSPAEROMgrSingleton::LoadExistingVSPAEROResults()
 
     if ( FileExist( m_HistoryFile ) )
     {
-        ReadHistoryFile( m_HistoryFile, res_id_vec, ( vsp::VSPAERO_ANALYSIS_METHOD )m_AnalysisMethod() );
+        ReadHistoryFile( m_HistoryFile, res_id_vec, ( vsp::VSPAERO_ANALYSIS_METHOD )m_AnalysisMethod(), m_ReCrefStart() );
     }
     else
     {
         data.m_StringVec = vector < string >{ "Error: VSPAERO History file " + m_HistoryFile + " not found \n" };
         MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
         no_errors = false;
+    }
+
+    if ( m_PreviousStabilityType == vsp::STABILITY_OFF )
+    {
+        if ( FileExist( m_PolarFile ) )
+        {
+            ReadPolarFile( m_HistoryFile, res_id_vec, m_ReCrefStart() );
+        }
+        else
+        {
+            data.m_StringVec = vector < string >{ "Error: VSPAERO Polar file " + m_PolarFile + " not found \n" };
+            MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
+            no_errors = false;
+        }
     }
 
     if ( FileExist( m_LoadFile ) )
@@ -1589,9 +1690,15 @@ string VSPAEROMgrSingleton::LoadExistingVSPAEROResults()
 
 void VSPAEROMgrSingleton::ClearAllPreviousResults()
 {
+    ClearCpSliceResults();
+
     while ( ResultsMgr.GetNumResults( "VSPAERO_History" ) > 0 )
     {
         ResultsMgr.DeleteResult( ResultsMgr.FindResultsID( "VSPAERO_History",  0 ) );
+    }
+    while ( ResultsMgr.GetNumResults( "VSPAERO_Polar" ) > 0 )
+    {
+        ResultsMgr.DeleteResult( ResultsMgr.FindResultsID( "VSPAERO_Polar", 0 ) );
     }
     while ( ResultsMgr.GetNumResults( "VSPAERO_Load" ) > 0 )
     {
@@ -1623,7 +1730,7 @@ void VSPAEROMgrSingleton::ClearAllPreviousResults()
     }
 }
 
-void VSPAEROMgrSingleton::GetSweepVectors( vector<double> &alphaVec, vector<double> &betaVec, vector<double> &machVec )
+void VSPAEROMgrSingleton::GetSweepVectors( vector<double> &alphaVec, vector<double> &betaVec, vector<double> &machVec, vector<double> &recrefVec )
 {
     // grab current parm values
     double alphaStart = m_AlphaStart.Get();
@@ -1637,6 +1744,10 @@ void VSPAEROMgrSingleton::GetSweepVectors( vector<double> &alphaVec, vector<doub
     double machStart = m_MachStart.Get();
     double machEnd = m_MachEnd.Get();
     int machNpts = m_MachNpts.Get();
+
+    double recrefStart = m_ReCrefStart.Get();
+    double recrefEnd = m_ReCrefEnd.Get();
+    int recrefNpts = m_ReCrefNpts.Get();
 
     // Calculate spacing
     double alphaDelta = 0.0;
@@ -1671,6 +1782,17 @@ void VSPAEROMgrSingleton::GetSweepVectors( vector<double> &alphaVec, vector<doub
         //Set current Mach value
         machVec.push_back( machStart + double( iMach ) * machDelta );
     }
+
+    double recrefDelta = 0.0;
+    if ( recrefNpts > 1 )
+    {
+        recrefDelta = ( recrefEnd - recrefStart ) / ( recrefNpts - 1.0 );
+    }
+    for ( int iReCref = 0; iReCref < recrefNpts; iReCref++ )
+    {
+        //Set current ReCref value
+        recrefVec.push_back( recrefStart + double( iReCref ) * recrefDelta );
+    }
 }
 
 /* ComputeSolver(FILE * logFile)
@@ -1692,10 +1814,6 @@ string VSPAEROMgrSingleton::ComputeSolver( FILE * logFile )
         MessageMgr::getInstance().SendAll( errMsgData );
     }
 
-    if ( m_CpSliceFlag() )
-    {
-        ClearCpSliceResults();
-    }
     if ( m_BatchModeFlag.Get() )
     {
         return ComputeSolverBatch( logFile );
@@ -1721,6 +1839,7 @@ string VSPAEROMgrSingleton::ComputeSolverSingle( FILE * logFile )
 
         string adbFileName = m_AdbFile;
         string historyFileName = m_HistoryFile;
+        string polarFileName = m_PolarFile;
         string loadFileName = m_LoadFile;
         string stabFileName = m_StabFile;
         string modelNameBase = m_ModelNameBase;
@@ -1734,6 +1853,8 @@ string VSPAEROMgrSingleton::ComputeSolverSingle( FILE * logFile )
         bool noise_flag = m_NoiseCalcFlag.Get();
         int noise_type = m_NoiseCalcType.Get();
         int noise_unit = m_NoiseUnits.Get();
+        
+        double recref = m_ReCrefStart.Get();
 
         // Save analysis type for Cp Slicer
         m_CpSliceAnalysisType = analysisMethod;
@@ -1751,6 +1872,7 @@ string VSPAEROMgrSingleton::ComputeSolverSingle( FILE * logFile )
         int alphaNpts = m_AlphaNpts.Get();
         int betaNpts = m_BetaNpts.Get();
         int machNpts = m_MachNpts.Get();
+        int recrefNpts = m_ReCrefNpts.Get();
 
         for ( int iAlpha = 0; iAlpha < alphaNpts; iAlpha++ )
         {
@@ -1758,54 +1880,60 @@ string VSPAEROMgrSingleton::ComputeSolverSingle( FILE * logFile )
             {
                 for ( int iMach = 0; iMach < machNpts; iMach++ )
                 {
-                    //====== Modify/Update the setup file ======//
-                    CreateSetupFile();
+                    for ( int iReCref = 0; iReCref < recrefNpts; iReCref++ )
+                    {
+                        //====== Modify/Update the setup file ======//
+                        CreateSetupFile();
 
-                    //====== Clear VSPAERO output files ======//
-                    if ( FileExist( adbFileName ) )
-                    {
-                        remove( adbFileName.c_str() );
-                    }
-                    if ( FileExist( historyFileName ) )
-                    {
-                        remove( historyFileName.c_str() );
-                    }
-                    if ( FileExist( loadFileName ) )
-                    {
-                        remove( loadFileName.c_str() );
-                    }
-                    if ( FileExist( stabFileName ) )
-                    {
-                        remove( stabFileName.c_str() );
-                    }
-
-                    for ( size_t j = 0; j < group_res_vec.size(); j++ )
-                    {
-                        if ( FileExist( group_res_vec[j] ) )
+                        //====== Clear VSPAERO output files ======//
+                        if ( FileExist( adbFileName ) )
                         {
-                            remove( group_res_vec[j].c_str() );
+                            remove( adbFileName.c_str() );
                         }
-                    }
-
-                    for ( size_t j = 0; j < rotor_res_vec.size(); j++ )
-                    {
-                        if ( FileExist( rotor_res_vec[j] ) )
+                        if ( FileExist( historyFileName ) )
                         {
-                            remove( rotor_res_vec[j].c_str() );
+                            remove( historyFileName.c_str() );
                         }
-                    }
-
-                    //====== Send command to be executed by the system at the command prompt ======//
-                    vector<string> args;
-
-                    // Set number of openmp threads
-                    args.push_back( "-omp" );
-                    args.push_back( StringUtil::int_to_string( m_NCPU.Get(), "%d" ) );
-                    // Set stability run arguments
-                    if ( stabilityType != vsp::STABILITY_OFF )
-                    {
-                        switch ( stabilityType )
+                        if ( FileExist( polarFileName ) )
                         {
+                            remove( polarFileName.c_str() );
+                        }
+                        if ( FileExist( loadFileName ) )
+                        {
+                            remove( loadFileName.c_str() );
+                        }
+                        if ( FileExist( stabFileName ) )
+                        {
+                            remove( stabFileName.c_str() );
+                        }
+
+                        for ( size_t j = 0; j < group_res_vec.size(); j++ )
+                        {
+                            if ( FileExist( group_res_vec[j] ) )
+                            {
+                                remove( group_res_vec[j].c_str() );
+                            }
+                        }
+
+                        for ( size_t j = 0; j < rotor_res_vec.size(); j++ )
+                        {
+                            if ( FileExist( rotor_res_vec[j] ) )
+                            {
+                                remove( rotor_res_vec[j].c_str() );
+                            }
+                        }
+
+                        //====== Send command to be executed by the system at the command prompt ======//
+                        vector<string> args;
+
+                        // Set number of openmp threads
+                        args.push_back( "-omp" );
+                        args.push_back( StringUtil::int_to_string( m_NCPU.Get(), "%d" ) );
+                        // Set stability run arguments
+                        if ( stabilityType != vsp::STABILITY_OFF )
+                        {
+                            switch ( stabilityType )
+                            {
                             case vsp::STABILITY_DEFAULT:
                                 args.push_back( "-stab" );
                                 break;
@@ -1822,137 +1950,144 @@ string VSPAEROMgrSingleton::ComputeSolverSingle( FILE * logFile )
                                 args.push_back( "-rstab" );
                                 break;
 
-                            // === To Be Implemented ===
-                            //case vsp::STABILITY_HEAVE:
-                            //    AnalysisType = "HEAVE";
-                            //    break;
+                                // === To Be Implemented ===
+                                //case vsp::STABILITY_HEAVE:
+                                //    AnalysisType = "HEAVE";
+                                //    break;
 
-                            //case vsp::STABILITY_IMPULSE:
-                            //    AnalysisType = "IMPULSE";
-                            //    break;
-                            
-                            //case vsp::STABILITY_UNSTEADY:
-                            //    args.push_back( "-unsteady" );
-                            //    break;
+                                //case vsp::STABILITY_IMPULSE:
+                                //    AnalysisType = "IMPULSE";
+                                //    break;
+
+                                //case vsp::STABILITY_UNSTEADY:
+                                //    args.push_back( "-unsteady" );
+                                //    break;
+                            }
                         }
-                    }
 
-                    if ( m_FromSteadyState() )
-                    {
-                        args.push_back( "-fromsteadystate" );
-                    }
-
-                    if ( m_GroundEffectToggle() )
-                    {
-                        args.push_back( "-groundheight" );
-                        args.push_back( StringUtil::double_to_string( m_GroundEffect(), "%f" ) );
-                    }
-
-                    if( m_Write2DFEMFlag() )
-                    {
-                        args.push_back( "-write2dfem" );
-                    }
-
-                    if ( m_Precondition() == vsp::PRECON_JACOBI )
-                    {
-                        args.push_back( "-jacobi" );
-                    }
-                    else if ( m_Precondition() == vsp::PRECON_SSOR )
-                    {
-                        args.push_back( "-ssor" );
-                    }
-
-                    if ( m_KTCorrection() )
-                    {
-                        args.push_back( "-dokt" );
-                    }
-
-                    if ( m_RotateBladesFlag() )
-                    {
-                        args.push_back( "-unsteady" );
-
-                        if ( m_HoverRampFlag() )
+                        if ( m_FromSteadyState() )
                         {
-                            args.push_back( "-hoverramp" );
-                            args.push_back( StringUtil::double_to_string( m_HoverRamp(), "%f" ) );
+                            args.push_back( "-fromsteadystate" );
                         }
-                    }
 
-                    // Add model file name
-                    args.push_back( modelNameBase );
+                        if ( m_GroundEffectToggle() )
+                        {
+                            args.push_back( "-groundheight" );
+                            args.push_back( StringUtil::double_to_string( m_GroundEffect(), "%f" ) );
+                        }
 
-                    //Print out execute command
-                    string cmdStr = m_SolverProcess.PrettyCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
-                    if( logFile )
-                    {
-                        fprintf( logFile, "%s", cmdStr.c_str() );
-                    }
-                    else
-                    {
+                        if ( m_Write2DFEMFlag() )
+                        {
+                            args.push_back( "-write2dfem" );
+                        }
+
+                        if ( m_Precondition() == vsp::PRECON_JACOBI )
+                        {
+                            args.push_back( "-jacobi" );
+                        }
+                        else if ( m_Precondition() == vsp::PRECON_SSOR )
+                        {
+                            args.push_back( "-ssor" );
+                        }
+
+                        if ( m_KTCorrection() )
+                        {
+                            args.push_back( "-dokt" );
+                        }
+
+                        if ( m_RotateBladesFlag() )
+                        {
+                            args.push_back( "-unsteady" );
+
+                            if ( m_HoverRampFlag() )
+                            {
+                                args.push_back( "-hoverramp" );
+                                args.push_back( StringUtil::double_to_string( m_HoverRamp(), "%f" ) );
+                            }
+                        }
+
+                        // Add model file name
+                        args.push_back( modelNameBase );
+
+                        //Print out execute command
+                        string cmdStr = m_SolverProcess.PrettyCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
+                        if ( logFile )
+                        {
+                            fprintf( logFile, "%s", cmdStr.c_str() );
+                        }
+                        else
+                        {
+                            MessageData data;
+                            data.m_String = "VSPAEROSolverMessage";
+                            data.m_StringVec.push_back( cmdStr );
+                            MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
+                        }
+
+                        // Execute VSPAero
+                        m_SolverProcess.ForkCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
+
+                        // ==== MonitorSolverProcess ==== //
+                        MonitorSolver( logFile );
+
+                        // Check if the kill solver flag has been raised, if so clean up and return
+                        //  note: we could have exited the IsRunning loop if the process was killed
+                        if ( m_SolverProcessKill )
+                        {
+                            m_SolverProcessKill = false;    //reset kill flag
+
+                            return string();    //return empty result ID vector
+                        }
+
+                        //====== Read in all of the results ======//
+                        // read the files if there is new data that has not successfully been read in yet
+                        ReadHistoryFile( historyFileName, res_id_vector, analysisMethod, recref );
+
+                        if ( stabilityType == vsp::STABILITY_OFF )
+                        {
+                            ReadPolarFile( polarFileName, res_id_vector, recref ); // Must be after *.history file is read to generate results for multiple ReCref values
+                        }
+
+                        ReadLoadFile( loadFileName, res_id_vector, analysisMethod );
+
+                        if ( stabilityType != vsp::STABILITY_OFF )
+                        {
+                            ReadStabFile( stabFileName, res_id_vector, analysisMethod, stabilityType );      //*.STAB stability coeff file
+                        }
+
+                        // CpSlice Latest *.adb File if slices are defined
+                        if ( m_CpSliceFlag() && m_CpSliceVec.size() > 0 )
+                        {
+                            ComputeCpSlices();
+                        }
+
+                        if ( unsteady_flag )
+                        {
+                            for ( size_t j = 0; j < group_res_vec.size(); j++ )
+                            {
+                                ReadGroupResFile( group_res_vec[j], res_id_vector, unsteady_group_name_vec[j] );
+                            }
+
+                            int offset = group_res_vec.size() - rotor_res_vec.size();
+
+                            for ( size_t j = 0; j < rotor_res_vec.size(); j++ )
+                            {
+                                ReadGroupResFile( rotor_res_vec[j], res_id_vector, unsteady_group_name_vec[j + offset] );
+                            }
+
+                            if ( noise_flag )
+                            {
+                                ExecuteNoiseAnalysis( logFile, noise_type, noise_unit );
+                            }
+                        }
+
+                        // Send the message to update the screens
                         MessageData data;
-                        data.m_String = "VSPAEROSolverMessage";
-                        data.m_StringVec.push_back( cmdStr );
+                        data.m_String = "UpdateAllScreens";
                         MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
-                    }
 
-                    // Execute VSPAero
-                    m_SolverProcess.ForkCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
+                        m_iCase++; // Increment VSPAERO case index
 
-                    // ==== MonitorSolverProcess ==== //
-                    MonitorSolver( logFile );
-
-                    // Check if the kill solver flag has been raised, if so clean up and return
-                    //  note: we could have exited the IsRunning loop if the process was killed
-                    if( m_SolverProcessKill )
-                    {
-                        m_SolverProcessKill = false;    //reset kill flag
-
-                        return string();    //return empty result ID vector
-                    }
-
-                    //====== Read in all of the results ======//
-                    // read the files if there is new data that has not successfully been read in yet
-                    ReadHistoryFile( historyFileName, res_id_vector, analysisMethod );
-
-                    ReadLoadFile( loadFileName, res_id_vector, analysisMethod );
-
-                    if ( stabilityType != vsp::STABILITY_OFF )
-                    {
-                        ReadStabFile( stabFileName, res_id_vector, analysisMethod, stabilityType );      //*.STAB stability coeff file
-                    }
-
-                    // CpSlice Latest *.adb File if slices are defined
-                    if ( m_CpSliceFlag() && m_CpSliceVec.size() > 0 )
-                    {
-                        ComputeCpSlices();
-                    }
-
-                    if ( unsteady_flag )
-                    {
-                        for ( size_t j = 0; j < group_res_vec.size(); j++ )
-                        {
-                            ReadGroupResFile( group_res_vec[j], res_id_vector, unsteady_group_name_vec[j] );
-                        }
-
-                        int offset = group_res_vec.size() - rotor_res_vec.size();
-
-                        for ( size_t j = 0; j < rotor_res_vec.size(); j++ )
-                        {
-                            ReadGroupResFile( rotor_res_vec[j], res_id_vector, unsteady_group_name_vec[j + offset] );
-                        }
-
-                        if ( noise_flag )
-                        {
-                            ExecuteNoiseAnalysis( logFile, noise_type, noise_unit );
-                        }
-                    }
-
-                    // Send the message to update the screens
-                    MessageData data;
-                    data.m_String = "UpdateAllScreens";
-                    MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
-
-                    m_iCase++; // Increment VSPAERO case index
+                    } //ReCref sweep loop
 
                 }    //Mach sweep loop
 
@@ -1988,6 +2123,7 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
 
         string adbFileName = m_AdbFile;
         string historyFileName = m_HistoryFile;
+        string polarFileName = m_PolarFile;
         string loadFileName = m_LoadFile;
         string stabFileName = m_StabFile;
         string modelNameBase = m_ModelNameBase;
@@ -2002,6 +2138,8 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
         bool noise_flag = m_NoiseCalcFlag.Get();
         int noise_type = m_NoiseCalcType.Get();
         int noise_unit = m_NoiseUnits.Get();
+
+        double recref = m_ReCrefStart.Get();
 
         // Save analysis type for Cp Slicer
         m_CpSliceAnalysisType = analysisMethod;
@@ -2030,6 +2168,10 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
         if ( FileExist( historyFileName ) )
         {
             remove( historyFileName.c_str() );
+        }
+        if ( FileExist( polarFileName ) )
+        {
+            remove( polarFileName.c_str() );
         }
         if ( FileExist( loadFileName ) )
         {
@@ -2173,7 +2315,12 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
         }
 
         //====== Read in all of the results ======//
-        ReadHistoryFile( historyFileName, res_id_vector, analysisMethod );
+        ReadHistoryFile( historyFileName, res_id_vector, analysisMethod, recref );
+
+        if ( stabilityType == vsp::STABILITY_OFF )
+        {
+            ReadPolarFile( polarFileName, res_id_vector, recref ); // Must be after *.history file is read to generate results for multiple ReCref values
+        }
 
         ReadLoadFile( loadFileName, res_id_vector, analysisMethod );
 
@@ -2334,7 +2481,7 @@ line 4407 - void VSP_SOLVER::OutputZeroLiftDragToStatusFile(void)
 TODO:
 - Update this function to use the generic table read as used in: string VSPAEROMgrSingleton::ReadStabFile()
 *******************************************************/
-void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res_id_vector, vsp::VSPAERO_ANALYSIS_METHOD analysisMethod )
+void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res_id_vector, vsp::VSPAERO_ANALYSIS_METHOD analysisMethod, double recref )
 {
     //TODO return success or failure
     FILE *fp = NULL;
@@ -2370,6 +2517,7 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
                 return;
             }
 
+            res->Add( NameValData( "FC_ReCref_", recref ) );
         }
 
         //READ wake iteration table
@@ -2379,24 +2527,22 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
         2   0.00000   1.00000   0.00000   0.03329   0.00364   0.00009   0.00373  -0.00000   8.93494 394.87228  -0.00049  -0.00000   0.03328  -0.00000  -0.09834  -0.00000   0.00000
         ...
         */
-        int wake_iter_table_columns = 18;
-
-        bool unsteady_prop = false;
+        int wake_iter_table_columns = 19;
+        int num_unsteady_pqr_col = 20;
+        bool unsteady_flag = false;
         bool unsteady_pqr = false;
-        int num_unsteady_prop_col = 27; // TODO: Why is unsteady angle not included in unsteady analysis???
-        int num_unsteady_pqr_col = 28;
 
-        if ( data_string_array.size() == num_unsteady_prop_col )
-        {
-            unsteady_prop = true;
-        }
-        else if ( data_string_array.size() == num_unsteady_pqr_col )
+        if ( data_string_array.size() == num_unsteady_pqr_col )
         {
             unsteady_pqr = true;
         }
 
         if( data_string_array.size() >= wake_iter_table_columns )
         {
+            if ( strcmp( data_string_array[0].c_str(), "Time" ) == 0 )
+            {
+                unsteady_flag = true;
+            }
             //discard the header row and read the next line assuming that it is numeric
             data_string_array = ReadDelimLine( fp, seps );
 
@@ -2419,21 +2565,13 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
             std::vector<double> CMx;
             std::vector<double> CMy;
             std::vector<double> CMz;
+            std::vector<double> CDtrefftz;
             std::vector<double> ToQS;
             std::vector<double> UnstdAng;
-            std::vector<double> CL_Un;
-            std::vector<double> CDi_Un;
-            std::vector<double> CS_Un;
-            std::vector<double> CFx_Un;
-            std::vector<double> CFy_Un;
-            std::vector<double> CFz_Un;
-            std::vector<double> CMx_Un;
-            std::vector<double> CMy_Un;
-            std::vector<double> CMz_Un;
 
             while ( data_string_array.size() >= wake_iter_table_columns )
             {
-                if ( unsteady_prop || unsteady_pqr )
+                if ( unsteady_flag )
                 {
                     time.push_back( std::stod( data_string_array[0] ) );
                 }
@@ -2464,26 +2602,11 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
                 CMz.push_back(      std::stod( data_string_array[16] ) );
 
                 ToQS.push_back(     std::stod( data_string_array[17] ) );
+                CDtrefftz.push_back( std::stod( data_string_array[18] ) );
 
-                if ( unsteady_prop || unsteady_pqr ) // Additional columns for unsteady analysis
+                if ( unsteady_pqr ) // Additional columns for pqr analysis
                 {
-                    int data_index = 18;
-
-                    if ( unsteady_pqr )
-                    {
-                        UnstdAng.push_back( std::stod( data_string_array[data_index] ) );
-                        data_index += 1;
-                    }
-
-                    CL_Un.push_back( std::stod( data_string_array[data_index] ) );
-                    CDi_Un.push_back( std::stod( data_string_array[data_index + 1] ) );
-                    CS_Un.push_back( std::stod( data_string_array[data_index + 2] ) );
-                    CFx_Un.push_back( std::stod( data_string_array[data_index + 3] ) );
-                    CFy_Un.push_back( std::stod( data_string_array[data_index + 4] ) );
-                    CFz_Un.push_back( std::stod( data_string_array[data_index + 5] ) );
-                    CMx_Un.push_back( std::stod( data_string_array[data_index + 6] ) );
-                    CMy_Un.push_back( std::stod( data_string_array[data_index + 7] ) );
-                    CMz_Un.push_back( std::stod( data_string_array[data_index + 8] ) );
+                    UnstdAng.push_back( std::stod( data_string_array[19] ) );
                 }
 
                 data_string_array = ReadDelimLine( fp, seps );
@@ -2492,7 +2615,7 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
             //add to the results manager
             if ( res )
             {
-                if ( unsteady_prop || unsteady_pqr )
+                if ( unsteady_flag || unsteady_pqr )
                 {
                     res->Add( NameValData( "Time", time ) );
                 }
@@ -2517,22 +2640,11 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
                 res->Add( NameValData( "CMy", CMy ) );
                 res->Add( NameValData( "CMz", CMz ) );
                 res->Add( NameValData( "T/QS", ToQS ) );
+                res->Add( NameValData( "CDtrefftz", CDtrefftz ) );
 
-                if ( unsteady_prop || unsteady_pqr )
+                if ( unsteady_pqr )
                 {
-                    if ( unsteady_pqr )
-                    {
-                        res->Add( NameValData( "UnstdyAng", UnstdAng ) );
-                    }
-                    res->Add( NameValData( "CL_Un", CL_Un ) );
-                    res->Add( NameValData( "CDi_Un", CDi_Un ) );
-                    res->Add( NameValData( "CS_Un", CS_Un ) );
-                    res->Add( NameValData( "CFx_Un", CFx_Un ) );
-                    res->Add( NameValData( "CFy_Un", CFy_Un ) );
-                    res->Add( NameValData( "CFz_Un", CFz_Un ) );
-                    res->Add( NameValData( "CMx_Un", CMx_Un ) );
-                    res->Add( NameValData( "CMy_Un", CMy_Un ) );
-                    res->Add( NameValData( "CMz_Un", CMz_Un ) );
+                    res->Add( NameValData( "UnstdyAng", UnstdAng ) );
                 }
             }
 
@@ -2541,6 +2653,237 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
     } //end feof loop to read entire history file
 
     fclose ( fp );
+
+    return;
+}
+
+/*******************************************************
+Read .polar file output from VSPAERO
+See: VSP_Solver.C in vspaero project
+*******************************************************/
+void VSPAEROMgrSingleton::ReadPolarFile( string filename, vector <string> &res_id_vector, double recref )
+{
+    FILE *fp = NULL;
+    bool read_success = false;
+    WaitForFile( filename );
+    fp = fopen( filename.c_str(), "r" );
+    if ( fp == NULL )
+    {
+        fprintf( stderr, "ERROR %d: Could not open Polar file: %s\n\tFile: %s \tLine:%d\n", vsp::VSP_FILE_DOES_NOT_EXIST, m_PolarFile.c_str(), __FILE__, __LINE__ );
+        return;
+    }
+
+    Results* res = NULL;
+
+    std::vector<string> table_column_names;
+    std::vector<string> data_string_array;
+
+    int num_polar_col = 21; // number of columns in the file
+
+    double tol = 1e-8; // tolerance for comparing values to account for machine precision errors
+    int num_history_res = ResultsMgr.GetNumResults( "VSPAERO_History" );
+
+    // Read in all of the data into the results manager
+    char seps[] = " :,\t\n";
+    while ( !feof( fp ) )
+    {
+        data_string_array = ReadDelimLine( fp, seps ); //this is also done in some of the embedded loops below
+
+        if ( num_polar_col == data_string_array.size() )
+        {
+            if ( data_string_array[0].find( "Beta" ) != std::string::npos )
+            {
+                res = ResultsMgr.CreateResults( "VSPAERO_Polar" );
+
+                if ( res )
+                {
+                    data_string_array = ReadDelimLine( fp, seps );
+
+                    std::vector<double> Beta;
+                    std::vector<double> Mach;
+                    std::vector<double> Alpha;
+                    std::vector<double> Re_1e6;
+                    std::vector<double> CL;
+                    std::vector<double> CDo;
+                    std::vector<double> CDi;
+                    std::vector<double> CDtot;
+                    std::vector<double> CS;
+                    std::vector<double> L_D;
+                    std::vector<double> E;
+                    std::vector<double> CFx;
+                    std::vector<double> CFy;
+                    std::vector<double> CFz;
+                    std::vector<double> CMx;
+                    std::vector<double> CMy;
+                    std::vector<double> CMz;
+                    std::vector<double> CMl;
+                    std::vector<double> CMm;
+                    std::vector<double> CMn;
+                    std::vector<double> Fopt;
+
+                    while ( num_polar_col == data_string_array.size() )
+                    {
+                        Beta.push_back( std::stod( data_string_array[0] ) );
+                        Mach.push_back( std::stod( data_string_array[1] ) );
+                        Alpha.push_back( std::stod( data_string_array[2] ) );
+                        Re_1e6.push_back( std::stod( data_string_array[3] ) );
+                        CL.push_back( std::stod( data_string_array[4] ) );
+                        CDo.push_back( std::stod( data_string_array[5] ) );
+                        CDi.push_back( std::stod( data_string_array[6] ) );
+                        CDtot.push_back( std::stod( data_string_array[7] ) );
+                        CS.push_back( std::stod( data_string_array[8] ) );
+                        L_D.push_back( std::stod( data_string_array[9] ) );
+                        E.push_back( std::stod( data_string_array[10] ) );
+                        CFx.push_back( std::stod( data_string_array[11] ) );
+                        CFy.push_back( std::stod( data_string_array[12] ) );
+                        CFz.push_back( std::stod( data_string_array[13] ) );
+                        CMx.push_back( std::stod( data_string_array[14] ) );
+                        CMy.push_back( std::stod( data_string_array[15] ) );
+                        CMz.push_back( std::stod( data_string_array[16] ) );
+                        CMl.push_back( std::stod( data_string_array[17] ) );
+                        CMm.push_back( std::stod( data_string_array[18] ) );
+                        CMn.push_back( std::stod( data_string_array[19] ) );
+                        Fopt.push_back( std::stod( data_string_array[20] ) );
+
+                        if ( ( abs( ( 1e6 * Re_1e6.back() ) - recref ) > tol ) && num_history_res > 0 )
+                        {
+                            // Find histroy result with matching mach, beta, and alpha
+                            for ( size_t i = 0; i < num_history_res; i++ )
+                            {
+                                Results* history_res = ResultsMgr.FindResults( "VSPAERO_History", i );
+
+                                if ( !history_res )
+                                {
+                                    continue;
+                                }
+
+                                NameValData* mach_ptr = history_res->FindPtr( "FC_Mach_" );
+                                NameValData* alpha_ptr = history_res->FindPtr( "Alpha" );
+                                NameValData* beta_ptr = history_res->FindPtr( "FC_Beta_" );
+
+                                if ( !mach_ptr || !alpha_ptr || !beta_ptr )
+                                {
+                                    continue;
+                                }
+
+                                double mach = mach_ptr->GetDouble( 0 );
+                                double alpha = alpha_ptr->GetDouble( 0 );
+                                double beta = beta_ptr->GetDouble( 0 );
+
+                                if ( mach <= ( 0.001 + tol ) )
+                                {
+                                    // Mach is reported as 0 in the polar but 0.001 in the history file
+                                    mach = 0;
+                                }
+
+                                if ( ( abs( mach - Mach.back() ) < tol ) && ( abs( alpha - Alpha.back() ) < tol ) && ( abs( beta - Beta.back() ) < tol ) )
+                                {
+                                    // Generate new *.history results for mulitple ReCref inputs since VSPAERO only outputs a result for the first ReCref
+                                    Results* new_history_res = ResultsMgr.CreateResults( "VSPAERO_History" );
+                                    res_id_vector.push_back( new_history_res->GetID() );
+
+                                    new_history_res->Add( NameValData( "FC_ReCref_", ( 1e6 * Re_1e6.back() ) ) );
+
+                                    int num_wake = (int)alpha_ptr->GetDoubleData().size();
+
+                                    NameValData* cdo_ptr = history_res->FindPtr( "CDo" );
+                                    NameValData* cdtot_ptr = history_res->FindPtr( "CDtot" );
+                                    NameValData* l_d_ptr = history_res->FindPtr( "L/D" );
+
+                                    vector < string > data_names = history_res->GetAllDataNames();
+
+                                    // Copy ReCref dependent results from polar to history file. Copy non-dependent results from 
+                                    // history case that matches alpha, beta, and mach
+                                    for ( size_t j = 0; j < data_names.size(); j++ )
+                                    {
+                                        // Calculate wake iteration convergence differences - ReCref scales CDo, CDtot, and L_D
+                                        if ( cdo_ptr && strcmp( data_names[j].c_str(), "CDo" ) == 0 )
+                                        {
+                                            vector < double > history_cdo_vec = cdo_ptr->GetDoubleData();
+                                            vector < double > cdo_vec( num_wake, CDo.back() );
+
+                                            for ( size_t k = 0; k < history_cdo_vec.size() - 1; k++ )
+                                            {
+                                                cdo_vec[k] = cdo_vec[k] - ( history_cdo_vec.back() - history_cdo_vec[k] );
+                                            }
+
+                                            new_history_res->Add( ( NameValData( data_names[j].c_str(), cdo_vec ) ) );
+                                        }
+                                        else if ( cdtot_ptr && strcmp( data_names[j].c_str(), "CDtot" ) == 0 )
+                                        {
+                                            vector < double > history_ctot_vec = cdtot_ptr->GetDoubleData();
+                                            vector < double > ctot_vec( num_wake, CDtot.back() );
+
+                                            for ( size_t k = 0; k < history_ctot_vec.size() - 1; k++ )
+                                            {
+                                                ctot_vec[k] = ctot_vec[k] - ( history_ctot_vec.back() - history_ctot_vec[k] );
+                                            }
+
+                                            new_history_res->Add( ( NameValData( data_names[j].c_str(), ctot_vec ) ) );
+                                        }
+                                        else if ( l_d_ptr && strcmp( data_names[j].c_str(), "L/D" ) == 0 )
+                                        {
+                                            vector < double > history_l_d_vec = l_d_ptr->GetDoubleData();
+                                            vector < double > ld_vec( num_wake, L_D.back() );
+
+                                            for ( size_t k = 0; k < history_l_d_vec.size() - 1; k++ )
+                                            {
+                                                ld_vec[k] = ld_vec[k] - ( history_l_d_vec.back() - history_l_d_vec[k] );
+                                            }
+
+                                            new_history_res->Add( ( NameValData( data_names[j].c_str(), ld_vec ) ) );
+                                        }
+                                        else if ( strcmp( data_names[j].c_str(), "FC_ReCref_" ) != 0 )
+                                        {
+                                            NameValData* nvd = history_res->FindPtr( data_names[j] );
+                                            if ( !nvd )
+                                            {
+                                                continue;
+                                            }
+
+                                            new_history_res->Copy( nvd );
+                                        }
+                                    }
+
+                                    break;
+                                }
+                            }
+                        }
+
+                        data_string_array = ReadDelimLine( fp, seps );
+                    }
+
+                    res->Add( NameValData( "Beta", Beta ) );
+                    res->Add( NameValData( "Mach", Mach ) );
+                    res->Add( NameValData( "Alpha", Alpha ) );
+                    res->Add( NameValData( "Re_1e6", Re_1e6 ) );
+                    res->Add( NameValData( "CL", CL ) );
+                    res->Add( NameValData( "CDo", CDo ) );
+                    res->Add( NameValData( "CDi", CDi ) );
+                    res->Add( NameValData( "CDtot", CDtot ) );
+                    res->Add( NameValData( "CS", CS ) );
+                    res->Add( NameValData( "L_D", L_D ) );
+                    res->Add( NameValData( "E", E ) );
+                    res->Add( NameValData( "CFx", CFx ) );
+                    res->Add( NameValData( "CFy", CFy ) );
+                    res->Add( NameValData( "CFz", CFz ) );
+                    res->Add( NameValData( "CMx", CMx ) );
+                    res->Add( NameValData( "CMy", CMy ) );
+                    res->Add( NameValData( "CMz", CMz ) );
+                    res->Add( NameValData( "CMl", CMl ) );
+                    res->Add( NameValData( "CMm", CMm ) );
+                    res->Add( NameValData( "CMn", CMn ) );
+                    res->Add( NameValData( "Fopt", Fopt ) );
+
+                    // Add results at the end to keep new VSPAERO_HIstory results together in the CSV export
+                    res_id_vector.push_back( res->GetID() );
+                }
+            }
+        }
+
+    } //end for while !feof(fp)
+
+    std::fclose( fp );
 
     return;
 }
@@ -2595,7 +2938,8 @@ void VSPAEROMgrSingleton::ReadLoadFile( string filename, vector <string> &res_id
         }
 
         // Sectional distribution table
-        int nSectionalDataTableCols = 14;
+        int nSectionalDataTableCols = 16;
+        int nCompDataTableCols = 14;
         if ( data_string_array.size() == nSectionalDataTableCols && !sectional_data_complete && !isdigit( data_string_array[0][0] ) )
         {
             //discard the header row and read the next line assuming that it is numeric
@@ -2604,7 +2948,9 @@ void VSPAEROMgrSingleton::ReadLoadFile( string filename, vector <string> &res_id
             // Raw data vectors
             std::vector<int> WingId;
             std::vector<double> S;
-            std::vector<double> Yavg;
+            std::vector<double> Xavg;
+            std::vector<double> Yavg; // FIXME: Not found in file any more???
+            std::vector<double> Zavg;
             std::vector<double> Chord;
             std::vector<double> VoVref;
             std::vector<double> Cl;
@@ -2636,18 +2982,20 @@ void VSPAEROMgrSingleton::ReadLoadFile( string filename, vector <string> &res_id
                 // Store the raw data
                 WingId.push_back( std::stoi( data_string_array[0] ) );
                 S.push_back( std::stod( data_string_array[1] ) );
-                Yavg.push_back(   std::stod( data_string_array[2] ) );
-                Chord.push_back(  std::stod( data_string_array[3] ) );
-                VoVref.push_back( std::stod( data_string_array[4] ) );
-                Cl.push_back(     std::stod( data_string_array[5] ) );
-                Cd.push_back(     std::stod( data_string_array[6] ) );
-                Cs.push_back(     std::stod( data_string_array[7] ) );
-                Cx.push_back(     std::stod( data_string_array[8] ) );
-                Cy.push_back(     std::stod( data_string_array[9] ) );
-                Cz.push_back(     std::stod( data_string_array[10] ) );
-                Cmx.push_back(    std::stod( data_string_array[11] ) );
-                Cmy.push_back(    std::stod( data_string_array[12] ) );
-                Cmz.push_back(    std::stod( data_string_array[13] ) );
+                Xavg.push_back( std::stod( data_string_array[2] ) );
+                Yavg.push_back(   std::stod( data_string_array[3] ) );
+                Zavg.push_back( std::stod( data_string_array[4] ) );
+                Chord.push_back(  std::stod( data_string_array[5] ) );
+                VoVref.push_back( std::stod( data_string_array[6] ) );
+                Cl.push_back(     std::stod( data_string_array[7] ) );
+                Cd.push_back(     std::stod( data_string_array[8] ) );
+                Cs.push_back(     std::stod( data_string_array[9] ) );
+                Cx.push_back(     std::stod( data_string_array[10] ) );
+                Cy.push_back(     std::stod( data_string_array[11] ) );
+                Cz.push_back(     std::stod( data_string_array[12] ) );
+                Cmx.push_back(    std::stod( data_string_array[13] ) );
+                Cmy.push_back(    std::stod( data_string_array[14] ) );
+                Cmz.push_back(    std::stod( data_string_array[15] ) );
 
                 chordRatio = Chord.back() / cref;
 
@@ -2669,10 +3017,12 @@ void VSPAEROMgrSingleton::ReadLoadFile( string filename, vector <string> &res_id
             // Finish up by adding the data to the result res
             res->Add( NameValData( "WingId", WingId ) );
             res->Add( NameValData( "S", S ) );
-            res->Add( NameValData( "Yavg", Yavg ) );
+            res->Add( NameValData( "Xavg", Xavg ) );
+            res->Add( NameValData( "Yavg", Yavg ) ); // FIXME: Not found in file any more??
+            res->Add( NameValData( "Zavg", Zavg ) );
             res->Add( NameValData( "Chord", Chord ) );
             res->Add( NameValData( "V/Vref", VoVref ) );
-            res->Add( NameValData( "cl", Cl ) );
+            res->Add( NameValData( "cl", Cl ) ); // FIXME: Not found in file any more??
             res->Add( NameValData( "cd", Cd ) );
             res->Add( NameValData( "cs", Cs ) );
             res->Add( NameValData( "cx", Cx ) );
@@ -2695,8 +3045,9 @@ void VSPAEROMgrSingleton::ReadLoadFile( string filename, vector <string> &res_id
             sectional_data_complete = true;
 
         } // end sectional table read
-        else if ( data_string_array.size() == nSectionalDataTableCols && sectional_data_complete && !isdigit( data_string_array[0][0] ) )
+        else if ( data_string_array.size() == nCompDataTableCols && sectional_data_complete && data_string_array[0].find( "Comp" ) != std::string::npos )
         {
+            // "Comp" section of *.lod file
             res = ResultsMgr.CreateResults( "VSPAERO_Comp_Load" );
             res_id_vector.push_back( res->GetID() );
 
@@ -2720,23 +3071,34 @@ void VSPAEROMgrSingleton::ReadLoadFile( string filename, vector <string> &res_id
             std::vector<double> Cmz;
 
             // read the data rows
-            while ( data_string_array.size() == nSectionalDataTableCols )
+            while ( ( data_string_array.size() >= nCompDataTableCols - 1 ) && ( data_string_array.size() <= nCompDataTableCols ) )
             {
                 // Store the raw data
-                Comp.push_back( std::stoi( data_string_array[0] ) );
-                Comp_Name.push_back( data_string_array[1] );
-                Mach.push_back( std::stod( data_string_array[2] ) );
-                AoA.push_back( std::stod( data_string_array[3] ) );
-                Beta.push_back( std::stod( data_string_array[4] ) );
-                CL.push_back( std::stod( data_string_array[5] ) );
-                CDi.push_back( std::stod( data_string_array[6] ) );
-                Cs.push_back( std::stod( data_string_array[7] ) );
-                CFx.push_back( std::stod( data_string_array[8] ) );
-                CFy.push_back( std::stod( data_string_array[9] ) );
-                CFz.push_back( std::stod( data_string_array[10] ) );
-                Cmx.push_back( std::stod( data_string_array[11] ) );
-                Cmy.push_back( std::stod( data_string_array[12] ) );
-                Cmz.push_back( std::stod( data_string_array[13] ) );
+                size_t j = 0;
+                Comp.push_back( std::stoi( data_string_array[j++] ) );
+
+                if ( data_string_array.size() == nCompDataTableCols - 1 )
+                {
+                    // Condition if no body-type componenets in *.vspgeom input
+                    Comp_Name.push_back( "NONE" );
+                }
+                else
+                {
+                    Comp_Name.push_back( data_string_array[j++] );
+                }
+
+                Mach.push_back( std::stod( data_string_array[j++] ) );
+                AoA.push_back( std::stod( data_string_array[j++] ) );
+                Beta.push_back( std::stod( data_string_array[j++] ) );
+                CL.push_back( std::stod( data_string_array[j++] ) );
+                CDi.push_back( std::stod( data_string_array[j++] ) );
+                Cs.push_back( std::stod( data_string_array[j++] ) );
+                CFx.push_back( std::stod( data_string_array[j++] ) );
+                CFy.push_back( std::stod( data_string_array[j++] ) );
+                CFz.push_back( std::stod( data_string_array[j++] ) );
+                Cmx.push_back( std::stod( data_string_array[j++] ) );
+                Cmy.push_back( std::stod( data_string_array[j++] ) );
+                Cmz.push_back( std::stod( data_string_array[j++] ) );
 
                 // Read the next line and loop
                 data_string_array = ReadDelimLine( fp, seps );
@@ -3594,9 +3956,9 @@ void VSPAEROMgrSingleton::ClearCpSliceResults()
     {
         ResultsMgr.DeleteResult( ResultsMgr.FindResultsID( "CpSlicer_Case", 0 ) );
     }
-    while ( ResultsMgr.GetNumResults( "CpSlicer_Wrapper" ) > 0 )
+    while ( ResultsMgr.GetNumResults( "CpSlice_Wrapper" ) > 0 )
     {
-        ResultsMgr.DeleteResult( ResultsMgr.FindResultsID( "CpSlicer_Wrapper", 0 ) );
+        ResultsMgr.DeleteResult( ResultsMgr.FindResultsID( "CpSlice_Wrapper", 0 ) );
     }
 }
 
@@ -4137,6 +4499,7 @@ void VSPAEROMgrSingleton::UpdateParmRestrictions()
         m_AlphaNpts.Set( 1 );
         m_BetaNpts.Set( 1 );
         m_MachNpts.Set( 1 );
+        m_ReCrefNpts.Set( 1 );
         m_StabilityType.Set( vsp::STABILITY_OFF );
     }
 }
@@ -4577,9 +4940,9 @@ void VSPAEROMgrSingleton::ReadGroupResFile( string filename, vector <string> &re
     size_t last_index = filename.find_last_not_of( "0123456789" );
     int group_num = stoi( filename.substr( last_index + 1 ) );
 
-    //"   Time        Cx         Cy         Cz        Cxo        Cyo        Czo        Cxi        Cyi        Czi        Cmx        Cmy        Cmz        Cmxo       Cmyo       Cmzo       Cmxi       Cmyi       Cmzi        CL         CD        CLo        CDo        CLi        CDi"
+    // Time        Cx         Cy         Cz        Cxo        Cyo        Czo        Cxi        Cyi        Czi        Cmx        Cmy        Cmz        Cmxo       Cmyo       Cmzo       Cmxi       Cmyi       Cmzi        CL         CD         CS        CLo        CDo        CSo        CLi        CDi        CSi
     std::vector<string> data_string_array;
-    int num_data_col = 25;
+    int num_data_col = 28;
 
     // Read in all of the data into the results manager
     char seps[] = " :,\t\n";
@@ -4609,7 +4972,7 @@ void VSPAEROMgrSingleton::ReadGroupResFile( string filename, vector <string> &re
             // Raw data vectors
             std::vector < double > Time, Cx, Cy, Cz, Cxo, Cyo, Czo, Cxi, Cyi, Czi;
             std::vector < double > Cmx, Cmy, Cmz, Cmxo, Cmyo, Cmzo, Cmxi, Cmyi, Cmzi;
-            std::vector < double > CL, CD, CLo, CDo, CLi, CDi;
+            std::vector < double > CL, CD, CLo, CDo, CLi, CDi, CS, CSo, CSi;
 
             // read the data rows
             while ( data_string_array.size() == num_data_col ) //&& data_string_array[0].find( "Comp" ) == std::string::npos
@@ -4636,10 +4999,13 @@ void VSPAEROMgrSingleton::ReadGroupResFile( string filename, vector <string> &re
                 Cmzi.push_back( std::stod( data_string_array[18] ) );
                 CL.push_back( std::stod( data_string_array[19] ) );
                 CD.push_back( std::stod( data_string_array[20] ) );
-                CLo.push_back( std::stod( data_string_array[21] ) );
-                CDo.push_back( std::stod( data_string_array[22] ) );
-                CLi.push_back( std::stod( data_string_array[23] ) );
-                CDi.push_back( std::stod( data_string_array[24] ) );
+                CS.push_back( std::stod( data_string_array[21] ) );
+                CLo.push_back( std::stod( data_string_array[22] ) );
+                CDo.push_back( std::stod( data_string_array[23] ) );
+                CSo.push_back( std::stod( data_string_array[24] ) );
+                CLi.push_back( std::stod( data_string_array[25] ) );
+                CDi.push_back( std::stod( data_string_array[26] ) );
+                CSi.push_back( std::stod( data_string_array[27] ) );
 
                 // Read the next line and loop
                 data_string_array = ReadDelimLine( fp, seps );
@@ -4667,10 +5033,13 @@ void VSPAEROMgrSingleton::ReadGroupResFile( string filename, vector <string> &re
             res->Add( NameValData( "Cmzi", Cmzi ) );
             res->Add( NameValData( "CL", CL ) );
             res->Add( NameValData( "CD", CD ) );
+            res->Add( NameValData( "CS", CS ) );
             res->Add( NameValData( "CLo", CLo ) );
             res->Add( NameValData( "CDo", CDo ) );
+            res->Add( NameValData( "CSo", CSo ) );
             res->Add( NameValData( "CLi", CLi ) );
             res->Add( NameValData( "CDi", CDi ) );
+            res->Add( NameValData( "CDi", CSi ) );
 
         } //end for while !feof(fp)
     }
@@ -4702,8 +5071,8 @@ void VSPAEROMgrSingleton::ReadRotorResFile( string filename, vector <string> &re
     size_t last_index = filename.find_last_not_of( "0123456789" );
     int rotor_num = stoi( filename.substr( last_index + 1 ) );
 
-    // Time       Diameter     RPM       Thrust    Thrusto    Thrusti     Moment     Momento    Momenti      J          CT         CQ         CP        EtaP       CT_H       CQ_H       CP_H       FOM        Angle
-    int num_tot_history_data_col = 19;
+    // Time       Diameter     RPM       Thrust    Thrusto    Thrusti     Power      Powero     Poweri     Moment     Momento    Momenti      J          CT         CQ         CP        EtaP       CT_H       CQ_H       CP_H       FOM        Angle
+    int num_tot_history_data_col = 22;
 
     // Station     S       Chord     Area      V/Vref   Diameter    RPM      TipVel       CNo_H         CSo_H         CTo_H         CQo_H         CPo_H         CN_H          CS_H          CT_H          CQ_H          CP_H
     int num_load_avg_data_col = 18;
@@ -4772,7 +5141,7 @@ void VSPAEROMgrSingleton::ReadRotorResFile( string filename, vector <string> &re
             if ( data_string_array.size() == num_tot_history_data_col )
             {
                 // Raw data vectors
-                std::vector < double > Time, Diameter, RPM, Thrust, Thrusto, Thrusti, Moment, Momento, Momenti;
+                std::vector < double > Time, Diameter, RPM, Thrust, Thrusto, Thrusti, Moment, Momento, Momenti, Power, Powero, Poweri;
                 std::vector < double > J, CT, CQ, CP, EtaP; // Prop coefficients
                 std::vector < double > CT_H, CQ_H, CP_H, FOM, Angle; // Rotor coefficients
 
@@ -4786,19 +5155,22 @@ void VSPAEROMgrSingleton::ReadRotorResFile( string filename, vector <string> &re
                     Thrust.push_back( std::stod( data_string_array[3] ) );
                     Thrusto.push_back( std::stod( data_string_array[4] ) );
                     Thrusti.push_back( std::stod( data_string_array[5] ) );
-                    Moment.push_back( std::stod( data_string_array[6] ) );
-                    Momento.push_back( std::stod( data_string_array[7] ) );
-                    Momenti.push_back( std::stod( data_string_array[8] ) );
-                    J.push_back( std::stod( data_string_array[9] ) );
-                    CT.push_back( std::stod( data_string_array[10] ) );
-                    CQ.push_back( std::stod( data_string_array[11] ) );
-                    CP.push_back( std::stod( data_string_array[12] ) );
-                    EtaP.push_back( std::stod( data_string_array[13] ) );
-                    CT_H.push_back( std::stod( data_string_array[14] ) );
-                    CQ_H.push_back( std::stod( data_string_array[15] ) );
-                    CP_H.push_back( std::stod( data_string_array[16] ) );
-                    FOM.push_back( std::stod( data_string_array[17] ) );
-                    Angle.push_back( std::stod( data_string_array[18] ) );
+                    Power.push_back( std::stod( data_string_array[6] ) );
+                    Powero.push_back( std::stod( data_string_array[7] ) );
+                    Poweri.push_back( std::stod( data_string_array[8] ) );
+                    Moment.push_back( std::stod( data_string_array[9] ) );
+                    Momento.push_back( std::stod( data_string_array[10] ) );
+                    Momenti.push_back( std::stod( data_string_array[11] ) );
+                    J.push_back( std::stod( data_string_array[12] ) );
+                    CT.push_back( std::stod( data_string_array[13] ) );
+                    CQ.push_back( std::stod( data_string_array[14] ) );
+                    CP.push_back( std::stod( data_string_array[15] ) );
+                    EtaP.push_back( std::stod( data_string_array[16] ) );
+                    CT_H.push_back( std::stod( data_string_array[17] ) );
+                    CQ_H.push_back( std::stod( data_string_array[18] ) );
+                    CP_H.push_back( std::stod( data_string_array[19] ) );
+                    FOM.push_back( std::stod( data_string_array[20] ) );
+                    Angle.push_back( std::stod( data_string_array[21] ) );
 
                     // Read the next line and loop
                     data_string_array = ReadDelimLine( fp, seps );
@@ -4811,6 +5183,9 @@ void VSPAEROMgrSingleton::ReadRotorResFile( string filename, vector <string> &re
                 res->Add( NameValData( "Thrust", Thrust ) );
                 res->Add( NameValData( "Thrusto", Thrusto ) );
                 res->Add( NameValData( "Thrusti", Thrusti ) );
+                res->Add( NameValData( "Power", Power ) );
+                res->Add( NameValData( "Powero", Powero ) );
+                res->Add( NameValData( "Poweri", Poweri ) );
                 res->Add( NameValData( "Moment", Moment ) );
                 res->Add( NameValData( "Momento", Momento ) );
                 res->Add( NameValData( "Momenti", Momenti ) );

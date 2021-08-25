@@ -153,6 +153,7 @@ protected:
     Input m_AlphaStartInput, m_AlphaEndInput, m_AlphaNptsInput;
     Input m_BetaStartInput, m_BetaEndInput, m_BetaNptsInput;
     Input m_MachStartInput, m_MachEndInput, m_MachNptsInput;
+    Input m_ReCrefStartInput, m_ReCrefEndInput, m_ReCrefNptsInput;
 
     // Execute Layout
     TriggerButton m_SolverButton;
@@ -184,6 +185,7 @@ protected:
     ToggleButton m_BatchCalculationToggle;
     ToggleButton m_SymmetryToggle;
     ToggleButton m_Write2DFEMToggle;
+    ToggleButton m_EnableExperimentalFormat;
     TriggerButton m_LoadExistingResultsButton;
     Choice m_PreconditionChoice;
     ToggleButton m_KTCorrectionToggle;
@@ -231,7 +233,6 @@ protected:
     // Prop General Layout
     SliderAdjRangeInput m_VinfSlider;
     SliderAdjRangeInput m_RhoSlider;
-    SliderAdjRangeInput m_ReCrefSlider;
     SliderAdjRangeInput m_MachRefSlider;
     SliderAdjRangeInput m_VRefSlider;
     ToggleButton m_ActivateVRefToggle;

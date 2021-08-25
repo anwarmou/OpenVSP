@@ -118,6 +118,10 @@ void BasicScreen::SetTitle( const string& title )
     }
 }
 
+string BasicScreen::GetTitle()
+{
+    return m_Title;
+}
 
 //=====================================================================//
 //=====================================================================//
@@ -500,7 +504,7 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SubSurfLayout.AddDividerBox( "Sub-Surface List" );
 
     // Initial column widths
-    static int col_widths[] = { m_SubSurfLayout.GetW() / 2, m_SubSurfLayout.GetW() / 3, m_SubSurfLayout.GetW() / 6 }; // 3 columns
+    static int col_widths[] = { m_SubSurfLayout.GetW() / 2, m_SubSurfLayout.GetW() / 3, m_SubSurfLayout.GetW() / 6, 0 }; // 3 columns
 
     int browser_h = 100;
     m_SubSurfBrowser = m_SubSurfLayout.AddColResizeBrowser( col_widths, 3, browser_h );
@@ -1005,6 +1009,7 @@ bool GeomScreen::Update()
 
     //==== SubSurfBrowser ====//
     int h_pos = m_SubSurfBrowser->hposition();
+    int v_pos = m_SubSurfBrowser->position();
     m_SubSurfBrowser->clear();
 
     m_SubSurfBrowser->column_char( ':' );
@@ -1062,6 +1067,7 @@ bool GeomScreen::Update()
     }
 
     m_SubSurfBrowser->hposition( h_pos );
+    m_SubSurfBrowser->position( v_pos );
 
     return true;
 }

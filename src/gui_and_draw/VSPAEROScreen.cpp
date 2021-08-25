@@ -195,16 +195,19 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     // Flow Condition
     m_RightColumnLayout.AddSubGroupLayout( m_FlowCondLayout,
         m_RightColumnLayout.GetW(),
-        4 * m_RightColumnLayout.GetStdHeight() );
+        5 * m_RightColumnLayout.GetStdHeight() );
     m_RightColumnLayout.AddY( m_FlowCondLayout.GetH() );
 
     m_FlowCondLayout.AddDividerBox( "Flow Condition" );
     m_FlowCondLayout.SetSameLineFlag( false );
     m_FlowCondLayout.SetFitWidthFlag( true );
 
+    m_FlowCondLayout.SetButtonWidth( m_FlowCondLayout.GetButtonWidth() + 10 );
+
     m_FlowCondLayout.AddInputEvenSpacedVector( m_AlphaStartInput, m_AlphaEndInput, m_AlphaNptsInput, "Alpha", "%7.3f" );
     m_FlowCondLayout.AddInputEvenSpacedVector( m_BetaStartInput, m_BetaEndInput, m_BetaNptsInput, "Beta", "%7.3f" );
     m_FlowCondLayout.AddInputEvenSpacedVector( m_MachStartInput, m_MachEndInput, m_MachNptsInput, "Mach", "%7.3f" );
+    m_FlowCondLayout.AddInputEvenSpacedVector( m_ReCrefStartInput, m_ReCrefEndInput, m_ReCrefNptsInput, "ReCref", "%g" );
 
     m_RightColumnLayout.AddYGap();
 
@@ -241,7 +244,7 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     // Advanced Case Setup Layout
     m_AdvancedLeftLayout.AddSubGroupLayout( m_AdvancedCaseSetupLayout,
         m_AdvancedLeftLayout.GetW(),
-        8 * m_AdvancedLeftLayout.GetStdHeight() );
+        9 * m_AdvancedLeftLayout.GetStdHeight() + m_AdvancedLeftLayout.GetGapHeight() );
     m_AdvancedLeftLayout.AddY( m_AdvancedCaseSetupLayout.GetH() );
 
     m_AdvancedCaseSetupLayout.AddDividerBox( "Advanced Case Setup" );
@@ -274,6 +277,9 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
 
     m_AdvancedCaseSetupLayout.SetFitWidthFlag( true );
     m_AdvancedCaseSetupLayout.SetSameLineFlag( false );
+
+    m_AdvancedCaseSetupLayout.AddButton( m_EnableExperimentalFormat, "Use Experimental File Format" );
+    m_AdvancedCaseSetupLayout.AddYGap();
 
     m_AdvancedCaseSetupLayout.SetButtonWidth( 80 );
     m_AdvancedCaseSetupLayout.SetInputWidth( 50 );
@@ -392,7 +398,7 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     // Advanced Flow
     m_AdvancedRightLayout.AddSubGroupLayout( m_FlowCondLayout,
                                              m_AdvancedRightLayout.GetW(),
-                                             6 * m_AdvancedRightLayout.GetStdHeight() + 5 );
+                                             5 * m_AdvancedRightLayout.GetStdHeight() + 5 );
     m_AdvancedRightLayout.AddY( m_FlowCondLayout.GetH() );
 
     m_FlowCondLayout.AddDividerBox( "Advanced Flow Conditions" );
@@ -416,7 +422,6 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     m_FlowCondLayout.AddYGap();
 
     m_FlowCondLayout.AddSlider( m_RhoSlider, "Rho", 1, "%2.5g" );
-    m_FlowCondLayout.AddSlider( m_ReCrefSlider, "ReCref", 1e6, "%7.3g" );
 
     m_AdvancedRightLayout.AddSubGroupLayout( m_CpSlicerLayout,
                                              m_AdvancedRightLayout.GetW(),
@@ -441,7 +446,7 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     // Last column width must be 0
     static int cp_col_widths[] = { ( m_CpSlicerLayout.GetW() / 3 ) + 10, m_CpSlicerLayout.GetW() / 3, ( m_CpSlicerLayout.GetW() / 3 ) + 10, 0 }; // widths for each column
 
-    int CpBrowserHeight = 55;
+    int CpBrowserHeight = 75;
     m_CpSliceBrowser = m_CpSlicerLayout.AddColResizeBrowser( cp_col_widths, 3, CpBrowserHeight );
     m_CpSliceBrowser->callback( staticScreenCB, this );
 
@@ -616,7 +621,7 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     // Initial column widths
     static int prop_col_widths[] = { 73, 122, 73, 73, 73, 73, 73, 73, 0 };
 
-    m_PropElemBrowser = m_PropElemLayout.AddColResizeBrowser( prop_col_widths, 7, prop_elem_browser_h );
+    m_PropElemBrowser = m_PropElemLayout.AddColResizeBrowser( prop_col_widths, 8, prop_elem_browser_h );
     m_PropElemBrowser->callback( staticScreenCB, this );
 
     input_width = 60;
@@ -1045,11 +1050,33 @@ void VSPAEROScreen::GuiDeviceCallBack( GuiDevice* device )
         }
         else if( device == &m_DegenFileButton )
         {
-            veh->setExportFileName( vsp::DEGEN_GEOM_CSV_TYPE, m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select degen geom CSV output file.", "*.csv" ) );
+            int file_type = vsp::DEGEN_GEOM_CSV_TYPE;
+            string file_ext = "*.csv";
+            string message = "Select degen geom CSV output file.";
+
+            if ( VSPAEROMgr.m_ExperimentalInputFormatFlag() )
+            {
+                file_type = vsp::VSPAERO_VSPGEOM_TYPE;
+                file_ext = "*.vspgeom";
+                message = "Select degen geom VSPGEOM output file.";
+            }
+
+            veh->setExportFileName( file_type, m_ScreenMgr->GetSelectFileScreen()->FileChooser( message.c_str(), file_ext.c_str() ) );
         }
         else if( device == &m_CompGeomFileButton )
         {
-            veh->setExportFileName( vsp::VSPAERO_PANEL_TRI_TYPE, m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select comp geom TRI output file.", "*.tri" ) );
+            int file_type = vsp::VSPAERO_PANEL_TRI_TYPE;
+            string file_ext = "*.tri";
+            string message = "Select comp geom TRI output file.";
+
+            if ( VSPAEROMgr.m_ExperimentalInputFormatFlag() )
+            {
+                file_type = vsp::VSPAERO_VSPGEOM_TYPE;
+                file_ext = "*.vspgeom";
+                message = "Select comp geom VSPGEOM output file.";
+            }
+
+            veh->setExportFileName( file_type, m_ScreenMgr->GetSelectFileScreen()->FileChooser( message.c_str(), file_ext.c_str() ) );
         }
         else if ( device == &m_LoadExistingResultsButton )
         {
@@ -1354,8 +1381,17 @@ void VSPAEROScreen::UpdateCGDevices()
 void VSPAEROScreen::UpdateAdvancedTabDevices()
 {
     Vehicle* veh = VehicleMgr.GetVehicle();
-    m_DegenFileName.Update(veh->getExportFileName(vsp::DEGEN_GEOM_CSV_TYPE));
-    m_CompGeomFileName.Update(veh->getExportFileName(vsp::VSPAERO_PANEL_TRI_TYPE));
+
+    if ( VSPAEROMgr.m_ExperimentalInputFormatFlag.Get() )
+    {
+        m_DegenFileName.Update( veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE ) );
+        m_CompGeomFileName.Update( veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE ) );
+    }
+    else
+    {
+        m_DegenFileName.Update( veh->getExportFileName( vsp::DEGEN_GEOM_CSV_TYPE ) );
+        m_CompGeomFileName.Update( veh->getExportFileName( vsp::VSPAERO_PANEL_TRI_TYPE ) );
+    }
 
     m_NCPUSlider.Update(VSPAEROMgr.m_NCPU.GetID());
     m_BatchCalculationToggle.Update(VSPAEROMgr.m_BatchModeFlag.GetID());
@@ -1363,6 +1399,7 @@ void VSPAEROScreen::UpdateAdvancedTabDevices()
     m_KTCorrectionToggle.Update( VSPAEROMgr.m_KTCorrection.GetID() );
     m_SymmetryToggle.Update( VSPAEROMgr.m_Symmetry.GetID() );
     m_Write2DFEMToggle.Update( VSPAEROMgr.m_Write2DFEMFlag.GetID() );
+    m_EnableExperimentalFormat.Update( VSPAEROMgr.m_ExperimentalInputFormatFlag.GetID() );
 
     // Wake Options
     m_FixedWakeToggle.Update( VSPAEROMgr.m_FixedWakeFlag.GetID() );
@@ -1490,6 +1527,18 @@ void VSPAEROScreen::UpdateFlowConditionDevices()
     {
         m_MachEndInput.Activate();
     }
+    // ReCref
+    m_ReCrefStartInput.Update( VSPAEROMgr.m_ReCrefStart.GetID() );
+    m_ReCrefEndInput.Update( VSPAEROMgr.m_ReCrefEnd.GetID() );
+    m_ReCrefNptsInput.Update( VSPAEROMgr.m_ReCrefNpts.GetID() );
+    if ( VSPAEROMgr.m_ReCrefNpts.Get() == 1 )
+    {
+        m_ReCrefEndInput.Deactivate();
+    }
+    else if ( VSPAEROMgr.m_ReCrefNpts.Get() > 1 )
+    {
+        m_ReCrefEndInput.Activate();
+    }
 }
 
 void VSPAEROScreen::UpdateVSPAEROButtons()
@@ -1577,6 +1626,7 @@ void VSPAEROScreen::UpdatePropElemBrowser()
 {
     char str[256];
     int h_pos = m_PropElemBrowser->hposition();
+    int v_pos = m_PropElemBrowser->position();
     m_PropElemBrowser->clear();
 
     m_PropElemBrowser->column_char(':');         // use : as the column character
@@ -1598,6 +1648,7 @@ void VSPAEROScreen::UpdatePropElemBrowser()
     SelectPropBrowser(VSPAEROMgr.GetCurrentRotorDiskIndex() + 2);
 
     m_PropElemBrowser->hposition( h_pos );
+    m_PropElemBrowser->position( v_pos );
 }
 
 void VSPAEROScreen::UpdateControlSurfaceBrowsers()
@@ -1658,7 +1709,6 @@ void VSPAEROScreen::UpdateOtherSetupParms()
 {
     m_VinfSlider.Update( VSPAEROMgr.m_Vinf.GetID() );
     m_RhoSlider.Update( VSPAEROMgr.m_Rho.GetID() );
-    m_ReCrefSlider.Update( VSPAEROMgr.m_ReCref.GetID() );
     m_ActivateVRefToggle.Update( VSPAEROMgr.m_ManualVrefFlag.GetID() );
     m_VRefSlider.Update( VSPAEROMgr.m_Vref.GetID() );
     m_MachRefSlider.Update( VSPAEROMgr.m_Machref.GetID() );
@@ -1687,6 +1737,15 @@ void VSPAEROScreen::UpdateOtherSetupParms()
         m_BetaNptsInput.Activate();
         m_MachNptsInput.Activate();
         m_StabilityTypeChoice.Activate();
+    }
+
+    if ( VSPAEROMgr.m_RotateBladesFlag() || VSPAEROMgr.m_StabilityType.Get() >= vsp::STABILITY_P_ANALYSIS )
+    {
+        m_ReCrefNptsInput.Deactivate();
+    }
+    else
+    {
+        m_ReCrefNptsInput.Activate();
     }
 
     if ( VSPAEROMgr.m_RotateBladesFlag.Get() || VSPAEROMgr.m_ActuatorDiskFlag.Get() || VSPAEROMgr.m_StabilityType.Get() > vsp::STABILITY_OFF )
@@ -2025,6 +2084,7 @@ void VSPAEROScreen::UpdateCpSliceBrowser()
 {
     char str[256];
     int h_pos = m_CpSliceBrowser->hposition();
+    int v_pos = m_CpSliceBrowser->position();
     m_CpSliceBrowser->clear();
 
     m_CpSliceBrowser->column_char( ':' );         // use : as the column character
@@ -2046,6 +2106,7 @@ void VSPAEROScreen::UpdateCpSliceBrowser()
     SelectCpSliceBrowser( VSPAEROMgr.GetCurrentCpSliceIndex() + 2 );
 
     m_CpSliceBrowser->hposition( h_pos );
+    m_CpSliceBrowser->position( v_pos );
 }
 
 void VSPAEROScreen::SelectCpSliceBrowser( int cur_index )
@@ -2130,6 +2191,7 @@ void VSPAEROScreen::UpdateUnsteadyGroups()
 void VSPAEROScreen::UpdateUnsteadyGroupBrowser()
 {
     int h_pos = m_UnsteadyGroupBrowser->hposition();
+    int v_pos = m_UnsteadyGroupBrowser->position();
     m_UnsteadyGroupBrowser->clear();
 
     m_UnsteadyGroupBrowser->column_char( ':' );         // use : as the column character
@@ -2167,6 +2229,7 @@ void VSPAEROScreen::UpdateUnsteadyGroupBrowser()
     }
 
     m_UnsteadyGroupBrowser->hposition( h_pos );
+    m_UnsteadyGroupBrowser->position( v_pos );
 }
 void VSPAEROScreen::SelectUnsteadyGroupBrowser( int cur_index )
 {

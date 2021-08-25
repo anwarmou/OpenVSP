@@ -765,13 +765,13 @@ void Results::WriteWaveDragFile( const string & file_name )
         double CD0w = Find( "CDWave" ).GetDouble( 0 );
         fprintf( fid, "CDWave: %19.8f \n", CD0w );
 
-		double Mach = Find( "Mach" ).GetDouble(0);
-		fprintf( fid, "Mach: %19.8f \n", Mach);
+        double Mach = Find( "Mach" ).GetDouble( 0 );
+        fprintf( fid, "Mach: %19.8f \n", Mach);
 
-		string Set_Name = Find("Set_Name").GetString(0);
-		fprintf(fid, "Set Name: %s \n", Set_Name.c_str());
+        string Set_Name = Find( "Set_Name" ).GetString( 0 );
+        fprintf( fid, "Set Name: %s \n", Set_Name.c_str());
 
-		fclose( fid );
+        fclose( fid );
     }
 
 }
@@ -834,6 +834,39 @@ void Results::WriteBEMFile( const string & file_name )
         }
 
         fclose( fid );
+    }
+}
+
+// Copy a NameValData pointer to this Result
+void Results::Copy( NameValData* nvd )
+{
+    switch ( nvd->GetType() )
+    {
+        case ( vsp::DOUBLE_DATA ):
+        {
+            Add( ( NameValData( nvd->GetName(), nvd->GetDoubleData() ) ) );
+            break;
+        }
+        case ( vsp::INT_DATA ):
+        {
+            Add( ( NameValData( nvd->GetName(), nvd->GetIntData() ) ) );
+            break;
+        }
+        case ( vsp::STRING_DATA ):
+        {
+            Add( ( NameValData( nvd->GetName(), nvd->GetStringData() ) ) );
+            break;
+        }
+        case ( vsp::DOUBLE_MATRIX_DATA ):
+        {
+            Add( ( NameValData( nvd->GetName(), nvd->GetDoubleMatData() ) ) );
+            break;
+        }
+        case ( vsp::VEC3D_DATA ):
+        {
+            Add( ( NameValData( nvd->GetName(), nvd->GetVec3dData() ) ) );
+            break;
+        }
     }
 }
 

@@ -190,6 +190,7 @@ void WriteVSPFile( const string & file_name, int set )
         ErrorMgr.AddError( VSP_FILE_WRITE_FAILURE, "WriteVSPFile::Failure Writing File " + file_name );
         return;
     }
+    veh->SetVSP3FileName( file_name );
     ErrorMgr.NoError();
 }
 
@@ -278,9 +279,9 @@ string ImportFile( const string & file_name, int file_type, const string & paren
     return veh->ImportFile( file_name, file_type );
 }
 
-string ExportFile( const string & file_name, int write_set_index, int file_type )
+string ExportFile( const string & file_name, int thick_set, int file_type, int thin_set )
 {
-    string mesh_id = GetVehicle()->ExportFile( file_name, write_set_index, file_type );
+    string mesh_id = GetVehicle()->ExportFile( file_name, thick_set, thin_set, file_type );
 
     ErrorMgr.NoError();
     return mesh_id;
@@ -5791,7 +5792,10 @@ void AddVarPresetSetting( const string &setting_name )
 
 void AddVarPresetParm( const string &parm_ID )
 {
-    VarPresetMgr.AddVar( parm_ID );
+    if ( !VarPresetMgr.AddVar( parm_ID ) )
+    {
+        ErrorMgr.AddError( VSP_INVALID_ID, "AddVarPresetParm::Failed to add Variable Preset " + parm_ID );
+    }
     VarPresetMgr.SavePreset();
 
     ErrorMgr.NoError();
@@ -5800,7 +5804,10 @@ void AddVarPresetParm( const string &parm_ID )
 void AddVarPresetParm( const string &parm_ID, const string &group_name )
 {
     VarPresetMgr.GroupChange( group_name );
-    VarPresetMgr.AddVar( parm_ID );
+    if ( !VarPresetMgr.AddVar( parm_ID ) )
+    {
+        ErrorMgr.AddError( VSP_INVALID_ID, "AddVarPresetParm::Failed to add Variable Preset " + parm_ID );
+    }
     VarPresetMgr.SavePreset();
 
     ErrorMgr.NoError();

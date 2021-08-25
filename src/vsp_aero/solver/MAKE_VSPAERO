@@ -11,7 +11,6 @@
 C_SRCS	=	matrix.C	        \
                 utils.C			     \
                 quat.C			     \
-                Vortex.C	    	   \
                 Vortex_Trail.C		\
                 Vortex_Bound.C		\
                 Vortex_Sheet.C		\
@@ -34,11 +33,13 @@ C_SRCS	=	matrix.C	        \
                 VortexSheetInteractionLoop.C   \
                 VortexSheetVortex_To_VortexInteractionSet.C \
                 MergeSort.C			\
-                SpanLoadData.C       	\
+                SpanLoadData.C		       	\
+                SpanLoadRotorData.C       	\
                 ComponentGroup.C		\
                 SearchLeaf.C			\
                 Search.C			\
                 WOPWOP.C			\
+                VSPAERO_TYPES.C  \
                 vspaero.C
           
         
@@ -68,7 +69,10 @@ msg2:
 	@echo  "Final link to create VSPAERO executable..."
 
 
-.C.o:
+%.o: %.C
 		$(LDC) $(CCFLAGS) $(DEFINES) $(INCDIRS) -c $*.C
 
+#.C.o:
+#		@$(LDC) $(CCFLAGS) $(DEFINES) $(INCDIRS) -c $*.C
+#		@$(LDC) $(CCFLAGS) $(DEFINES) $(INCDIRS) -c $*.C -o OBJECTS/$*.o
 

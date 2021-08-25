@@ -24,11 +24,6 @@ jobs:
             arch: x64,
           }
         - {
-            name: "Windows 32",
-            os: windows-2019,
-            arch: Win32,
-          }
-        - {
             name: "Ubuntu 18.04",
             os: ubuntu-18.04,
             arch: x64,
@@ -49,6 +44,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Set up Python ${{ matrix.python-version }}
+      if: runner.os != 'Linux'
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
@@ -63,7 +59,7 @@ jobs:
     - name:  Install Windows
       if: runner.os == 'Windows'
       shell: cmd
-      run:   choco install -y swig --version 4.0.1
+      run:   choco install -y swig
 
     - name:  Install MacOS
       if: runner.os == 'macos'
@@ -86,7 +82,7 @@ jobs:
         DEBFILE=${GITHUB_WORKSPACE}/build/OpenVSP-*-Linux.deb
         VSPVER=$(ls $DEBFILE | awk 'BEGIN { FS = "-" } ; { print $2 }')
         UVER=$(lsb_release -sr)
-        DEPLOY_FILE=${GITHUB_WORKSPACE}/build/OpenVSP-${VSPVER}-Ubuntu-${UVER}_amd64-Python${{ matrix.python-version }}_${GITHUB_SHA}.deb
+        DEPLOY_FILE=${GITHUB_WORKSPACE}/build/OpenVSP-${VSPVER}-Ubuntu-${UVER}_amd64_${GITHUB_SHA}.deb
         
         cp $DEBFILE $DEPLOY_FILE
         cp $DEPLOY_FILE $GITHUB_WORKSPACE/artifacts

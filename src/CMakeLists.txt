@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
 
 PROJECT (VSP)
 
@@ -61,8 +61,6 @@ INCLUDE_DIRECTORIES( ${VSP_BINARY_DIR} )
 ADD_SUBDIRECTORY( external )
 ADD_SUBDIRECTORY( external/angelscript/sdk )
 
-# INCLUDE( IdentifyLibs )  # Debugging to confirm which libraries are set.
-
 IF( NOT VSP_NO_GRAPHICS )
 	SET ( GUI_AND_DRAW_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/gui_and_draw )
 	ADD_SUBDIRECTORY( vsp_graphic )
@@ -92,7 +90,7 @@ ELSE( SWIG_FOUND )
 ENDIF( SWIG_FOUND )
 
 IF( SWIG_FOUND )
-	FIND_PACKAGE( PythonLibs )
+	FIND_PACKAGE( PythonLibsNew 3 )
 	if ( PYTHONLIBS_FOUND )
 		ADD_SUBDIRECTORY( python_api )
 	ELSE(PYTHONLIBS_FOUND)
@@ -117,6 +115,8 @@ IF( SWIG_FOUND )
 	ENDIF()
 
 ENDIF( SWIG_FOUND )
+
+INCLUDE( IdentifyLibs )  # Debugging to confirm which libraries are set.
 
 SET( CPACK_PACKAGE_NAME OpenVSP )
 SET( CPACK_PACKAGE_VERSION_MAJOR ${VSPVER_MAJOR} )

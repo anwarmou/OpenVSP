@@ -803,6 +803,8 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     assert( r >= 0 );
     r = se->RegisterEnumValue( "COMPUTATION_FILE_TYPE", "CFD_VSPGEOM_TYPE", CFD_VSPGEOM_TYPE, "/*!< CFD Mesh VSPGEOM file type */" );
     assert( r >= 0 );
+    r = se->RegisterEnumValue( "COMPUTATION_FILE_TYPE", "VSPAERO_VSPGEOM_TYPE", VSPAERO_VSPGEOM_TYPE, "/*!< VSPAERO VSPGEOM file type */" );
+    assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum used to identify delimiter type. */";
 
@@ -4169,11 +4171,12 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \endcode
     \sa EXPORT_TYPE
     \param [in] file_name Export file name
-    \param [in] write_set_index Set index to export (i.e. SET_ALL)
+    \param [in] thick_set Set index to export (i.e. SET_ALL)
     \param [in] file_type File type enum (i.e. EXPORT_IGES)
+    \param [in] file_type File type enum (i.e. EXPORT_VSPGEOM)
     \return Mesh Geom ID if the export generates a mesh
 */)";
-    r = se->RegisterGlobalFunction( "string ExportFile( const string & in file_name, int write_set_index, int file_type )", asFUNCTION( vsp::ExportFile ), asCALL_CDECL, doc_struct );
+    r = se->RegisterGlobalFunction( "string ExportFile( const string & in file_name, int thick_set, int file_type, int thin_set = -1 )", asFUNCTION( vsp::ExportFile ), asCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -6549,7 +6552,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \endcode
     \sa SetUnsteadyGroupName
     \param [in] group_index Unsteady group index for the current VSPAERO set
-    \param [in] name Name to set the for the unsteady group
+    \return Unsteady group name
 */)";
     r = se->RegisterGlobalFunction( "string GetUnsteadyGroupName( int group_index )", asFUNCTION( vsp::GetUnsteadyGroupName ), asCALL_CDECL, doc_struct );
     assert( r >= 0 );
@@ -8431,8 +8434,8 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
 
     if ( flag_value != true)                      { Print( "---> Error: API CopyPasteSet " ); }
     \endcode
-    \param [in] copy_Index Copy Index
-    \param [in] paste_Index Paste Index
+    \param [in] copyIndex Copy Index
+    \param [in] pasteIndex Paste Index
 */)";
     r = se->RegisterGlobalFunction( "void CopyPasteSet(  int copyIndex, int pasteIndex  )", asFUNCTION( vsp::CopyPasteSet ), asCALL_CDECL, doc_struct );
     assert( r >= 0 );
@@ -10177,7 +10180,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [out] p_out Output 3D coordinate point
     \return Axis aligned distance between the 3D point and the projected point on the surface
 */)";
-    r = se->RegisterGlobalFunction( "double AxisProjPnt01( const string & in geom_id, const int & in surf_indx, const int & in iaxis, const vec3d & in pt, double & out u_out, double & out w_ou, vec3d & out p_out )", asFUNCTION(vsp::AxisProjPnt01), asCALL_CDECL, doc_struct );
+    r = se->RegisterGlobalFunction( "double AxisProjPnt01( const string & in geom_id, const int & in surf_indx, const int & in iaxis, const vec3d & in pt, double & out u_out, double & out w_out, vec3d & out p_out )", asFUNCTION(vsp::AxisProjPnt01), asCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
