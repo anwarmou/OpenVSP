@@ -19,6 +19,7 @@
 #include "GraphicSingletons.h"
 #include "StructureMgr.h"
 #include "WingGeom.h"
+#include "BORGeom.h"
 
 using namespace vsp;
 
@@ -2085,13 +2086,29 @@ bool XSecViewScreen::Update()
         return false;
     }
 
+    XSecCurve* xsc = NULL;
+
     Geom* geom = geom_vec[0];
     GeomXSec* geom_xsec = dynamic_cast<GeomXSec*>( geom );
-    assert( geom_xsec );
 
-    XSec* xs = geom_xsec->GetXSec( geom_xsec->m_ActiveXSec() );
+    if ( geom_xsec ) // Try GeomXSec (Wing, Stack, Fuselage, Prop)
+    {
+        XSec* xs = geom_xsec->GetXSec( geom_xsec->m_ActiveXSec() );
+        if( xs )
+        {
+            xsc = xs->GetXSecCurve();
+        }
+    }
+    else // Try body of revolution.
+    {
+        BORGeom* bor = dynamic_cast<BORGeom*>( geom );
+        if ( bor )
+        {
+            xsc = bor->GetXSecCurve();
+        }
+    }
 
-    if( !xs )
+    if ( !xsc ) // Failed to get an XSecCurve pointer.
     {
         Hide();
         return false;
@@ -2101,23 +2118,23 @@ bool XSecViewScreen::Update()
 
     m_ColorPicker.Update( veh->GetXSecLineColor() );
 
-    m_Image.Update( xs->GetXSecCurve()->m_XSecImageFlag.GetID() );
-    m_FileOutput.Update( StringUtil::truncateFileName( xs->GetXSecCurve()->GetImageFile(), 40 ).c_str() );
+    m_Image.Update( xsc->m_XSecImageFlag.GetID() );
+    m_FileOutput.Update( StringUtil::truncateFileName( xsc->GetImageFile(), 40 ).c_str() );
 
     // Update Scale and Offset in Background
-    m_WScale.Update( xs->GetXSecCurve()->m_XSecImageW.GetID() );
-    m_HScale.Update( xs->GetXSecCurve()->m_XSecImageH.GetID() );
+    m_WScale.Update( xsc->m_XSecImageW.GetID() );
+    m_HScale.Update( xsc->m_XSecImageH.GetID() );
 
-    if ( xs->GetXSecCurve()->m_XSecImageFlag() )
+    if ( xsc->m_XSecImageFlag() )
     {
         m_ImageLayout.GetGroup()->activate();
 
         if ( ( viewport->getBackground()->getBackgroundMode() != VSPGraphic::Common::VSP_BACKGROUND_IMAGE ||
-            ( VSPGraphic::GlobalTextureRepo()->getTextureID( xs->GetXSecCurve()->GetImageFile().c_str() ) != viewport->getBackground()->getTextureID() ) ) &&
-            xs->GetXSecCurve()->GetImageFile().size() > 0 )
+        ( VSPGraphic::GlobalTextureRepo()->getTextureID( xsc->GetImageFile().c_str() ) != viewport->getBackground()->getTextureID() ) ) &&
+            xsc->GetImageFile().size() > 0 )
         {
             viewport->getBackground()->setBackgroundMode( VSPGraphic::Common::VSP_BACKGROUND_IMAGE );
-            viewport->getBackground()->attachImage( VSPGraphic::GlobalTextureRepo()->get2DTexture( xs->GetXSecCurve()->GetImageFile().c_str() ) );
+            viewport->getBackground()->attachImage( VSPGraphic::GlobalTextureRepo()->get2DTexture( xsc->GetImageFile().c_str() ) );
         }
     }
     else
@@ -2131,30 +2148,30 @@ bool XSecViewScreen::Update()
         }
     }
 
-    viewport->getBackground()->scaleW( (float)xs->GetXSecCurve()->m_XSecImageW.Get() );
+    viewport->getBackground()->scaleW( (float)xsc->m_XSecImageW.Get() );
 
-    m_PreserveAspect.Update( xs->GetXSecCurve()->m_XSecImagePreserveAR.GetID() );
-    viewport->getBackground()->preserveAR( (bool)xs->GetXSecCurve()->m_XSecImagePreserveAR.Get() );
+    m_PreserveAspect.Update( xsc->m_XSecImagePreserveAR.GetID() );
+    viewport->getBackground()->preserveAR( (bool)xsc->m_XSecImagePreserveAR.Get() );
 
-    m_FlipImageToggle.Update( xs->GetXSecCurve()->m_XSecFlipImageFlag.GetID() );
-    viewport->getBackground()->flipX( (bool)xs->GetXSecCurve()->m_XSecFlipImageFlag.Get() );
+    m_FlipImageToggle.Update( xsc->m_XSecFlipImageFlag.GetID() );
+    viewport->getBackground()->flipX( (bool)xsc->m_XSecFlipImageFlag.Get() );
 
-    if ( xs->GetXSecCurve()->m_XSecImagePreserveAR() )
+    if ( xsc->m_XSecImagePreserveAR() )
     {
-        xs->GetXSecCurve()->m_XSecImageH.Set( viewport->getBackground()->getScaleH() );
+        xsc->m_XSecImageH.Set( viewport->getBackground()->getScaleH() );
         m_HScale.Deactivate();
     }
     else
     {
-        viewport->getBackground()->scaleH( (float)xs->GetXSecCurve()->m_XSecImageH.Get() );
+        viewport->getBackground()->scaleH( (float)xsc->m_XSecImageH.Get() );
         m_HScale.Activate();
     }
 
-    m_XOffset.Update( xs->GetXSecCurve()->m_XSecImageXOffset.GetID() );
-    m_YOffset.Update( xs->GetXSecCurve()->m_XSecImageYOffset.GetID() );
+    m_XOffset.Update( xsc->m_XSecImageXOffset.GetID() );
+    m_YOffset.Update( xsc->m_XSecImageYOffset.GetID() );
 
-    viewport->getBackground()->offsetX( (float)xs->GetXSecCurve()->m_XSecImageXOffset.Get() );
-    viewport->getBackground()->offsetY( (float)xs->GetXSecCurve()->m_XSecImageYOffset.Get() );
+    viewport->getBackground()->offsetX( (float)xsc->m_XSecImageXOffset.Get() );
+    viewport->getBackground()->offsetY( (float)xsc->m_XSecImageYOffset.Get() );
 
     m_GlWin->update();
     m_GlWin->redraw();
