@@ -180,6 +180,9 @@ int VspGlWindow::handle( int fl_event )
     m_mouse_x = x;
     m_mouse_y = y;
 
+    int dx = Fl::event_dx();
+    int dy = Fl::event_dy();
+
     switch( fl_event )
     {
     case FL_ENTER:
@@ -203,6 +206,7 @@ int VspGlWindow::handle( int fl_event )
         return 1;
 
     case FL_MOUSEWHEEL:
+        OnWheelScroll( dx, dy );
         return 1;
 
     case FL_MOVE:
@@ -1358,7 +1362,7 @@ void VspGlWindow::_updateTextures( DrawObj * drawObj )
                 float U = ( float )( drawObjTexList[i].U * -1.f * UScale );
                 float W = ( float )( drawObjTexList[i].W * WScale );
 
-                // Update Texture Properities.
+                // Update Texture Properties.
                 entity->getTextureMgr()->translate( texBufferID, U, W );
                 entity->getTextureMgr()->scale( texBufferID, UScale, WScale );
                 entity->getTextureMgr()->transparentize( texBufferID, drawObjTexList[i].Transparency );
@@ -1614,6 +1618,7 @@ void VspGlWindow::OnPush( int x, int y )
 {
     VSPGraphic::Display * display = m_GEngine->getDisplay();
     display->selectViewport( x, y );
+    Vehicle* vPtr = VehicleMgr.GetVehicle();
 
     if( Fl::event_button1() && Fl::event_button3() )
     {
@@ -1624,7 +1629,7 @@ void VspGlWindow::OnPush( int x, int y )
     {
         bool alltrue = false;
 
-        if( Fl::event_shift() || FitModelMgr.m_SelectBoxFlag() )
+        if( Fl::event_shift() || vPtr->m_SelectBoxFlag() )
         {
             FitModelScreen * fitModelScreen = dynamic_cast< FitModelScreen* >
                 ( m_ScreenMgr->GetScreen( ScreenMgr::VSP_FIT_MODEL_SCREEN ) );
@@ -1705,6 +1710,7 @@ void VspGlWindow::OnPush( int x, int y )
 void VspGlWindow::OnDrag( int x, int y )
 {
     VSPGraphic::Display * display = m_GEngine->getDisplay();
+    Vehicle* vPtr = VehicleMgr.GetVehicle();
 
     if( Fl::event_button1() && Fl::event_button3() )
     {
@@ -1723,7 +1729,7 @@ void VspGlWindow::OnDrag( int x, int y )
     else if( Fl::event_button1() )
     {
         bool alltrue = false;
-        if( Fl::event_shift() || FitModelMgr.m_SelectBoxFlag() )
+        if( Fl::event_shift() || vPtr->m_SelectBoxFlag() )
         {
             FitModelScreen * fitModelScreen = dynamic_cast< FitModelScreen* >
                 ( m_ScreenMgr->GetScreen( ScreenMgr::VSP_FIT_MODEL_SCREEN ) );
@@ -1840,6 +1846,7 @@ void VspGlWindow::OnDrag( int x, int y )
 void VspGlWindow::OnRelease( int x, int y )
 {
     VSPGraphic::Display * display = m_GEngine->getDisplay();
+    Vehicle* vPtr = VehicleMgr.GetVehicle();
 
     // Reset buttons positions.
     switch( Fl::event_button() )
@@ -1847,7 +1854,7 @@ void VspGlWindow::OnRelease( int x, int y )
     case FL_LEFT_MOUSE:
         m_prevLB = m_prevAltLB = m_prevCtrlLB = glm::vec2( 0xFFFFFFFF );
         m_prevMetaLB = glm::vec2( 0xFFFFFFFF );
-        if( Fl::event_shift() || FitModelMgr.m_SelectBoxFlag() )
+        if( Fl::event_shift() || vPtr->m_SelectBoxFlag() )
         {
             FitModelScreen * fitModelScreen = dynamic_cast< FitModelScreen* >
                 ( m_ScreenMgr->GetScreen( ScreenMgr::VSP_FIT_MODEL_SCREEN ) );
@@ -2052,6 +2059,18 @@ int VspGlWindow::OnKeydown()
     redraw();
 
     return handled;
+}
+
+void VspGlWindow::OnWheelScroll(int dx, int dy )
+{
+    VSPGraphic::Display * display = m_GEngine->getDisplay();
+
+    display->zoom( dx * 0.5, dy * 0.5 );
+
+    ManageViewScreen * viewScreen = dynamic_cast< ManageViewScreen* >
+            ( m_ScreenMgr->GetScreen( ScreenMgr::VSP_VIEW_SCREEN ) );
+
+    viewScreen->UpdateZoom();
 }
 
 void VspGlWindow::_sendFeedback( Selectable * selected )

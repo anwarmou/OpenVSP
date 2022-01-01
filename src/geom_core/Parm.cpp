@@ -13,6 +13,8 @@
 #include <cfloat>
 
 #include "Combination.h"
+#include "StlHelper.h"
+#include "VspUtil.h"
 
 using std::string;
 
@@ -239,7 +241,7 @@ void Parm::SetLowerUpperLimits( double lower_limit, double upper_limit )
 //==== Generate Unique ID ====//
 string Parm::GenerateID()
 {
-    return ParmMgr.GenerateID( 11 );
+    return GenerateRandomID( 11 );
 }
 
 string Parm::GetContainerID()
@@ -718,7 +720,23 @@ DriverGroup::~DriverGroup()
 
 void DriverGroup::SetChoice( int choice, int grpid )
 {
-    m_CurrChoices[choice] = grpid;
+    if ( choice < m_CurrChoices.size() )
+    {
+        m_CurrChoices[choice] = grpid;
+    }
+}
+
+void DriverGroup::SetChoices( const vector< int > &choices )
+{
+    for ( int i = 0; i < choices.size() && i < m_CurrChoices.size(); i++ )
+    {
+        m_CurrChoices[i] = choices[i];
+    }
+}
+
+bool DriverGroup::IsDriver( int dvar )
+{
+    return vector_contains_val( m_CurrChoices, dvar );
 }
 
 //==== Encode Data To XML Data Structure ====//
@@ -737,9 +755,8 @@ void DriverGroup::DecodeXml( xmlNodePtr & node )
     xmlNodePtr n = XmlUtil::GetNode( node, m_Name.c_str(), 0 );
     if ( n )
     {
-        m_Nvar = XmlUtil::FindInt( n, "NumVar", m_Nvar );
-        m_Nchoice = XmlUtil::FindInt( n, "NumChoices", m_Nvar );
-        m_CurrChoices = XmlUtil::ExtractVectorIntNode( n, "ChoiceVec" );
+        vector< int > tmp = XmlUtil::ExtractVectorIntNode( n, "ChoiceVec" );
+        SetChoices( tmp );
     }
 }
 

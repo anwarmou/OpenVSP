@@ -192,7 +192,7 @@ void StackGeom::UpdateSurf()
 }
 
 
-void StackGeom::UpdateTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen  )
+void StackGeom::UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen  ) const
 {
     vector < int > tessvec;
 
@@ -214,7 +214,7 @@ void StackGeom::UpdateTesselate( vector<VspSurf> &surf_vec, int indx, vector< ve
     surf_vec[indx].Tesselate( tessvec, m_TessW(), pnts, norms, uw_pnts, m_CapUMinTess(), degen );
 }
 
-void StackGeom::UpdateSplitTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms )
+void StackGeom::UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms ) const
 {
     vector < int > tessvec;
 
@@ -268,26 +268,6 @@ xmlNodePtr StackGeom::DecodeXml( xmlNodePtr & node )
     }
 
     return fuselage_node;
-}
-
-//==== Set Active XSec Type ====//
-void StackGeom::SetActiveXSecType( int type )
-{
-    XSec* xs = GetXSec( m_ActiveXSec() );
-
-    if ( !xs )
-    {
-        return;
-    }
-
-    if ( type == xs->GetXSecCurve()->GetType() )
-    {
-        return;
-    }
-
-    m_XSecSurf.ChangeXSecShape( m_ActiveXSec(), type );
-
-    Update();
 }
 
 //==== Override Geom Cut/Copy/Paste/Insert ====//
@@ -487,26 +467,6 @@ void StackGeom::AddDefaultSources( double base_len )
         break;
     }
     }
-}
-
-//==== Drag Parameters ====//
-void StackGeom::LoadDragFactors( DragFactors& drag_factors )
-{
-    double max_xsec_area = 0.000000000001;
-    for ( int i = 0 ; i < ( int )m_XSecSurf.NumXSec() ; i++ )
-    {
-        XSec* xs = m_XSecSurf.FindXSec( i );
-        XSecCurve* xsc = xs->GetXSecCurve();
-        double a = xsc->ComputeArea( );
-        if ( a > max_xsec_area )
-        {
-            max_xsec_area = a;
-        }
-    }
-
-//    drag_factors.m_Length = m_Length();
-    drag_factors.m_MaxXSecArea = max_xsec_area;
-//    drag_factors.m_LengthToDia = m_Length() / dia;
 }
 
 bool StackGeom::IsClosed() const

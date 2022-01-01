@@ -16,7 +16,7 @@
 #include "LinkMgr.h"
 #include "AdvLinkMgr.h"
 #include "StlHelper.h"
-#include "Util.h"
+#include "VspUtil.h"
 #include <cfloat>  //For DBL_EPSILON
 
 // Xlib.h does a horrible '#define Status int' which causes problems for exprparse.
@@ -1150,7 +1150,7 @@ void CheckButton::SetValAndLimits( Parm* p )
     }
     else
     {
-        printf("Error: Non-BoolParm %s associated with CheckButton.\n", p->GetName().c_str() );
+        printf("Error: Non-BoolParm %s associated with CheckButton %s.\n", p->GetName().c_str(), m_Button->label() );
     }
 }
 
@@ -1223,7 +1223,7 @@ void CheckButtonBit::SetValAndLimits( Parm* p )
     }
     else
     {
-        printf("Error: Non-IntParm %s associated with CheckButtonBit.\n", p->GetName().c_str() );
+        printf("Error: Non-IntParm %s associated with CheckButtonBit %s.\n", p->GetName().c_str(), m_Button->label() );
     }
 }
 
@@ -1301,7 +1301,7 @@ void RadioButton::SetValAndLimits( Parm* p )
     }
     else
     {
-        printf("Error: Non-BoolParm %s associated with RadioButton.\n", p->GetName().c_str() );
+        printf("Error: Non-BoolParm %s associated with RadioButton %s.\n", p->GetName().c_str(), m_Button->label() );
     }
 }
 
@@ -1374,7 +1374,7 @@ void ToggleButton::SetValAndLimits( Parm* p )
     }
     else
     {
-        printf("Error: Non-BoolParm %s associated with ToggleButton.\n", p->GetName().c_str() );
+        printf("Error: Non-BoolParm %s associated with ToggleButton %s.\n", p->GetName().c_str(), m_Button->label() );
     }
 }
 
@@ -1662,7 +1662,7 @@ void Choice::SetValAndLimits( Parm* p )
     assert( iparm );
     if ( !iparm )
     {
-        printf("Error: Non-IntParm %s associated with Choice.\n", p->GetName().c_str() );
+        printf("Error: Non-IntParm %s associated with Choice %s.\n", p->GetName().c_str(), m_Choice->label() );
         return;
     }
 
@@ -1732,25 +1732,28 @@ void Choice::UpdateItems( bool keepsetting )
         m_Flags.resize( m_Items.size(), 0 );
     }
 
-    // Store index.
-    int savesetting = m_Choice->value();
+    if ( m_Choice )
+    {
+        // Store index.
+        int savesetting = m_Choice->value();
 
-    //==== Add Choice Text ===//
-    m_Choice->clear();
-    for ( int i = 0 ; i < ( int )m_Items.size() ; i++ )
-    {
-        m_Choice->add( m_Items[i].c_str(), 0, 0, 0, m_Flags[i] );
-    }
+        //==== Add Choice Text ===//
+        m_Choice->clear();
+        for ( int i = 0 ; i < ( int )m_Items.size() ; i++ )
+        {
+            m_Choice->add( m_Items[i].c_str(), 0, 0, 0, m_Flags[i] );
+        }
 
-    if( keepsetting )
-    {
-        // Restore index.
-        m_Choice->value( savesetting );
-    }
-    else
-    {
-        // Reset to default index.
-        m_Choice->value( 0 );
+        if( keepsetting )
+        {
+            // Restore index.
+            m_Choice->value( savesetting );
+        }
+        else
+        {
+            // Reset to default index.
+            m_Choice->value( 0 );
+        }
     }
 }
 
@@ -2969,11 +2972,14 @@ void DriverGroupBank::Init( VspScreen* screen, vector< vector < Fl_Button* > > b
     m_Buttons = buttons;
     m_Sliders = sliders;
 
-    for( int i = 0; i < m_DriverGroup->GetNvar(); i++ )
+    if ( m_DriverGroup )
     {
-        for( int j = 0; j < m_DriverGroup->GetNchoice(); j++ )
+        for( int i = 0; i < m_DriverGroup->GetNvar(); i++ )
         {
-            m_Buttons[i][j]->callback( StaticDeviceCB, this );
+            for( int j = 0; j < m_DriverGroup->GetNchoice(); j++ )
+            {
+                m_Buttons[i][j]->callback( StaticDeviceCB, this );
+            }
         }
     }
 }
@@ -2983,18 +2989,20 @@ void DriverGroupBank::DeviceCB( Fl_Widget* w )
 {
     assert( m_Screen );
 
-    int imatch, jmatch;
-    if( WhichButton( w, imatch, jmatch ) )
+    if ( m_DriverGroup )
     {
-        vector< int > newchoices = m_DriverGroup->GetChoices();
-        newchoices[jmatch] = imatch;
-
-        if( m_DriverGroup->ValidDrivers( newchoices ) )
+        int imatch, jmatch;
+        if( WhichButton( w, imatch, jmatch ) )
         {
-            m_DriverGroup->SetChoice( jmatch, imatch );
+            vector< int > newchoices = m_DriverGroup->GetChoices();
+            newchoices[jmatch] = imatch;
+
+            if( m_DriverGroup->ValidDrivers( newchoices ) )
+            {
+                m_DriverGroup->SetChoice( jmatch, imatch );
+            }
         }
     }
-
 
     m_Screen->GuiDeviceCallBack( this );
 }
@@ -3010,44 +3018,70 @@ void DriverGroupBank::Update( vector< string > & parm_ids )
         }
     }
 
-    vector< int > checkchoices;
-    vector< int > currchoices = m_DriverGroup->GetChoices();
-
-    for( int i = 0; i < m_DriverGroup->GetNvar(); i++ )
+    if ( m_DriverGroup )
     {
-        if( vector_contains_val( currchoices, i ) )
-        {
-            m_Sliders[i]->Activate();
-        }
-        else
-        {
-            m_Sliders[i]->Deactivate();
-        }
+        vector< int > checkchoices;
+        vector< int > currchoices = m_DriverGroup->GetChoices();
 
-        for( int j = 0; j < m_DriverGroup->GetNchoice(); j++ )
+        for( int i = 0; i < m_DriverGroup->GetNvar(); i++ )
         {
-            checkchoices = m_DriverGroup->GetChoices();
-            checkchoices[j] = i;
-
-            if( m_DriverGroup->ValidDrivers( checkchoices ) )
+            if( vector_contains_val( currchoices, i ) )
             {
-                m_Buttons[i][j]->activate();
+                m_Sliders[i]->Activate();
             }
             else
             {
-                m_Buttons[i][j]->deactivate();
+                m_Sliders[i]->Deactivate();
             }
 
-            if( currchoices[j] == i )
+            for( int j = 0; j < m_DriverGroup->GetNchoice(); j++ )
             {
-                m_Buttons[i][j]->value( 1 );
-            }
-            else
-            {
-                m_Buttons[i][j]->value( 0 );
-            }
+                checkchoices = m_DriverGroup->GetChoices();
+                checkchoices[j] = i;
 
+                if( m_DriverGroup->ValidDrivers( checkchoices ) )
+                {
+                    m_Buttons[i][j]->activate();
+                }
+                else
+                {
+                    m_Buttons[i][j]->deactivate();
+                }
+
+                if( currchoices[j] == i )
+                {
+                    m_Buttons[i][j]->value( 1 );
+                }
+                else
+                {
+                    m_Buttons[i][j]->value( 0 );
+                }
+            }
         }
+    }
+}
+
+void DriverGroupBank::EnforceXSecGeomType( int geom_type )
+{
+    // Force width and height drivers for Wing and Prop and disable other driver options
+
+    // TODO: extend this functionality to the API so users can't adjust width and height 
+    // parameters for Wing or Prop Geom types. 
+    if ( !m_DriverGroup || ( geom_type != MS_WING_GEOM_TYPE && geom_type != PROP_GEOM_TYPE ) )
+    {
+        return;
+    }
+
+    m_Buttons[vsp::AREA_XSEC_DRIVER][0]->deactivate();
+    m_Buttons[vsp::HWRATIO_XSEC_DRIVER][0]->deactivate();
+    m_Buttons[vsp::AREA_XSEC_DRIVER][1]->deactivate();
+    m_Buttons[vsp::HWRATIO_XSEC_DRIVER][1]->deactivate();
+
+    m_Sliders[vsp::WIDTH_XSEC_DRIVER]->Deactivate();
+
+    if (geom_type == PROP_GEOM_TYPE)
+    {
+        m_Sliders[vsp::HEIGHT_XSEC_DRIVER]->Deactivate();
     }
 }
 
@@ -3065,15 +3099,18 @@ bool DriverGroupBank::WhichButton( Fl_Widget *w, int &imatch, int &jmatch )
 {
     imatch = -1;
     jmatch = -1;
-    for( int i = 0; i < m_DriverGroup->GetNvar(); i++ )
+    if ( m_DriverGroup )
     {
-        for( int j = 0; j < m_DriverGroup->GetNchoice(); j++ )
+        for( int i = 0; i < m_DriverGroup->GetNvar(); i++ )
         {
-            if( w == m_Buttons[i][j] )
+            for( int j = 0; j < m_DriverGroup->GetNchoice(); j++ )
             {
-                imatch = i;
-                jmatch = j;
-                return true;
+                if( w == m_Buttons[i][j] )
+                {
+                    imatch = i;
+                    jmatch = j;
+                    return true;
+                }
             }
         }
     }
@@ -3239,6 +3276,11 @@ SkinHeader::SkinHeader()
     m_Screen = NULL;
 
     m_ContChoice = NULL;
+}
+
+SkinHeader::~SkinHeader()
+{
+    delete m_ContChoice;
 }
 
 void SkinHeader::Init( VspScreen* screen,
@@ -3512,6 +3554,11 @@ PCurveEditor::PCurveEditor()
     m_SliderVecVec.resize( 2 );
 }
 
+PCurveEditor::~PCurveEditor()
+{
+    delete m_PtLayout;
+}
+
 void PCurveEditor::Init( VspScreen* screen, Vsp_Canvas* canvas, Fl_Scroll* ptscroll, Fl_Button* spbutton, Fl_Button* convbutton, Fl_Button* delbutton, Fl_Light_Button* delpickbutton, Fl_Light_Button* splitpickbutton, GroupLayout* ptlayout )
 {
     GuiDevice::Init( screen );
@@ -3682,7 +3729,7 @@ void PCurveEditor::RedrawXYSliders( int num_pts, int curve_type )
     m_EnforceG1Vec.resize( num_pts );
 
     int gap_w = 4;
-    int input_w = 50;
+    int input_w = 50+10;
     int range_button_w = 10;
     int button_w = 45;
     int scroll_w = 15;
@@ -3705,7 +3752,7 @@ void PCurveEditor::RedrawXYSliders( int num_pts, int curve_type )
 
             for ( int i = 0; i < num_sliders; i++ )
             {
-                m_PtLayout->AddSlider( m_SliderVecVec[i][n], "AUTO_UPDATE", 2, "%9.4f" );
+                m_PtLayout->AddSlider( m_SliderVecVec[i][n], "AUTO_UPDATE", 2, "%11.6f" );
 
                 if ( i != num_sliders - 1 )
                 {
@@ -3727,7 +3774,7 @@ void PCurveEditor::RedrawXYSliders( int num_pts, int curve_type )
         {
             for ( int i = 0; i < num_sliders; i++ )
             {
-                m_PtLayout->AddSlider( m_SliderVecVec[i][n], "AUTO_UPDATE", 2, "%9.4f" );
+                m_PtLayout->AddSlider( m_SliderVecVec[i][n], "AUTO_UPDATE", 2, "%11.6f" );
 
                 if ( i != m_SliderVecVec.size() - 1 )
                 {

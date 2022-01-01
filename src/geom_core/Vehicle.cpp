@@ -151,6 +151,52 @@ Vehicle::Vehicle()
     m_SVGView3_rot.Init( "BottomLeftRotation", "SVGSettings", this, vsp::ROT_0, vsp::ROT_0, vsp::ROT_270 );
     m_SVGView4_rot.Init( "BottomRightRotation", "SVGSettings", this, vsp::ROT_0, vsp::ROT_0, vsp::ROT_270 );
 
+    m_WorkingXDDMType.Init( "Working_XDDM_Type", "Design", this, vsp::XDDM_VAR, vsp::XDDM_VAR, vsp::XDDM_CONST );
+
+    m_UType.Init( "U_Type", "FitModel", this, TargetPt::FREE, TargetPt::FIXED, TargetPt::FREE );
+    m_UType.SetDescript( "Target U fixed or free" );
+    m_UTargetPt.Init( "U_TargetPt", "FitModel", this, 0, 0, 1 );
+    m_UTargetPt.SetDescript( "U Coordinate of Fixed Point" );
+    m_WType.Init( "W_Type", "FitModel", this, TargetPt::FREE, TargetPt::FIXED, TargetPt::FREE );
+    m_WType.SetDescript( "Target W fixed or free" );
+    m_WTargetPt.Init( "W_TargetPt", "FitModel", this, 0, 0, 1 );
+    m_WTargetPt.SetDescript( "W Coordinate of Fixed Point" );
+    m_SelectOneFlag.Init( "Select_One_Flag", "FitModel", this, false, 0, 1 );
+    m_SelectBoxFlag.Init( "Select_Box_Flag", "FitModel", this, false, 0, 1 );
+
+    m_TargetType.Init( "TargetType", "Projection", this, vsp::SET_TARGET, vsp::SET_TARGET, vsp::NUM_PROJ_TGT_OPTIONS - 1 );
+    m_BoundaryType.Init( "BoundaryType", "Projection", this, vsp::NO_BOUNDARY, vsp::NO_BOUNDARY, vsp::NUM_PROJ_BNDY_OPTIONS - 1 );
+    m_DirectionType.Init( "DirectionType", "Projection", this, vsp::X_PROJ, vsp::X_PROJ, vsp::NUM_PROJ_DIR_OPTIONS - 1 );
+    m_XComp.Init( "XComp", "Projection", this, 0.0, -1.0, 1.0 );
+    m_YComp.Init( "YComp", "Projection", this, 0.0, -1.0, 1.0 );
+    m_ZComp.Init( "ZComp", "Projection", this, 0.0, -1.0, 1.0 );
+
+    m_ViewportSizeXValue.Init( "ViewportX", "AdjustView", this, 0.0, 0, 1.0e12 );
+    m_ViewportSizeYValue.Init( "ViewportY", "AdjustView", this, 0.0, 0, 1.0e12 );
+    m_CORXValue.Init( "CORX", "AdjustView", this, 0.0, -1.0e12, 1.0e12 );
+    m_CORYValue.Init( "CORY", "AdjustView", this, 0.0, -1.0e12, 1.0e12 );
+    m_CORZValue.Init( "CORZ", "AdjustView", this, 0.0, -1.0e12, 1.0e12 );
+    m_PanXPosValue.Init( "PanX", "AdjustView", this, 0.0, -1.0e12, 1.0e12 );
+    m_PanYPosValue.Init( "PanY", "AdjustView", this, 0.0, -1.0e12, 1.0e12 );
+    m_ZoomValue.Init( "Zoom", "AdjustView", this, 1e-3, 1e-6, 10 );
+    m_XRotationValue.Init( "RotationX", "AdjustView", this, 0.0, -1.0e12, 1.0e12 );
+    m_YRotationValue.Init( "RotationY", "AdjustView", this, 0.0, -1.0e12, 1.0e12 );
+    m_ZRotationValue.Init( "RotationZ", "AdjustView", this, 0.0, -1.0e12, 1.0e12 );
+
+    m_NewRatioValue.Init( "Ratio", "Screenshot", this, 1.0, 0.0, 1.0e12 );
+    m_NewWidthValue.Init( "Width", "Screenshot", this, 1.0, 0.0, 1.0e12 );
+    m_NewHeightValue.Init( "Height", "Screenshot", this, 1.0, 0.0, 1.0e12 );
+    m_TransparentBGFlag.Init( "TransparentBGFlag", "Screenshot", this, 1, 0, 1 );
+
+    m_UserParmVal.Init( "Val", "UserParm", this, 0.0, -1.0e12, 1.0e12 );
+    m_UserParmMin.Init( "Min", "UserParm", this, -1.0e5, -1.0e12, 1.0e12 );
+    m_UserParmMax.Init( "Max", "UserParm", this, 1.0e5, -1.0e12, 1.0e12 );
+
+    m_BGWidthScaleValue.Init( "WidthScale", "Background", this, 1.0, -1.0e12, 1.0e12 );
+    m_BGHeightScaleValue.Init( "HeightScale", "Background", this, 1.0, -1.0e12, 1.0e12 );
+    m_BGXOffsetValue.Init( "XOffset", "Background", this, 0.0, -1.0e12, 1.0e12 );
+    m_BGYOffsetValue.Init( "YOffset", "Background", this, 0.0, -1.0e12, 1.0e12 );
+
     m_AFExportType.Init( "AFExportType", "AirfoilExport", this, vsp::BEZIER_AF_EXPORT, vsp::SELIG_AF_EXPORT, vsp::BEZIER_AF_EXPORT );
     m_AFExportType.SetDescript( "Airfoil Representation Written to File" );
     m_AFWTessFactor.Init( "AFWTessFactor", "AirfoilExport", this, 1.0, 0.01, 100 );
@@ -176,7 +222,6 @@ Vehicle::Vehicle()
     m_BbZMin.SetDescript( "Minimum Z coordinate of vehicle bounding box" );
 
     m_exportCompGeomCsvFile.Init( "CompGeom_CSV_Export", "ExportFlag", this, true, 0, 1 );
-    m_exportDragBuildTsvFile.Init( "DragBuild_TSV_Export", "ExportFlag", this, true, 0, 1 );
     m_exportDegenGeomCsvFile.Init( "DegenGeom_CSV_Export", "ExportFlag", this, true, 0, 1 );
     m_exportDegenGeomMFile.Init( "DegenGeom_M_Export", "ExportFlag", this, true, 0, 1 );
 
@@ -204,7 +249,7 @@ Vehicle::Vehicle()
     m_NumPlanerSlices.SetDescript( "Number of planar slices used to display mesh" );
 
     m_AutoBoundsFlag.Init( "AutoBoundsFlag", "PSlice", this, true, false, true );
-    m_AutoBoundsFlag.SetDescript( "Automaticly sets Planar Start and End locations" );
+    m_AutoBoundsFlag.SetDescript( "Automatically sets Planar Start and End locations" );
 
     m_PlanarAxisType.Init( "PlanarAxisType", "PSlice", this, vsp::X_DIR, vsp::X_DIR, vsp::Z_DIR );
     m_PlanarAxisType.SetDescript( "Selects from X,Y,Z Axis for Planar Slice" );
@@ -214,11 +259,6 @@ Vehicle::Vehicle()
 
     m_PlanarEndLocation.Init( "PlanarEndLocation", "PSlice", this, 10, -1e12, 1e12 );
     m_PlanarEndLocation.SetDescript( "Planar End Location" );
-
-    
-
-    // Initialize the group transformations object
-    m_GroupTransformations.Init( this );
 
     SetupPaths();
     m_VehProjectVec3d.resize( 3 );
@@ -243,6 +283,7 @@ Vehicle::~Vehicle()
 void Vehicle::Init()
 {
     //==== Init Custom Geom and Script Mgr ====//
+    LightMgr.Init();
     CustomGeomMgr.Init();
     ScriptMgr.Init();
     AdvLinkMgr.Init();
@@ -339,6 +380,27 @@ void Vehicle::Init()
     m_SVGView3_rot.Set( vsp::ROT_0 );
     m_SVGView4_rot.Set( vsp::ROT_0 );
 
+    m_WorkingXDDMType.Set( vsp::XDDM_VAR );
+
+    m_UType.Set( TargetPt::FREE );
+    m_UTargetPt.Set( 0 );
+    m_WType.Set( TargetPt::FREE );
+    m_WTargetPt.Set( 0 );
+    m_SelectOneFlag.Set( false );
+    m_SelectBoxFlag.Set( false );
+
+    m_TargetType.Set( vsp::SET_TARGET );
+    m_BoundaryType.Set( vsp::NO_BOUNDARY );
+    m_DirectionType.Set( vsp::X_PROJ );
+    m_XComp.Set( 0.0 );
+    m_YComp.Set( 0.0 );
+    m_ZComp.Set( 0.0 );
+
+    m_NewRatioValue.Set( 1.0 );
+    m_NewWidthValue.Set( 1.0 );
+    m_NewHeightValue.Set( 1.0 );
+    m_TransparentBGFlag.Set( 1 );
+
     m_STLMultiSolid.Set( false );
     m_STLExportPropMainSurf.Set( false );
 
@@ -358,7 +420,6 @@ void Vehicle::Init()
     m_BbZMin.Set( 0 );
 
     m_exportCompGeomCsvFile.Set( true );
-    m_exportDragBuildTsvFile.Set( true );
     m_exportDegenGeomCsvFile.Set( true );
     m_exportDegenGeomMFile.Set( true );
 
@@ -428,6 +489,8 @@ void Vehicle::Wype()
     VSPAEROMgr.Renew();
     MeasureMgr.Renew();
     StructureMgr.Renew();
+
+    LightMgr.Wype();
 }
 
 void Vehicle::SetVSP3FileName( const string & f_name )
@@ -975,9 +1038,6 @@ vector < int > Vehicle::GetDegenGeomTypeVec( int set_index )
         if ( geom )
         {
             // Identify the DegenGeom type
-            vector < VspSurf > main_surf_vec;
-            geom->GetMainSurfVec( main_surf_vec );
-
             int surftype = DegenGeom::BODY_TYPE;
             if ( geom->GetMainSurfType(0) == vsp::WING_SURF || geom->GetMainSurfType(0) == vsp::PROP_SURF )
             {
@@ -1713,7 +1773,7 @@ xmlNodePtr Vehicle::EncodeXml( xmlNodePtr & node, int set )
     ParmContainer::EncodeXml( vehicle_node );
 
     // Encode lighting information.
-    getVGuiDraw()->getLightMgr()->EncodeXml( vehicle_node );
+    LightMgr.EncodeXml( vehicle_node );
 
     // Encode label information.
     MeasureMgr.EncodeXml( vehicle_node );
@@ -1761,7 +1821,7 @@ xmlNodePtr Vehicle::DecodeXml( xmlNodePtr & node )
         ParmContainer::DecodeXml( vehicle_node );
 
         // Decode lighting information.
-        getVGuiDraw()->getLightMgr()->DecodeXml( vehicle_node );
+        LightMgr.DecodeXml( vehicle_node );
 
         // Decode label information.
         MeasureMgr.DecodeXml( vehicle_node );
@@ -3134,7 +3194,7 @@ void Vehicle::FetchXFerSurfs( int write_set, vector< XferSurf > &xfersurfs )
         if( geom_vec[i]->GetSetFlag( write_set ) )
         {
             vector<VspSurf> surf_vec;
-            geom_vec[i]->GetSurfVec( surf_vec );
+            surf_vec = geom_vec[i]->GetSurfVecConstRef();
 
             for ( int j = 0; j < ( int )surf_vec.size(); j++ )
             {
@@ -3163,7 +3223,7 @@ void Vehicle::WriteSTEPFile( const string & file_name, int write_set, bool label
         if( geom_vec[i]->GetSetFlag( write_set ) )
         {
             vector<VspSurf> surf_vec;
-            geom_vec[i]->GetSurfVec( surf_vec );
+            surf_vec = geom_vec[i]->GetSurfVecConstRef();
 
             for ( int j = 0; j < surf_vec.size(); j++ )
             {
@@ -3344,7 +3404,7 @@ void Vehicle::WriteIGESFile( const string & file_name, int write_set, int lenUni
         if( geom_vec[i]->GetSetFlag( write_set ) )
         {
             vector<VspSurf> surf_vec;
-            geom_vec[i]->GetSurfVec( surf_vec );
+            surf_vec = geom_vec[i]->GetSurfVecConstRef();
 
             for ( int j = 0; j < surf_vec.size(); j++ )
             {
@@ -4379,10 +4439,6 @@ string Vehicle::getExportFileName( int type )
     {
         doreturn = true;
     }
-    else if ( type == DRAG_BUILD_TSV_TYPE )
-    {
-        doreturn = true;
-    }
     else if ( type == MASS_PROP_TXT_TYPE )
     {
         doreturn = true;
@@ -4447,10 +4503,6 @@ void Vehicle::setExportFileName( int type, string f_name )
     {
         doset = true;
     }
-    else if ( type == DRAG_BUILD_TSV_TYPE )
-    {
-        doset = true;
-    }
     else if ( type == MASS_PROP_TXT_TYPE )
     {
         doset = true;
@@ -4496,8 +4548,8 @@ void Vehicle::setExportFileName( int type, string f_name )
 
 void Vehicle::resetExportFileNames()
 {
-    const char *suffix[] = {"_CompGeom.txt", "_CompGeom.csv", "_DragBuild.tsv", "_Slice.txt", "_MassProps.txt", "_DegenGeom.csv", "_DegenGeom.m", "_ProjArea.csv", "_WaveDrag.txt", ".tri", "_ParasiteBuildUp.csv", "_VSPGeom.vspgeom" };
-    const int types[] = { COMP_GEOM_TXT_TYPE, COMP_GEOM_CSV_TYPE, DRAG_BUILD_TSV_TYPE, SLICE_TXT_TYPE, MASS_PROP_TXT_TYPE, DEGEN_GEOM_CSV_TYPE, DEGEN_GEOM_M_TYPE, PROJ_AREA_CSV_TYPE, WAVE_DRAG_TXT_TYPE, VSPAERO_PANEL_TRI_TYPE, DRAG_BUILD_CSV_TYPE, VSPAERO_VSPGEOM_TYPE };
+    const char *suffix[] = {"_CompGeom.txt", "_CompGeom.csv", "_Slice.txt", "_MassProps.txt", "_DegenGeom.csv", "_DegenGeom.m", "_ProjArea.csv", "_WaveDrag.txt", ".tri", "_ParasiteBuildUp.csv", "_VSPGeom.vspgeom" };
+    const int types[] = { COMP_GEOM_TXT_TYPE, COMP_GEOM_CSV_TYPE, SLICE_TXT_TYPE, MASS_PROP_TXT_TYPE, DEGEN_GEOM_CSV_TYPE, DEGEN_GEOM_M_TYPE, PROJ_AREA_CSV_TYPE, WAVE_DRAG_TXT_TYPE, VSPAERO_PANEL_TRI_TYPE, DRAG_BUILD_CSV_TYPE, VSPAERO_VSPGEOM_TYPE };
     const int ntype = ( sizeof(types) / sizeof(types[0]) );
     int pos;
 

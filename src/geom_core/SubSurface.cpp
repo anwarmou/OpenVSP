@@ -124,7 +124,7 @@ void SubSurface::LoadPartialColoredDrawObjs( const string & ss_id, int surf_num,
     draw_obj_vec.push_back(&m_SubSurfHighlightDO[surf_num]);
 }
 
-vector< TMesh* > SubSurface::CreateTMeshVec()
+vector< TMesh* > SubSurface::CreateTMeshVec() const
 {
     vector<TMesh*> tmesh_vec;
     tmesh_vec.resize(1);
@@ -152,11 +152,10 @@ void SubSurface::UpdateDrawObjs()
     m_SubSurfDO.m_GeomID = m_ID + string( "_ss_line" );
     m_SubSurfDO.m_LineWidth = 3.0;
     m_SubSurfDO.m_Type = DrawObj::VSP_LINES;
-
     if ( geom )
     {
         vector< VspSurf > surf_vec;
-        geom->GetSurfVec( surf_vec );
+        surf_vec = geom->GetSurfVecConstRef();
         int ncopy = geom->GetNumSymmCopies();
 
         m_SubSurfHighlightDO.resize( m_LVec.size()*ncopy, DrawObj() );
@@ -570,7 +569,7 @@ vec3d SSLineSeg::CompPnt( VspSurf* surf, vec3d uw_pnt ) const
     return surf->CompPnt( uw_pnt.x(), uw_pnt.y() );
 }
 
-TMesh* SSLineSeg::CreateTMesh()
+TMesh* SSLineSeg::CreateTMesh() const
 {
     TMesh* tmesh = new TMesh();
 
@@ -579,7 +578,7 @@ TMesh* SSLineSeg::CreateTMesh()
     return tmesh;
 }
 
-void SSLineSeg::AddToTMesh( TMesh* tmesh )
+void SSLineSeg::AddToTMesh( TMesh* tmesh ) const
 {
 
     unsigned int num_cut_lines = 0;
@@ -654,7 +653,7 @@ SSLine::SSLine( const string& comp_id, int type ) : SubSurface( comp_id, type )
 {
     m_ConstType.Init( "Const_Line_Type", "SubSurface", this, vsp::CONST_U, 0, 1 );
     m_ConstVal.Init( "Const_Line_Value", "SubSurface", this, 0.5, 0, 1 );
-    m_ConstVal.SetDescript( "Either the U or V value of the line depending on what constant line type is choosen." );
+    m_ConstVal.SetDescript( "Either the U or V value of the line depending on what constant line type is chosen." );
     m_TestType.Init( "Test_Type", "SubSurface", this, SSLineSeg::GT, SSLineSeg::GT, SSLineSeg::NO );
     m_TestType.SetDescript( "Tag surface as being either greater than or less than const value line" );
 
@@ -1859,7 +1858,7 @@ void SSControlSurf::UpdateDrawObjs()
     if ( geom )
     {
         vector< VspSurf > surf_vec;
-        geom->GetSurfVec( surf_vec );
+        surf_vec = geom->GetSurfVecConstRef();
         int ncopy = geom->GetNumSymmCopies();
 
         m_HingeDO.m_PntVec.clear();
@@ -2115,7 +2114,7 @@ void SSLineArray::CalcNumLines()
         }
 
         vector< VspSurf > surf_vec;
-        current_geom->GetSurfVec( surf_vec );
+        surf_vec = current_geom->GetSurfVecConstRef();
         VspSurf current_surf = surf_vec[m_MainSurfIndx()];
 
         if ( m_PositiveDirectionFlag() )

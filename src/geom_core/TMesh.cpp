@@ -503,8 +503,6 @@ void TMesh::CopyAttributes( TMesh* m )
     m_ShellFlag = m->m_ShellFlag;
     m_ShellMassArea = m->m_ShellMassArea;
 
-    m_DragFactors = m->m_DragFactors;
-
     m_SurfType = m->m_SurfType;
 
     m_UWPnts = m->m_UWPnts;
@@ -597,7 +595,7 @@ void TMesh::DecodeTriList( xmlNodePtr & node, int num_tris )
     }
 }
 
-void TMesh::LoadGeomAttributes( Geom* geomPtr )
+void TMesh::LoadGeomAttributes( const Geom* geomPtr )
 {
     /*color       = geomPtr->getColor();
     materialID    = geomPtr->getMaterialID();*/
@@ -615,9 +613,6 @@ void TMesh::LoadGeomAttributes( Geom* geomPtr )
 
     //==== Check for Alternate Output Name ====//
     m_NameStr   = geomPtr->GetName();
-
-    geomPtr->LoadDragFactors( m_DragFactors );
-
 }
 
 void TMesh::RemoveIsectEdges()
@@ -1989,7 +1984,7 @@ void TTri::TriangulateSplit( int flattenAxis )
     in.edgemarkerlist = NULL;
     in.segmentmarkerlist = NULL;
 
-    //==== Load Points into Traingle Struct ====//
+    //==== Load Points into Triangle Struct ====//
     in.numberofpoints = m_NVec.size();
 
 
@@ -3936,7 +3931,7 @@ void TMesh::FindIJ( const vec3d & uw_pnt, int &start_u, int &start_v )
     }
 }
 
-void CreateTMeshVecFromPts( Geom * geom,
+void CreateTMeshVecFromPts( const Geom * geom,
                             vector < TMesh* > & TMeshVec,
                             const vector< vector<vec3d> > & pnts,
                             const vector< vector<vec3d> > & norms,

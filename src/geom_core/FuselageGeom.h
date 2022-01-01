@@ -42,14 +42,13 @@ public:
     virtual void PasteXSec( int index );
     virtual void InsertXSec( int index, int type );
 
-    virtual void SetActiveXSecType( int type );
     virtual void CutActiveXSec();
     virtual void CopyActiveXSec();
     virtual void PasteActiveXSec();
     virtual void InsertXSec( );
     virtual void InsertXSec( int type );
 
-    virtual int GetNumXSecSurfs()
+    virtual int GetNumXSecSurfs() const
     {
         return 1;
     }
@@ -61,9 +60,6 @@ public:
     virtual void AddLinkableParms( vector< string > & linkable_parm_vec, const string & link_container_id = string() );
     virtual void Scale();
     virtual void AddDefaultSources( double base_len = 1.0 );
-
-    //==== Set Drag Factors ====//
-    virtual void LoadDragFactors( DragFactors& drag_factors );
 
     virtual void ReadV2File( xmlNodePtr &root );
     virtual void ReadV2FileFuse2( xmlNodePtr &root );
@@ -96,8 +92,8 @@ protected:
     virtual void ChangeID( string id );
 
     virtual void UpdateSurf();
-    virtual void UpdateTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen );
-    virtual void UpdateSplitTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms );
+    virtual void UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen ) const;
+    virtual void UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms ) const;
 
     virtual void EnforceOrder( FuseXSec* xs, int indx, int policy );
 

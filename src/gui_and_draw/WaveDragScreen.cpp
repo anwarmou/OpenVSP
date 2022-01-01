@@ -11,7 +11,7 @@
 #include "WaveDragScreen.h"
 #include "SubSurfaceMgr.h"
 #include "StlHelper.h"
-#include "Util.h"
+#include "VspUtil.h"
 
 /////////////////// Construction/Destruction /////////////////////////
 
@@ -112,7 +112,7 @@ WaveDragScreen::WaveDragScreen( ScreenMgr* mgr ) : TabScreen( mgr, 310 + 470, 45
 
     m_PlotLayout.AddIndexSelector( m_ThetaIndexSelector );
 
-    // Refernce location
+    // Reference location
     m_PlotLayout.AddYGap();
 
     m_PlotLayout.SetButtonWidth( 60 );

@@ -47,6 +47,8 @@ public:
     double m_Feather;
     double m_ZRotate;
 
+    bool m_CurveSection;
+
     double m_Radius;
     double m_Rake;
     double m_Skew;
@@ -118,14 +120,13 @@ public:
     virtual void PasteXSec( int index );
     virtual void InsertXSec( int index, int type );
 
-    virtual void SetActiveXSecType( int type );
     virtual void CutActiveXSec();
     virtual void CopyActiveXSec();
     virtual void PasteActiveXSec();
     virtual void InsertXSec( );
     virtual void InsertXSec( int type );
 
-    virtual int GetNumXSecSurfs()
+    virtual int GetNumXSecSurfs() const
     {
         return 1;
     }
@@ -138,9 +139,6 @@ public:
     virtual void Scale();
     virtual void AddDefaultSources( double base_len = 1.0 );
 
-    //==== Set Drag Factors ====//
-    virtual void LoadDragFactors( DragFactors& drag_factors );
-
     virtual string BuildBEMResults();
 
     virtual int ReadBEM( const string &file_name );
@@ -149,11 +147,15 @@ public:
 
     virtual void WriteAirfoilFiles( FILE* meta_fid );
 
-    virtual vector< TMesh* > CreateTMeshVec();
+    virtual vector< TMesh* > CreateTMeshVec() const;
 
     virtual void SetExportMainSurf( bool b )         { m_ExportMainSurf = b; }
 
-    virtual void GetSurfVec( vector<VspSurf> &surf_vec );
+    virtual const vector<VspSurf> & GetSurfVecConstRef() const;
+
+    virtual void ApproxCubicAllPCurves();
+
+    virtual void ResetThickness();
 
     Parm m_Diameter;
 
@@ -161,6 +163,7 @@ public:
     Parm m_Beta34;
     Parm m_Feather;
     IntParm m_UseBeta34Flag;
+    BoolParm m_CylindricalSectionsFlag;
 
     Parm m_Precone;
 
@@ -225,8 +228,8 @@ protected:
     virtual void EnforceOrder( PropXSec* xs, int indx );
     virtual void EnforcePCurveOrder( double rfirst, double rlast );
 
-    virtual void UpdateTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen );
-    virtual void UpdateSplitTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms );
+    virtual void UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen ) const;
+    virtual void UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms ) const;
     virtual void UpdatePreTess();
 
     virtual void CalculateMeshMetrics();

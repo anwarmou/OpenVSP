@@ -13,7 +13,8 @@
 #include "ParmMgr.h"
 #include "FuselageGeom.h"
 #include "BORGeom.h"
-#include "Util.h"
+#include "VspUtil.h"
+#include "StlHelper.h"
 #include "eli/geom/curve/length.hpp"
 
 typedef piecewise_curve_type::index_type curve_index_type;
@@ -32,6 +33,14 @@ using namespace vsp;
 //==== Default Constructor ====//
 XSecCurve::XSecCurve()
 {
+    m_DriverGroup = new HWXSecCurveDriverGroup();
+
+    XSecCurveDriverGroup *xscdg = dynamic_cast< XSecCurveDriverGroup* > ( m_DriverGroup );
+    if ( xscdg )
+    {
+        xscdg->m_Parent = this;
+    }
+
     m_GroupName = "XSecCurve";
     m_GroupSuffix = -1;
 
@@ -114,11 +123,22 @@ XSecCurve::XSecCurve()
     m_XSecImageYOffset.Init( "XSecImageYOffset", ( m_GroupName + "_Background" ), this, 0.0, -1.0e12, 1.0e12 );
     m_XSecFlipImageFlag.Init( "XSecFlipImageFlag", ( m_GroupName + "_Background" ), this, false, false, true );
 
+    m_Area.Init( "Area", m_GroupName, this, 0, 0, 1e12 );
+    m_Area.SetDescript( "XSec Area" );
+
+    m_HWRatio.Init( "HWRatio", m_GroupName, this, 0, 0, 1e12 );
+    m_HWRatio.SetDescript( "XSec H/W Ratio" );
+
     m_FakeWidth = 1.0;
     m_UseFakeWidth = false;
     m_ForceWingType = false;
 
     m_yscale = 1.0;
+}
+
+XSecCurve::~XSecCurve()
+{
+    delete m_DriverGroup;
 }
 
 //==== Convert Any XSec to Cubic Bezier Edit Curve ====//
@@ -304,37 +324,49 @@ void XSecCurve::ParmChanged( Parm* parm_ptr, int type )
 //==== Update ====//
 void XSecCurve::Update()
 {
-    m_BaseEditCurve = m_Curve; // Baseline VspCurve to initialize an EditCurveXSec with 
-
     m_TETrimX.SetUpperLimit( 0.999 * GetWidth() );
 
-    bool wingtype = false;
+    // Reconcile height, width, area, and hwratio.
+    // Potentially involves an iterative solution when area is a driver.
+    // May include lofting the curve.
+    m_DriverGroup->UpdateGroup( GetDriverParms() );
 
-    ParmContainer* pc = GetParentContainerPtr();
+    UpdateCurve();
 
-    XSec* xs = dynamic_cast< XSec* > (pc);
-
-    if ( xs )
+    if ( m_Type != XS_POINT )
     {
-        if ( xs->GetType() == XSEC_WING || xs->GetType() == XSEC_PROP )
+        if ( !m_DriverGroup->IsDriver( vsp::AREA_XSEC_DRIVER ) )
         {
-            wingtype = true;
+            m_Area = m_Curve.CompArea( vsp::Y_DIR, vsp::X_DIR );
+        }
+
+        if ( !m_DriverGroup->IsDriver( vsp::HWRATIO_XSEC_DRIVER ) )
+        {
+            if ( GetWidth() > 1e-6 * m_Area() )
+            {
+                m_HWRatio = GetHeight() / GetWidth();
+            }
+            else
+            {
+                m_HWRatio = 1.0;
+            }
+        }
+
+        XSecCurveDriverGroup *xscdg = dynamic_cast< XSecCurveDriverGroup* > ( m_DriverGroup );
+        if ( xscdg )
+        {
+            xscdg->m_prevArea = m_Area();
         }
     }
     else
     {
-        BORGeom* bg = dynamic_cast< BORGeom* > (pc);
-
-        if ( bg )
-        {
-            wingtype = true;
-        }
+        m_Area = 0.0;
+        m_HWRatio = 1.0;
     }
 
-    if ( m_ForceWingType )
-    {
-        wingtype = true;
-    }
+    m_BaseEditCurve = m_Curve; // Baseline VspCurve to initialize an EditCurveXSec with
+
+    bool wingtype = DetermineWingType();
 
     // Order of these curve modifiers matters.
     CloseTE( wingtype );
@@ -366,6 +398,19 @@ void XSecCurve::Update()
     m_LateUpdateFlag = false;
 }
 
+//==== Get Driver Parms ====//
+vector< string > XSecCurve::GetDriverParms()
+{
+    vector< string > parm_ids;
+    parm_ids.resize( vsp::NUM_XSEC_DRIVER );
+    parm_ids[ vsp::WIDTH_XSEC_DRIVER ] = GetWidthParmID();
+    parm_ids[ vsp::HEIGHT_XSEC_DRIVER ] = GetHeightParmID();
+    parm_ids[ vsp::AREA_XSEC_DRIVER ] = m_Area.GetID();
+    parm_ids[ vsp::HWRATIO_XSEC_DRIVER ] = m_HWRatio.GetID();
+
+    return parm_ids;
+}
+
 //==== Get Curve ====//
 VspCurve& XSecCurve::GetCurve()
 {
@@ -386,6 +431,8 @@ xmlNodePtr XSecCurve::EncodeXml(  xmlNodePtr & node  )
     {
         XmlUtil::AddIntNode( xsec_node, "Type", m_Type );
 
+        m_DriverGroup->EncodeXml( xsec_node );
+
         if( m_ImageFile.size() > 0 )
         {
             XmlUtil::AddStringNode( xsec_node, "ImageFile", m_ImageFile );
@@ -401,6 +448,7 @@ xmlNodePtr XSecCurve::DecodeXml( xmlNodePtr & node )
     xmlNodePtr xscrv_node = XmlUtil::GetNode( node, "XSecCurve", 0 );
     if( xscrv_node )
     {
+        m_DriverGroup->DecodeXml( xscrv_node );
         m_ImageFile = XmlUtil::FindString( xscrv_node, "ImageFile", m_ImageFile );
     }
 
@@ -421,13 +469,56 @@ void XSecCurve::CopyFrom( XSecCurve* from_crv )
     ParmMgr.ResetRemapID( lastreset );
 }
 
+bool XSecCurve::DetermineWingType()
+{
+    bool wingtype = false;
+
+    ParmContainer* pc = GetParentContainerPtr();
+
+    XSec* xs = dynamic_cast< XSec* > (pc);
+
+    if ( xs )
+    {
+        if ( xs->GetType() == XSEC_WING || xs->GetType() == XSEC_PROP )
+        {
+            wingtype = true;
+        }
+    }
+    else
+    {
+        BORGeom* bg = dynamic_cast< BORGeom* > (pc);
+
+        if ( bg )
+        {
+            wingtype = true;
+        }
+    }
+
+    if ( m_ForceWingType )
+    {
+        wingtype = true;
+    }
+
+    return wingtype;
+}
+
 //==== Compute Area ====//
 double XSecCurve::ComputeArea()
 {
     VspCurve curve = GetCurve();
-    vector<vec3d> pnts;
-    curve.TessAdapt( pnts, 1e-3, 10 );
-    return poly_area( pnts );
+    return std::abs( curve.CompArea( vsp::X_DIR, vsp::Y_DIR ) );
+}
+
+// This calculates the area of an XSecCurve based on the current value
+// of m_Curve without calling Update() to ensure the curve is up-to-date.
+//
+// Most callers should call ComputeArea() which ensures a curve is up-to-date
+// before calculating the area.  However, in the context of the nonlinear
+// solver used when area is a driver, we want to calculate the area
+// mid-update (and obviusly without triggering an update).
+double XSecCurve::AreaNoUpdate()
+{
+    return std::abs( m_Curve.CompArea( vsp::X_DIR, vsp::Y_DIR ) );
 }
 
 void XSecCurve::CloseTE( bool wingtype )
@@ -1514,7 +1605,7 @@ PointXSec::PointXSec( ) : XSecCurve( )
 }
 
 //==== Update Geometry ====//
-void PointXSec::Update()
+void PointXSec::UpdateCurve( bool updateParms )
 {
     piecewise_curve_type c;
     curve_point_type pt;
@@ -1537,8 +1628,6 @@ void PointXSec::Update()
     else
     {
         m_Curve.SetCurve( c );
-
-        XSecCurve::Update();
     }
 }
 //==========================================================================//
@@ -1548,6 +1637,21 @@ void PointXSec::Update()
 //==== Constructor ====//
 CircleXSec::CircleXSec( ) : XSecCurve( )
 {
+    if( m_DriverGroup )
+    {
+        // m_DriverGroup was initialized in the XSecCurve() constructor.  However, we want to use a different
+        // DriverGroup type for Circle.
+        delete m_DriverGroup;
+    }
+
+    m_DriverGroup = new DXSecCurveDriverGroup();
+
+    XSecCurveDriverGroup *xscdg = dynamic_cast< XSecCurveDriverGroup* > ( m_DriverGroup );
+    if ( xscdg )
+    {
+        xscdg->m_Parent = this;
+    }
+
     m_Type = XS_CIRCLE;
     m_Diameter.Init( "Circle_Diameter", m_GroupName, this, 1.0, 0.0, 1.0e12 );
     m_Diameter.SetDescript( "Diameter of Circle Cross-Section" );
@@ -1559,6 +1663,17 @@ void CircleXSec::SetWidthHeight( double w, double h )
     m_Diameter  = ( w + h ) / 2.0;
 }
 
+//==== Get Driver Parms ====//
+vector< string > CircleXSec::GetDriverParms()
+{
+    vector< string > parm_ids;
+    parm_ids.resize( vsp::CIRCLE_NUM_XSEC_DRIVER );
+    parm_ids[ vsp::WIDTH_XSEC_DRIVER ] = GetWidthParmID();
+    parm_ids[ vsp::AREA_XSEC_DRIVER ] = m_Area.GetID();
+
+    return parm_ids;
+}
+
 void CircleXSec::OffsetCurve( double off )
 {
     m_Diameter = m_Diameter() - 2.0*off;
@@ -1566,6 +1681,24 @@ void CircleXSec::OffsetCurve( double off )
 
 //==== Update Geometry ====//
 void CircleXSec::Update()
+{
+    // Circle can have invalid drivers if it was recently converted from another XSecCurve type.  A curve that was
+    // previously an ellipse (for example) may have had drivers set to Area and HWRatio.  The conversion calls
+    // XSec::CopyFrom() to transfer parameters as best it can.  This includes a direct transfer of the drivers,
+    // no matter whether they make sense or not.
+    // The reverse conversion is OK because the non-circle driver groups are initialized with Width, Height.  When
+    // converting from a circle, only the first of these is over-written -- either with Width or Area.
+    // Consequently, any combination is valid.
+
+    if ( !m_DriverGroup->ValidDrivers( m_DriverGroup->GetChoices() ) )
+    {
+        m_DriverGroup->SetChoice( 0, WIDTH_XSEC_DRIVER );
+    }
+
+    XSecCurve::Update();
+}
+
+void CircleXSec::UpdateCurve( bool updateParms )
 {
     piecewise_curve_type c;
     piecewise_circle_creator pcc( 4 );
@@ -1590,8 +1723,6 @@ void CircleXSec::Update()
     {
         c.reverse();
         m_Curve.SetCurve( c );
-
-        XSecCurve::Update();
     }
 }
 
@@ -1611,7 +1742,7 @@ EllipseXSec::EllipseXSec( ) : XSecCurve( )
 }
 
 //==== Update Geometry ====//
-void EllipseXSec::Update()
+void EllipseXSec::UpdateCurve( bool updateParms )
 {
     piecewise_curve_type c;
     piecewise_ellipse_creator pec( 4 );
@@ -1637,8 +1768,6 @@ void EllipseXSec::Update()
     {
         c.reverse();
         m_Curve.SetCurve( c );
-
-        XSecCurve::Update();
     }
 }
 
@@ -1676,7 +1805,7 @@ SuperXSec::SuperXSec( ) : XSecCurve( )
 }
 
 //==== Update Geometry ====//
-void SuperXSec::Update()
+void SuperXSec::UpdateCurve( bool updateParms )
 {
     piecewise_curve_type c;
     piecewise_superellipse_creator psc( 16 );
@@ -1713,8 +1842,6 @@ void SuperXSec::Update()
     {
         c.reverse();
         m_Curve.InterpolateEqArcLenPCHIP( c );
-
-        XSecCurve::Update();
     }
 }
 
@@ -1765,7 +1892,7 @@ RoundedRectXSec::RoundedRectXSec( ) : XSecCurve( )
 }
 
 //==== Update Geometry ====//
-void RoundedRectXSec::Update()
+void RoundedRectXSec::UpdateCurve( bool updateParms )
 {
     double r1 = m_RadiusBR();
     double r2 = m_RadiusBL();
@@ -1790,13 +1917,14 @@ void RoundedRectXSec::Update()
     }
 
     m_Curve.CreateRoundedRectangle( m_Width(), m_Height(), m_Keystone(), m_Skew(), m_VSkew(), r1, r2, r3, r4, m_KeyCornerParm() );
-    m_RadiusBR.Set( r1 );
-    m_RadiusBL.Set( r2 );
-    m_RadiusTL.Set( r3 );
-    m_RadiusTR.Set( r4 );
 
-    XSecCurve::Update();
-    return;
+    if ( updateParms )
+    {
+        m_RadiusBR.Set( r1 );
+        m_RadiusBL.Set( r2 );
+        m_RadiusTL.Set( r3 );
+        m_RadiusTR.Set( r4 );
+    }
 }
 
 //==== Build Box of Even Spaced Points ====//
@@ -1881,7 +2009,7 @@ void GeneralFuseXSec::SetWidthHeight( double w, double h )
 }
 
 //==== Update Geometry ====//
-void GeneralFuseXSec::Update()
+void GeneralFuseXSec::UpdateCurve( bool updateParms )
 {
     double x, y;
     //==== Top Control Points ====//
@@ -1952,8 +2080,6 @@ void GeneralFuseXSec::Update()
         m_Curve.RoundJoint( m_CornerRad() * m_Height(), 2 );
         m_Curve.RoundJoint( m_CornerRad() * m_Height(), 0 );
     }
-
-    XSecCurve::Update();
 }
 
 void GeneralFuseXSec::ReadV2FileFuse2( xmlNodePtr &root )
@@ -2022,7 +2148,7 @@ void FileXSec::SetWidthHeight( double w, double h )
 }
 
 //==== Update Geometry ====//
-void FileXSec::Update()
+void FileXSec::UpdateCurve( bool updateParms )
 {
     //==== Scale File Points ====//
     vector< vec3d > scaled_file_pnts;
@@ -2107,8 +2233,6 @@ void FileXSec::Update()
     }
 
     m_Curve.InterpolatePCHIP( scaled_file_pnts, arclen, true );
-
-    XSecCurve::Update();
 }
 
 //==== Encode XML ====//
@@ -2438,9 +2562,6 @@ EditCurveXSec::EditCurveXSec() : XSecCurve()
     m_AbsoluteFlag.Init( "AbsoluteFlag", m_GroupName, this, false, false, true );
     m_AbsoluteFlag.SetDescript( "Flag indicating if control points are non-dimensional or absolute" );
 
-    m_PreserveARFlag.Init( "PreserveARFlag", m_GroupName, this, false, false, true );
-    m_PreserveARFlag.SetDescript( "Flag to preserve width to height aspect ratio" );
-
     m_XSecPointSize.Init( "XSecPointSize", ( m_GroupName + "_Background" ), this, 8.0, 1e-4, 1e4 );
     m_XSecLineThickness.Init( "XSecLineThickness", ( m_GroupName + "_Background" ), this, 1.5, 1e-4, 1e4 );
 
@@ -2452,8 +2573,6 @@ EditCurveXSec::EditCurveXSec() : XSecCurve()
 
     m_SelectPntID = 0;
     m_EnforceG1Next = true;
-
-    m_AspectRatio = 1.0;
 }
 
 void EditCurveXSec::ParmChanged( Parm* parm_ptr, int type )
@@ -2467,11 +2586,6 @@ void EditCurveXSec::ParmChanged( Parm* parm_ptr, int type )
             EnforceG1( (int)i );
             break;
         }
-    }
-
-    if ( parm_ptr == dynamic_cast<Parm*> ( &m_PreserveARFlag ) )
-    {
-        m_AspectRatio = GetWidth() / GetHeight();
     }
 
     if ( m_CurveType() == vsp::CEDIT )
@@ -2526,15 +2640,7 @@ void EditCurveXSec::ParmChanged( Parm* parm_ptr, int type )
         }
     }
 
-    if ( type != Parm::SET )
-    {
-        if ( parm_ptr == &m_Height && m_PreserveARFlag() )
-        {
-            // Enforce AR preservation if height is set from API
-            m_Width.Set( m_Height() * m_AspectRatio );
-        }
-    }
-    else
+    if ( type == Parm::SET )
     {
         m_LateUpdateFlag = true;
 
@@ -2585,10 +2691,6 @@ xmlNodePtr EditCurveXSec::DecodeXml( xmlNodePtr & node )
     }
 
     XSecCurve::DecodeXml( node );
-
-    // Must be done after the parms are decoded. Otherwise they are calculated when the 
-    // m_PreserveARFlag is decoded, but width has not been (alphabetical decode order)
-    m_AspectRatio = GetWidth() / GetHeight();
 
     return node;
 }
@@ -2790,18 +2892,13 @@ void EditCurveXSec::AddPt( double default_u, double default_x, double default_y,
 }
 
 //==== Update Geometry ====//
-void EditCurveXSec::Update()
+void EditCurveXSec::UpdateCurve( bool updateParms )
 {
     if ( m_UParmVec.empty() )
     {
         InitShape(); // Must always have a valid curve
     }
 
-    if ( m_PreserveARFlag() )
-    {
-        m_Height.Set( m_Width() / m_AspectRatio );
-    }
-    
     ClearPtOrder();
 
     EnforcePtOrder();
@@ -2839,13 +2936,9 @@ void EditCurveXSec::Update()
 
     m_Curve.OffsetX( 0.5 * m_Width() ); // Shift by 1/2 width (all XSec types are centered at (m_Width/2, 0, 0))
 
-    XSecCurve::Update(); // Note, this will add TE and LE Bezier Segments if Wing or BOR type
-
     UpdateG1Parms();
 
     EnforcePtOrder();
-
-    return;
 }
 
 void EditCurveXSec::EnforceClosure()
@@ -3409,12 +3502,13 @@ void EditCurveXSec::ConvertTo( int newtype )
                 case vsp::CEDIT:
                 {
                     vector < bool > prev_g1_vec = GetG1Vec();
-                    m_BaseEditCurve.ToCubic(); // Promote the curve
+                    VspCurve crv = m_BaseEditCurve;
+                    crv.ToCubic(); // Promote the curve
 
                     vector < double > t_vec;
                     vector < vec3d> ctrl_pts;
 
-                    m_BaseEditCurve.GetCubicControlPoints( ctrl_pts, t_vec );
+                    crv.GetCubicControlPoints( ctrl_pts, t_vec );
 
                     vector < bool > new_g1_vec( ctrl_pts.size() );
                     vector < double > u_vec( t_vec.size() );
@@ -3589,7 +3683,11 @@ void EditCurveXSec::ReparameterizeEqualArcLength()
 
         if ( m_SymType() == vsp::SYM_RL && ( m_UParmVec[iend]->Get() > 0.25 && m_UParmVec[iend]->Get() <= 0.75 ) )
         {
-            continue;
+            if ( m_UParmVec[iend]->Get() == 0.75 )
+            {
+                i_seg_prev = iend; // Set previous index after skipping left half of XSec
+            }
+            continue; // Skip left half of XSec when symmetry is on - EnforceSymmetry will mirror the right side
         }
         else if ( m_FixedUVec[iend]->Get() || ( m_SymType() == vsp::SYM_RL && m_UParmVec[iend]->Get() == 0.25 ) || ( iend == npt - 1 ) )
         {
@@ -4200,15 +4298,16 @@ int EditCurveXSec::Split01( double u_split )
         break;
         case vsp::CEDIT:
         {
+            VspCurve crv = m_BaseEditCurve;
             vector < bool > prev_g1_vec = GetG1Vec();
             vector < bool > prev_fix_u_vec = GetFixedUVec();
-            m_BaseEditCurve.Split( 4.0 * u_split );
+            crv.Split( 4.0 * u_split );
 
             u_vec.clear();
             vector < double > t_vec;
             vector < vec3d > ctrl_pnts;
 
-            m_BaseEditCurve.GetCubicControlPoints( ctrl_pnts, t_vec );
+            crv.GetCubicControlPoints( ctrl_pnts, t_vec );
 
             u_vec.resize( t_vec.size() );
             vector < bool > new_g1_vec( ctrl_pnts.size() );
@@ -4366,11 +4465,10 @@ InterpXSec::InterpXSec( ) : XSecCurve( )
 }
 
 //==== Update Geometry ====//
-void InterpXSec::Update()
+void InterpXSec::UpdateCurve( bool updateParms )
 {
     m_Curve.MatchThick( m_Height() / m_Width() );
     m_Curve.Scale( m_Width() );
-    XSecCurve::Update();
 }
 
 //==== Set Width and Height ====//
@@ -4406,9 +4504,246 @@ void InterpXSec::Interp( XSecCurve *start, XSecCurve *end, double frac )
         crv_vec[1].Scale( 1.0 / wc );
     }
 
+    crv_vec[0].ToBinaryCubic( true, 1e-6 );
+    crv_vec[1].ToBinaryCubic( true, 1e-6 );
+
     VspSurf srf;
     srf.SkinC0( crv_vec, false );
 
     srf.GetUConstCurve( m_Curve, frac );
 
+}
+
+//==========================================================================//
+//==========================================================================//
+//==========================================================================//
+
+XSecCurveDriverGroup::XSecCurveDriverGroup( int Nvar, int Nchoice ) : DriverGroup( Nvar, Nchoice )
+{
+    m_Parent = NULL;
+
+    m_prevArea = -1.0;
+    m_Name = "XSecCurveDriverGroup";
+}
+
+HWXSecCurveDriverGroup::HWXSecCurveDriverGroup() : XSecCurveDriverGroup( NUM_XSEC_DRIVER, 2 )
+{
+    m_CurrChoices[0] = WIDTH_XSEC_DRIVER;
+    m_CurrChoices[1] = HEIGHT_XSEC_DRIVER;
+}
+
+void HWXSecCurveDriverGroup::UpdateGroup( vector< string > parmIDs )
+{
+    vector< bool > uptodate( m_Nvar, false );
+
+    for( int i = 0; i < m_Nchoice; i++ )
+    {
+        uptodate[m_CurrChoices[i]] = true;
+    }
+
+    if( uptodate[WIDTH_XSEC_DRIVER] && uptodate[HEIGHT_XSEC_DRIVER] )
+    {
+        // fast path
+    }
+    else
+    {
+        Parm* width = ParmMgr.FindParm( parmIDs[WIDTH_XSEC_DRIVER] );
+        Parm* height = ParmMgr.FindParm( parmIDs[HEIGHT_XSEC_DRIVER] );
+        Parm* area = ParmMgr.FindParm( parmIDs[AREA_XSEC_DRIVER] );
+        Parm* hwratio = ParmMgr.FindParm( parmIDs[HWRATIO_XSEC_DRIVER] );
+
+        // Area is a driver, first time through, calculate m_prevArea
+        if ( uptodate[AREA_XSEC_DRIVER] && m_prevArea < 0 )
+        {
+            m_Parent->UpdateCurve( false );
+            m_prevArea = m_Parent->AreaNoUpdate();
+        }
+
+        if ( uptodate[AREA_XSEC_DRIVER] ) // Area is a driver, may need iteration.
+        {
+            int iter = 0;
+            double tol = 1e-6 * area->Get();
+            if ( tol < 1e-12 ) tol = 1e-12;
+            double err = 100 * tol;
+
+            bool canconverge = true;
+
+            while ( err > tol && iter < 10 && canconverge )
+            {
+                if( uptodate[HWRATIO_XSEC_DRIVER] )
+                {
+                    if ( m_prevArea == 0 )
+                    {
+                        width->Set( 1.0 );
+                        height->Set( 1.0 );
+                    }
+                    else
+                    {
+                        double scale = sqrt( area->Get() / m_prevArea );
+                        if ( hwratio->Get() == 0 )
+                        {
+                            scale = 1.0;
+                            canconverge = false;
+                        }
+
+                        width->Set( scale * width->Get() );
+                        height->Set( width->Get() * hwratio->Get() );
+                    }
+                }
+                else if( uptodate[WIDTH_XSEC_DRIVER] )
+                {
+                    if ( m_prevArea == 0 )
+                    {
+                        height->Set( 1.0 );
+                    }
+                    else
+                    {
+                        double scale = area->Get() / m_prevArea;
+
+                        if ( width->Get() == 0 )
+                        {
+                            scale = 1.0;
+                            canconverge = false;
+                        }
+                        height->Set( scale * height->Get() );
+                    }
+                }
+                else if( uptodate[HEIGHT_XSEC_DRIVER] )
+                {
+                    if ( m_prevArea == 0 )
+                    {
+                        width->Set( 1.0 );
+                    }
+                    else
+                    {
+                        double scale = area->Get() / m_prevArea;
+                        if ( height->Get() == 0 )
+                        {
+                            scale = 1.0;
+                            canconverge = false;
+                        }
+                        width->Set( scale * width->Get() );
+                    }
+                }
+
+                // Minimal curve math update.
+                m_Parent->UpdateCurve( false );
+                double newarea = m_Parent->AreaNoUpdate();
+
+                err = std::abs( newarea - area->Get() );
+
+                m_prevArea = newarea;
+                iter++;
+            }
+
+            uptodate[WIDTH_XSEC_DRIVER] = true;
+            uptodate[HEIGHT_XSEC_DRIVER] = true;
+        }
+        else  // Area is not a driver, cases should be algebraic.
+        {
+            if( !uptodate[WIDTH_XSEC_DRIVER] )
+            {
+                if( uptodate[HEIGHT_XSEC_DRIVER] && uptodate[HWRATIO_XSEC_DRIVER] )
+                {
+                    width->Set( height->Get() / hwratio->Get() );
+                    uptodate[WIDTH_XSEC_DRIVER] = true;
+                }
+            }
+
+            if( !uptodate[HEIGHT_XSEC_DRIVER] )
+            {
+                if( uptodate[WIDTH_XSEC_DRIVER] && uptodate[HWRATIO_XSEC_DRIVER] )
+                {
+                    height->Set( width->Get() * hwratio->Get() );
+                    uptodate[HEIGHT_XSEC_DRIVER] = true;
+                }
+            }
+        }
+    }
+}
+
+bool HWXSecCurveDriverGroup::ValidDrivers( vector< int > choices )
+{
+    // Check for duplicate selections.
+    for( int i = 0; i < (int)choices.size() - 1; i++ )
+    {
+        for( int j = i + 1; j < (int)choices.size(); j++ )
+        {
+            if( choices[i] == choices[j] )
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+DXSecCurveDriverGroup::DXSecCurveDriverGroup() : XSecCurveDriverGroup( CIRCLE_NUM_XSEC_DRIVER, 1 )
+{
+    m_CurrChoices[0] = WIDTH_XSEC_DRIVER;
+}
+
+void DXSecCurveDriverGroup::UpdateGroup( vector< string > parmIDs )
+{
+    vector< bool > uptodate( m_Nvar, false );
+
+    for( int i = 0; i < m_Nchoice; i++ )
+    {
+        uptodate[m_CurrChoices[i]] = true;
+    }
+
+    if( uptodate[WIDTH_XSEC_DRIVER] )
+    {
+        // fast path
+    }
+    else
+    {
+        Parm* width = ParmMgr.FindParm( parmIDs[WIDTH_XSEC_DRIVER] );
+        Parm* area = ParmMgr.FindParm( parmIDs[AREA_XSEC_DRIVER] );
+
+        // Area is a driver, first time through, calculate m_prevArea
+        if ( uptodate[AREA_XSEC_DRIVER] && m_prevArea < 0 )
+        {
+            m_Parent->UpdateCurve( false );
+            m_prevArea = m_Parent->AreaNoUpdate();
+        }
+
+        if ( uptodate[AREA_XSEC_DRIVER] ) // Area is a driver, may need iteration.
+        {
+            int iter = 0;
+            double tol = 1e-6 * area->Get();
+            if ( tol < 1e-12 ) tol = 1e-12;
+            double err = 100 * tol;
+
+            while ( err > tol && iter < 10 )
+            {
+                if ( m_prevArea == 0 )
+                {
+                    width->Set( 1.0 );
+                }
+                else
+                {
+                    double scale = sqrt( area->Get() / m_prevArea );
+                    width->Set( scale * width->Get() );
+                }
+
+                // Minimal curve math update.
+                m_Parent->UpdateCurve( false );
+                double newarea = m_Parent->AreaNoUpdate();
+
+                err = std::abs( newarea - area->Get() );
+
+                m_prevArea = newarea;
+                iter++;
+            }
+
+            uptodate[WIDTH_XSEC_DRIVER] = true;
+        }
+    }
+}
+
+bool DXSecCurveDriverGroup::ValidDrivers( vector< int > choices )
+{
+    return ( choices[0] == WIDTH_XSEC_DRIVER || choices[0] == AREA_XSEC_DRIVER );
 }

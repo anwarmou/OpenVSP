@@ -63,6 +63,7 @@ public:
     Airfoil( );                                                   // Default Constructor
 
     virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     //==== Values to Set/Get When Changing Types ====//
     virtual double GetWidth();
@@ -115,7 +116,7 @@ public:
 
     FourSeries( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
     virtual void SetDesignLiftCoeff( double cli );
     virtual double GetDesignLiftCoeff();
     virtual void UpdateDesignLiftCoeff();
@@ -144,7 +145,7 @@ public:
 
     FourDigMod( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
     virtual void SetDesignLiftCoeff( double cli );
     virtual double GetDesignLiftCoeff();
     virtual void UpdateDesignLiftCoeff();
@@ -173,7 +174,7 @@ public:
 
     FiveDig( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
     virtual void SetDesignLiftCoeff( double cli );
     virtual double GetDesignLiftCoeff();
     virtual void GetLiftCamberParmID( vector < string > &ids );
@@ -196,7 +197,7 @@ public:
 
     FiveDigMod( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
     virtual void SetDesignLiftCoeff( double cli );
     virtual double GetDesignLiftCoeff();
     virtual void GetLiftCamberParmID( vector < string > &ids );
@@ -221,7 +222,7 @@ public:
 
     OneSixSeries( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
     virtual void SetDesignLiftCoeff( double cli );
     virtual double GetDesignLiftCoeff();
     virtual void GetLiftCamberParmID( vector < string > &ids );
@@ -260,7 +261,7 @@ public:
 
     SixSeries( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
     virtual void SetDesignLiftCoeff( double cli );
     virtual double GetDesignLiftCoeff();
     virtual void GetLiftCamberParmID( vector < string > &ids );
@@ -292,7 +293,7 @@ public:
 
     Biconvex( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
 protected:
 
@@ -309,7 +310,7 @@ public:
 
     Wedge( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     virtual void ReadV2File( xmlNodePtr &root );
     virtual void Interp( XSecCurve *start, XSecCurve *end, double frac );
@@ -343,7 +344,7 @@ public:
 
     FileAirfoil( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
     virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
     virtual xmlNodePtr DecodeXml( xmlNodePtr & node );
 
@@ -401,7 +402,7 @@ public:
 
     CSTAirfoil( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     //==== Encode/Decode XML ====//
     virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
@@ -463,7 +464,7 @@ public:
 
     VKTAirfoil( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     virtual void OffsetCurve( double offset_val );
     virtual void Interp( XSecCurve *start, XSecCurve *end, double frac );

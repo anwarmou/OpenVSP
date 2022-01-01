@@ -196,7 +196,7 @@ void FuselageGeom::UpdateSurf()
     }
 }
 
-void FuselageGeom::UpdateTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen )
+void FuselageGeom::UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen ) const
 {
     vector < int > tessvec;
 
@@ -218,7 +218,7 @@ void FuselageGeom::UpdateTesselate( vector<VspSurf> &surf_vec, int indx, vector<
     surf_vec[indx].Tesselate( tessvec, m_TessW(), pnts, norms, uw_pnts, m_CapUMinTess(), degen );
 }
 
-void FuselageGeom::UpdateSplitTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms )
+void FuselageGeom::UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms ) const
 {
     vector < int > tessvec;
 
@@ -270,26 +270,6 @@ xmlNodePtr FuselageGeom::DecodeXml( xmlNodePtr & node )
     }
 
     return fuselage_node;
-}
-
-//==== Set Active XSec Type ====//
-void FuselageGeom::SetActiveXSecType( int type )
-{
-    XSec* xs = GetXSec( m_ActiveXSec() );
-
-    if ( !xs )
-    {
-        return;
-    }
-
-    if ( type == xs->GetXSecCurve()->GetType() )
-    {
-        return;
-    }
-
-    m_XSecSurf.ChangeXSecShape( m_ActiveXSec(), type );
-
-    Update();
 }
 
 //==== Override Geom Cut/Copy/Insert/Paste ====//
@@ -452,28 +432,6 @@ void FuselageGeom::AddDefaultSources( double base_len )
         break;
     }
     }
-}
-
-//==== Drag Parameters ====//
-void FuselageGeom::LoadDragFactors( DragFactors& drag_factors )
-{
-    double max_xsec_area = 0.000000000001;
-    for ( int i = 0 ; i < ( int )m_XSecSurf.NumXSec() ; i++ )
-    {
-        XSec* xs = m_XSecSurf.FindXSec( i );
-        XSecCurve* xsc = xs->GetXSecCurve();
-        double a = xsc->ComputeArea( );
-        if ( a > max_xsec_area )
-        {
-            max_xsec_area = a;
-        }
-    }
-
-    double dia = 2.0 * sqrt( max_xsec_area / PI );
-
-    drag_factors.m_Length = m_Length();
-    drag_factors.m_MaxXSecArea = max_xsec_area;
-    drag_factors.m_LengthToDia = m_Length() / dia;
 }
 
 void FuselageGeom::EnforceOrder( FuseXSec* xs, int indx, int policy )

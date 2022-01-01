@@ -17,8 +17,8 @@ INPUT FILENAMES for Forward Left rotor
  none
 SSPD       RHO
 1116.45    .002378
-INFLOW
-  1
+SFRAME  SMODE
+  1       0
  U      V    W        P   Q   R
  220.00 0.0 0.0     0.0 0.0 0.0
 NPSI    NREV    CONVG1    CONVG2   CONVG3   MREV
@@ -48,4 +48,24 @@ IRECON   NOISE
 NCHDRC   NPSIRC   IVROLL  CDRMIN
   1       360       1      .01
 NLS
+ 0
+NAC
+ 1
+XAC   YAC   ZAC
+ 0.    0.    0.
+YAW    PITCH    ROLL
+ 0.     0.       0.
+VAC
+ 0.     0.       0.
+OMCG
+ 0.     0.       0.
+TRIMFILENAME
+ trim.inp
+WEIGHT
+ 0.0
+CGAC
+ 0.  0.  0.
+KACR
+ 1
+NTRAJ
  0

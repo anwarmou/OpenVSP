@@ -19,7 +19,6 @@
 #include "DrawObj.h"
 #include "VspSurf.h"
 #include "TMesh.h"
-#include "DragFactors.h"
 #include "SubSurface.h"
 #include "GridDensity.h"
 #include "ResultsMgr.h"
@@ -108,9 +107,9 @@ public:
         m_ColorMgr.SetWireColor( r, g, b, 255 );
     }
 
-    vec3d GetWireColor()
+    vec3d GetWireColor() const
     {
-        Color * wColor = m_ColorMgr.GetWireColor();
+        const Color * wColor = m_ColorMgr.GetWireColor();
         return vec3d( wColor->m_Red.Get(), wColor->m_Green.Get(), wColor->m_Blue.Get() );
     }
 
@@ -180,7 +179,7 @@ public:
     virtual ~GeomBase();                        // Destructor
 
     // Only used internally.  Do not need to move to API.
-    enum { NONE, XFORM, TESS, SURF };
+    enum { NONE, XFORM, TESS, SURF, HIGHLIGHT };
 
     virtual GeomType GetType()
     {
@@ -240,6 +239,7 @@ public:
     bool m_SurfDirty;
     bool m_UpdateSurf;
     bool m_TessDirty;
+    bool m_HighlightDirty;
 
     void SetDirtyFlag( int dflag );
 
@@ -351,13 +351,13 @@ public:
     virtual void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec );
 
     virtual void SetColor( double r, double g, double b );
-    virtual vec3d GetColor();
+    virtual vec3d GetColor() const;
 
     virtual void SetMaterialToDefault();
     virtual void SetMaterial( std::string name, double ambi[], double diff[], double spec[], double emis[], double shin );
     virtual Material * GetMaterial();
 
-    virtual bool GetSetFlag( int index );
+    virtual bool GetSetFlag( int index ) const;
     virtual vector< bool > GetSetFlags()
     {
         return m_SetFlags;
@@ -369,25 +369,33 @@ public:
 
     virtual VspSurf* GetMainSurfPtr( int indx );
 
-    // TODO: Audit calls to GetSurfVec to see if making a copy is actually needed (i.e. does the call site need to make
-    //  changes that will then be thrown out?)  If not, this can be changed to reurn a reference or pointer as an
-    //  optimization.
-    virtual void GetSurfVec( vector<VspSurf> &surf_vec )
+    virtual const vector<VspSurf> & GetSurfVecConstRef() const
     {
-        surf_vec = m_SurfVec;
+        return m_SurfVec;
     }
-    virtual int GetNumMainSurfs()
+    virtual int GetNumMainSurfs() const
     {
         return m_MainSurfVec.size();
     }
-    virtual void GetMainSurfVec( vector<VspSurf> &surf_vec )    { surf_vec = m_MainSurfVec; }
-    virtual int GetNumSymFlags();
-    virtual int GetNumTotalSurfs();
-    virtual int GetNumTotalHrmSurfs();
-    virtual int GetNumSymmCopies();
+    // Avoid using this method as it makes a complete copy of m_MainSurfVec, which can be expensive.  Particularly
+    // for propellers with a large number of blades.  It should only be used if the caller needs a copy of all surfaces
+    // that will be modified.  Currently the only caller is ConformalGeom.
+    virtual void GetMainSurfVec( vector<VspSurf> &surf_vec ) const
+    {
+        surf_vec = m_MainSurfVec;
+    }
+    virtual const vector<VspSurf> & GetMainSurfVecConstRef() const
+    {
+        return m_MainSurfVec;
+    }
+    virtual int GetNumSymFlags() const;
+    virtual int GetNumTotalSurfs() const;
+    virtual int GetNumTotalHrmSurfs() const;
+    virtual int GetNumSymmCopies() const;
 
     virtual int GetSurfType( int indx ) const;
     virtual int GetMainSurfType( int indx ) const;
+    virtual int GetMainCFDSurfType( int indx ) const;
 
     virtual bool GetFlipNormal( int indx ) const;
     virtual bool GetMainFlipNormal( int indx ) const;
@@ -438,7 +446,7 @@ public:
     }
 
     //==== XSec Surfs ====//
-    virtual int GetNumXSecSurfs()
+    virtual int GetNumXSecSurfs() const
     {
         return 0;
     }
@@ -457,10 +465,10 @@ public:
 
     virtual void ReadV2File( xmlNodePtr &root );
 
-    virtual int GetSymFlag();
+    virtual int GetSymFlag() const;
 
-    virtual vector< TMesh* > CreateTMeshVec();
-    vector< TMesh* > CreateTMeshVec( vector<VspSurf> &surf_vec );
+    virtual vector< TMesh* > CreateTMeshVec() const;
+    vector< TMesh* > CreateTMeshVec( const vector<VspSurf> &surf_vec ) const;
 
     virtual BndBox GetBndBox()
     {
@@ -524,9 +532,6 @@ public:
     {
         return m_FeaStructVec.size();
     }
-
-    //==== Set Drag Factors ====//
-    virtual void LoadDragFactors( DragFactors& drag_factors )   {};
 
     //===== Degenerate Geometry =====//
     virtual void CreateDegenGeom( vector<DegenGeom> &dgs, bool preview = false );
@@ -702,6 +707,7 @@ protected:
     virtual void UpdateChildren( bool fullupdate );
     virtual void UpdateBBox();
     virtual void UpdateDrawObj();
+    virtual void UpdateHighlightDrawObj()    {};
 
     virtual void UpdatePreTess()   {};
 
@@ -711,11 +717,11 @@ protected:
     virtual void UpdateMainDegenGeomPreview();
     virtual void UpdateDegenGeomPreview();
 
-    virtual void UpdateTesselate( int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, bool degen );
-    virtual void UpdateTesselate( int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen );
-    virtual void UpdateTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen );
+    virtual void UpdateTesselate( int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, bool degen ) const;
+    virtual void UpdateTesselate( int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen ) const;
+    virtual void UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen ) const;
 
-    virtual void UpdateSplitTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms );
+    virtual void UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms ) const;
 
     vector<VspSurf> m_MainSurfVec;
     vector<VspSurf> m_SurfVec;
@@ -796,12 +802,15 @@ public:
     virtual XSec* GetXSec( int index );
     virtual void AddDefaultSourcesXSec( double base_len, double len_ref, int ixsec );
 
+    virtual void SetActiveXSecType(int type);
+
     virtual void OffsetXSecs( double off );
 
     IntParm m_ActiveXSec;
 
 protected:
     virtual void UpdateDrawObj();
+    virtual void UpdateHighlightDrawObj();
 
     XSecSurf m_XSecSurf;
     vector<DrawObj> m_XSecDrawObj_vec;

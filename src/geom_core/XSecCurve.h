@@ -26,14 +26,46 @@ using std::string;
 
 class Geom;
 class EditCurveXSec;
+class XSecCurve;
+
+//==== XSecCurve Driver Group ====//
+class XSecCurveDriverGroup : public DriverGroup
+{
+public:
+    XSecCurveDriverGroup( int Nvar, int Nchoice );
+
+    XSecCurve *m_Parent;
+
+    double m_prevArea;
+};
+
+class HWXSecCurveDriverGroup : public XSecCurveDriverGroup
+{
+public:
+    HWXSecCurveDriverGroup();
+
+    virtual void UpdateGroup( vector< string > parmIDs );
+    virtual bool ValidDrivers( vector< int > choices );
+};
+
+class DXSecCurveDriverGroup : public XSecCurveDriverGroup
+{
+public:
+    DXSecCurveDriverGroup();
+
+    virtual void UpdateGroup( vector< string > parmIDs );
+    virtual bool ValidDrivers( vector< int > choices );
+};
 
 class XSecCurve : public ParmContainer
 {
 public:
     XSecCurve();
+    ~XSecCurve();
 
     virtual void ParmChanged( Parm* parm_ptr, int type );
     virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true ) = 0;
 
     virtual void SetGroupDisplaySuffix( int num );
 
@@ -79,8 +111,10 @@ public:
     virtual void SetUseFakeWidth( double b )                           { m_UseFakeWidth = b; }
 
     virtual void SetForceWingType( double f )                          { m_ForceWingType = f; }
+    virtual bool DetermineWingType();
 
     virtual double ComputeArea();
+    virtual double AreaNoUpdate();
 
     virtual void CloseTE( bool wingtype );
     virtual void CloseLE( bool wingtype );
@@ -154,6 +188,14 @@ public:
     FractionParm m_XSecImageYOffset;
     BoolParm m_XSecFlipImageFlag;
 
+
+    virtual vector< string > GetDriverParms();
+    DriverGroup *m_DriverGroup;
+
+
+    Parm m_Area;
+    Parm m_HWRatio;
+
     virtual void SetImageFile( const string & file ) { m_ImageFile = file; }
     virtual string GetImageFile() { return m_ImageFile; }
     virtual void CopyBackgroundSettings( XSecCurve* xsc );
@@ -187,7 +229,7 @@ public:
 
     PointXSec( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
 };
 
@@ -202,6 +244,7 @@ public:
     CircleXSec( );
 
     virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     //==== Values to Set/Get When Changing Types ====//
     virtual double GetWidth()
@@ -214,6 +257,8 @@ public:
     }
     virtual void SetWidthHeight( double w, double h );
     virtual string GetWidthParmID()                                    { return m_Diameter.GetID(); }
+
+    virtual vector< string > GetDriverParms();
 
     virtual void OffsetCurve( double off );
 
@@ -230,7 +275,7 @@ public:
 
     EllipseXSec( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     //==== Values to Set/Get When Changing Types ====//
     virtual double GetWidth()
@@ -259,7 +304,7 @@ public:
 
     SuperXSec( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     //==== Values to Set/Get When Changing Types ====//
     virtual double GetWidth()
@@ -296,7 +341,7 @@ public:
 
     RoundedRectXSec( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     //==== Values to Set/Get When Changing Types ====//
     virtual double GetWidth()
@@ -339,7 +384,7 @@ public:
 
     GeneralFuseXSec( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     //==== Values to Set/Get When Changing Types ====//
     virtual double GetWidth()
@@ -380,7 +425,7 @@ public:
 
     FileXSec( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
     virtual xmlNodePtr DecodeXml( xmlNodePtr & node );
@@ -433,7 +478,7 @@ public:
 
     EditCurveXSec();
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     virtual xmlNodePtr EncodeXml( xmlNodePtr& node );
     virtual xmlNodePtr DecodeXml( xmlNodePtr& node );
@@ -529,7 +574,6 @@ public:
     IntParm m_ConvType;
     Parm m_SplitU;
     BoolParm m_AbsoluteFlag;
-    BoolParm m_PreserveARFlag;
 
     // Parms for XSec background image in GUI
     Parm m_XSecPointSize;
@@ -568,9 +612,6 @@ protected:
 
     bool m_EnforceG1Next; // Flag to indicate if G1 should be enforced with the next or previous point
 
-    // Aspect ratio of m_Width to m_Height
-    double m_AspectRatio;
-
 };
 
 //==========================================================================//
@@ -583,7 +624,7 @@ public:
 
     InterpXSec( );
 
-    virtual void Update();
+    virtual void UpdateCurve( bool updateParms = true );
 
     //==== Values to Set/Get When Changing Types ====//
     virtual double GetWidth()

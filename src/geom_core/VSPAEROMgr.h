@@ -69,7 +69,7 @@ public:
 
     bool m_FlipNormalFlag;
 
-    //identifing information for vsp model
+    //identifying information for vsp model
     string m_ParentGeomId;
     unsigned int m_ParentGeomSurfNdx;
 
@@ -174,6 +174,7 @@ public:
     };
 
     string m_GroupName;
+    bool m_ReverseFlag; // Flag to flip the RPM but leave the normal vector unchanged
 
     IntParm m_GeomPropertyType;
     Parm m_RotorDia;
@@ -404,7 +405,7 @@ public:
     BoolParm m_Symmetry;
     BoolParm m_Write2DFEMFlag;
     BoolParm m_ExperimentalInputFormatFlag;
-    BoolParm m_ClMaxToggle;
+    IntParm m_ClMaxToggle;
     Parm m_ClMax;
     BoolParm m_MaxTurnToggle;
     Parm m_MaxTurnAngle;

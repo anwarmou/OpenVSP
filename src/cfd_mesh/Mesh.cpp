@@ -10,7 +10,7 @@
 #define _USE_MATH_DEFINES
 #include "Mesh.h"
 #include "Surf.h"
-#include "Util.h"
+#include "VspUtil.h"
 #include <triangle.h>
 #include <triangle_api.h>
 
@@ -1612,7 +1612,7 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     in.edgemarkerlist = NULL;
     in.segmentmarkerlist = NULL;
 
-    //==== Load Points into Traingle Struct ====//
+    //==== Load Points into Triangle Struct ====//
     in.numberofpoints = num_pnts;
 
     int cnt = 0;

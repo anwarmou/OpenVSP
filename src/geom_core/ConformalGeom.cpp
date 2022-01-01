@@ -6,7 +6,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "APIDefines.h"
-#include "Util.h"
+#include "VspUtil.h"
 #include "ConformalGeom.h"
 #include "Vehicle.h"
 #include "VSP_Geom_API.h"
@@ -94,7 +94,7 @@ void ConformalGeom::UpdateSurf()
 
     //==== Parent Reference Surfaces  ====//
     vector< VspSurf > parent_surf_vec;
-    parent_geom->GetMainSurfVec( parent_surf_vec );
+    parent_surf_vec = parent_geom->GetMainSurfVecConstRef();
 
     //===== Copy Parent ====//
     vector< string > parent_id_vec;
@@ -333,7 +333,7 @@ bool ConformalGeom::CheckIfRibIsPoint( rib_data_type & rib )
 }
 
 //==== Move Rib To Center s ====//
-void ConformalGeom::CenterRibCurves( VspSurf & surf, VspSurf &  ref_surf, double offset )
+void ConformalGeom::CenterRibCurves( VspSurf & surf, const VspSurf & ref_surf, double offset )
 {
     vector< rib_data_type > rib_vec;
     surf.GetSkinRibVec( rib_vec );
@@ -359,7 +359,7 @@ void ConformalGeom::CenterRibCurves( VspSurf & surf, VspSurf &  ref_surf, double
 }
 
 //==== Adjust Tangent to Reshape To Reduce Error ====//
-void ConformalGeom::AdjustShape( VspSurf & surf, VspSurf &  ref_surf, double offset )
+void ConformalGeom::AdjustShape( VspSurf & surf, const VspSurf & ref_surf, double offset )
 {
     vector< rib_data_type > rib_vec;
     surf.GetSkinRibVec( rib_vec );
@@ -902,7 +902,7 @@ void ConformalGeom::TrimV( VspSurf & surf )
         }
     }
 
-    //==== Find Used Patchs  ====//
+    //==== Find Used Patches  ====//
     vector< int > used_patch_vec;
     for ( int i = 0 ; i < nvpatch ; i++ )
     {
@@ -968,7 +968,7 @@ void ConformalGeom::CapTrimmedSurf( piecewise_surface_type & psurf, int match_in
 }
 
 //==== Find Distances At Point Along Curve To Surf =====//
-void ConformalGeom::FindDists( VspSurf & surf, piecewise_curve_type & curve, double u0, vector< double > & dist_vec )
+void ConformalGeom::FindDists( const VspSurf & surf, piecewise_curve_type & curve, double u0, vector< double > & dist_vec )
 {
     int num_samps = dist_vec.size();
     if ( num_samps <= 0 )
@@ -985,7 +985,7 @@ void ConformalGeom::FindDists( VspSurf & surf, piecewise_curve_type & curve, dou
     }
 }
 
-double ConformalGeom::ComputeAvgOffset( VspSurf & surf, VspSurf &  ref_surf, double u )
+double ConformalGeom::ComputeAvgOffset( VspSurf & surf, const VspSurf & ref_surf, double u )
 {
     VspCurve crv;
     surf.GetUConstCurve( crv, u );
@@ -1051,7 +1051,7 @@ printf( "Avg_Err = %f   Max_Err = %f\n", avg_err, max_err );
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 //==== Build Spine - Vector of U, Center Points, Distance Along Spine ====//
-void ConformalSpine::Build( VspSurf & surf )
+void ConformalSpine::Build( const VspSurf & surf )
 {
     //===== Clear Data ====//
     m_UVec.clear();

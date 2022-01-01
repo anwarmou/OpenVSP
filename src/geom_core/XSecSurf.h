@@ -28,10 +28,12 @@ public:
     XSecSurf();                                 // Default Constructor
     virtual ~XSecSurf();                        // Destructor
 
-    XSec* FindXSec( string id );
-    XSec* FindXSec( int index );
-    int FindXSecIndex( string id );
-    string GetXSecID( int index );
+    XSec* FindXSec( string id ) const;
+    XSec* FindXSec( int index ) const;
+    const XSec* FindConstXSec( string id ) const;
+    const XSec* FindConstXSec( int index ) const;
+    int FindXSecIndex( string id ) const;
+    string GetXSecID( int index ) const;
     void ChangeXSecID( string oldID, string newID );
     string AddXSec( int type );
     void CutXSec( int index );
@@ -58,6 +60,8 @@ public:
         m_FlipUD = flip;
     }
 
+    int GetPrincipalDirection() { return m_PrincipalDir; }
+
     void GetBasicTransformation( double w, Matrix4d &mat );
     static void GetBasicTransformation( int pdir, int wdir, int wshift, bool flip, double w, Matrix4d &mat );
 
@@ -78,14 +82,14 @@ public:
 
     virtual void ParmChanged( Parm* parm_ptr, int type ) ;
 
-    int NumXSec()
+    int NumXSec() const
     {
         return m_XSecIDDeque.size();
     }
 
     virtual void AddLinkableParms( vector< string > & parm_vec, const string & link_container_id = string() );
 
-    virtual string GetName();
+    virtual string GetName() const;
 
     static XSecCurve* CreateXSecCurve( int type );
 

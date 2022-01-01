@@ -18,7 +18,7 @@ public:
     PtCloudGeom( Vehicle* vehicle_ptr );
     virtual ~PtCloudGeom();
 
-    virtual int GetNumMainSurfs()
+    virtual int GetNumMainSurfs() const
     {
         return 0;
     };
@@ -30,7 +30,7 @@ public:
 
     virtual void Scale();
     virtual void UpdateBBox();
-    virtual Matrix4d GetTotalTransMat();
+    virtual Matrix4d GetTotalTransMat()const ;
 
     virtual int ReadPTS( const char* file_name );
 

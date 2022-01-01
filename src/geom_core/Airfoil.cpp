@@ -14,7 +14,7 @@
 #include "VKTAirfoil.h"
 #include "Cluster.h"
 #include "StlHelper.h"
-#include "Util.h"
+#include "VspUtil.h"
 #include "VehicleMgr.h"
 #include "Vehicle.h"
 
@@ -79,6 +79,19 @@ Airfoil::Airfoil( ) : XSecCurve( )
 //==== Update ====//
 void Airfoil::Update()
 {
+    // Airfoils can have invalid drivers if it was recently converted from another XSecCurve type.  A curve that was
+    // previously an ellipse (for example) may have had drivers set to Area and HWRatio.  The conversion calls
+    // XSec::CopyFrom() to transfer parameters as best it can.  This includes a direct transfer of the drivers,
+    // no matter whether they make sense or not.
+
+    m_DriverGroup->SetChoice( 0, WIDTH_XSEC_DRIVER );
+    m_DriverGroup->SetChoice( 1, HEIGHT_XSEC_DRIVER );
+
+    XSecCurve::Update();
+}
+
+void Airfoil::UpdateCurve( bool updateParms )
+{
     m_OrigCurve = m_Curve;
 
     Matrix4d mat;
@@ -95,8 +108,6 @@ void Airfoil::Update()
         // reverse parameterization
         m_Curve.Reverse();
     }
-
-    XSecCurve::Update();
 }
 
 //==== Get Width ====//
@@ -276,7 +287,7 @@ void FourSeries::UpdateDesignLiftCoeff()
 }
 
 //==== Update ====//
-void FourSeries::Update()
+void FourSeries::UpdateCurve( bool updateParms )
 {
     UpdateDesignLiftCoeff();
 
@@ -288,7 +299,7 @@ void FourSeries::Update()
 
     BuildCurve( af );
 
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void FourSeries::SetDesignLiftCoeff( double cli )
@@ -381,14 +392,14 @@ void FourDigMod::UpdateDesignLiftCoeff()
 }
 
 //==== Update ====//
-void FourDigMod::Update()
+void FourDigMod::UpdateCurve( bool updateParms )
 {
     UpdateDesignLiftCoeff();
 
     four_digit_mod_airfoil_type af( m_Camber(), m_CamberLoc(), m_ThickChord(), m_LERadIndx(),  m_ThickLoc(), m_SharpTE() );
 
     BuildCurve( af );
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void FourDigMod::SetDesignLiftCoeff( double cli )
@@ -459,12 +470,12 @@ FiveDig::FiveDig( ) : NACABase( )
 }
 
 //==== Update ====//
-void FiveDig::Update()
+void FiveDig::UpdateCurve( bool updateParms )
 {
     five_digit_airfoil_type m_AF( m_ThickChord(), m_IdealCl(), m_CamberLoc(), m_SharpTE() );
 
     BuildCurve( m_AF );
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void FiveDig::SetDesignLiftCoeff( double cli )
@@ -528,12 +539,12 @@ FiveDigMod::FiveDigMod( ) : NACABase( )
 }
 
 //==== Update ====//
-void FiveDigMod::Update()
+void FiveDigMod::UpdateCurve( bool updateParms )
 {
     five_digit_mod_airfoil_type m_AF( m_ThickChord(), m_IdealCl(), m_CamberLoc(), m_LERadIndx(), m_ThickLoc(), m_SharpTE() );
 
     BuildCurve( m_AF );
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void FiveDigMod::SetDesignLiftCoeff( double cli )
@@ -599,12 +610,12 @@ OneSixSeries::OneSixSeries( ) : NACABase( )
 }
 
 //==== Update ====//
-void OneSixSeries::Update()
+void OneSixSeries::UpdateCurve( bool updateParms )
 {
     one_six_series_airfoil_type m_AF( m_ThickChord(), m_IdealCl(), m_SharpTE() );
 
     BuildCurve( m_AF );
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void OneSixSeries::SetDesignLiftCoeff( double cli )
@@ -650,7 +661,7 @@ SixSeries::SixSeries( ) : Airfoil( )
 }
 
 //==== Update ====//
-void SixSeries::Update()
+void SixSeries::UpdateCurve( bool updateParms )
 {
     //==== Run Six Series Fortran Generation Code ====//
     float cli = ( float )m_IdealCl();
@@ -729,7 +740,7 @@ void SixSeries::Update()
 
     m_Curve.InterpolatePCHIP( pnts, arclen, false );
 
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void SixSeries::SetDesignLiftCoeff( double cli )
@@ -820,7 +831,7 @@ Biconvex::Biconvex( ) : Airfoil( )
 }
 
 //==== Update ====//
-void Biconvex::Update()
+void Biconvex::UpdateCurve( bool updateParms )
 {
     double x, xu, yu;
 
@@ -870,7 +881,7 @@ void Biconvex::Update()
 
     m_Curve.Append( upcrv );
 
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 //==========================================================================//
@@ -910,7 +921,7 @@ Wedge::Wedge( ) : Airfoil( )
 }
 
 //==== Update ====//
-void Wedge::Update()
+void Wedge::UpdateCurve( bool updateParms )
 {
     if ( m_SymmThick() )
     {
@@ -979,7 +990,7 @@ void Wedge::Update()
     // build the wedge
     m_Curve.InterpolateLinear( pt, u, true );
 
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void Wedge::ReadV2File( xmlNodePtr &root )
@@ -1080,14 +1091,14 @@ void FileAirfoil::MakeCurve()
 }
 
 //==== Update ====//
-void FileAirfoil::Update()
+void FileAirfoil::UpdateCurve( bool updateParms )
 {
     MakeCurve();
 
     double rat = m_ThickChord() / m_BaseThickness();
     m_Curve.ScaleY( rat );
 
-    Airfoil::Update();
+    Airfoil::UpdateCurve( updateParms );
 }
 
 //==== Encode XML ====//
@@ -1486,7 +1497,7 @@ CSTAirfoil::CSTAirfoil( ) : Airfoil( )
 }
 
 //==== Update ====//
-void CSTAirfoil::Update()
+void CSTAirfoil::UpdateCurve( bool updateParms )
 {
     cst_airfoil_type cst;
 
@@ -1560,7 +1571,9 @@ void CSTAirfoil::Update()
 
     m_Curve.InterpolatePCHIP( pnts, arclen, false );
 
-    Airfoil::Update();
+    m_ThickChord.Set( CalculateThick() );
+
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void CSTAirfoil::PromoteUpper()
@@ -2000,7 +2013,7 @@ VKTAirfoil::VKTAirfoil( ) : Airfoil( )
 }
 
 //==== Update ====//
-void VKTAirfoil::Update()
+void VKTAirfoil::UpdateCurve( bool updateParms )
 {
     const unsigned int npts = 101;
 
@@ -2068,7 +2081,9 @@ void VKTAirfoil::Update()
 
     m_Curve.InterpolatePCHIP( pnts, arclen, false );
 
-    Airfoil::Update();
+    m_ThickChord.Set( CalculateThick() );
+
+    Airfoil::UpdateCurve( updateParms );
 }
 
 void VKTAirfoil::OffsetCurve( double offset_val )

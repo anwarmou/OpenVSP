@@ -160,9 +160,7 @@ public:
 
     virtual int NumXSec()                                { return m_XSecSurf.NumXSec(); }
 
-    virtual void SetActiveAirfoilType( int type );
-
-    virtual int GetNumXSecSurfs()                        { return 1; }
+    virtual int GetNumXSecSurfs() const                       { return 1; }
     virtual XSecSurf* GetXSecSurf( int index )            { return &m_XSecSurf; }
 
 
@@ -171,9 +169,6 @@ public:
     virtual void AddLinkableParms( vector< string > & linkable_parm_vec, const string & link_container_id = string() );
     virtual void Scale();
     virtual void AddDefaultSources( double base_len = 1.0 );
-
-    //==== Set Drag Factors ====//
-    virtual void LoadDragFactors( DragFactors& drag_factors );
 
     //==== Override Geom Cut/Copy/Paste/Insert ====//
     virtual void CutXSec( int index );
@@ -213,7 +208,7 @@ public:
     BoolParm m_RelativeTwistFlag;
     BoolParm m_RotateAirfoilMatchDiedralFlag;
 
-    IntParm m_ActiveAirfoil;
+    IntParm m_ActiveWingSection;
 
     enum { V2_NACA_4_SERIES = 1,
            V2_BICONVEX = 2,
@@ -227,10 +222,11 @@ protected:
 
     virtual void ChangeID( string id );
     virtual void UpdateSurf();
-    virtual void UpdateTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen );
-    virtual void UpdateSplitTesselate( vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms );
+    virtual void UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms, vector< vector< vec3d > > &uw_pnts, bool degen ) const;
+    virtual void UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms ) const;
     virtual void UpdatePreTess();
     virtual void UpdateDrawObj();
+    virtual void UpdateHighlightDrawObj();
     virtual void MatchWingSections();
 
     virtual void CalculateMeshMetrics();

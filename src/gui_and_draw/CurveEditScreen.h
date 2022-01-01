@@ -70,8 +70,8 @@ private:
 
     TriggerButton m_ReparameterizeButton;
 
-    SliderAdjRangeInput m_WidthSlider;
-    SliderAdjRangeInput m_HeightSlider;
+    HWXSecCurveDriverGroup m_DefaultXSecDriverGroup;
+    DriverGroupBank m_XSecDriverGroupBank;
 
     SliderAdjRangeInput m_SplitPtSlider;
     TriggerButton m_SplitButton;
@@ -83,7 +83,6 @@ private:
     TriggerButton m_ConvertButton;
     StringOutput m_CurveType;
 
-    ToggleButton m_PreserveXSecARToggle;
     ToggleButton m_AbsDimToggle;
 
     // Draw Tab GUI Elements

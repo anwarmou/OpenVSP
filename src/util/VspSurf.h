@@ -102,7 +102,7 @@ public:
     int GetSurfType() const { return m_SurfType; }
     void SetSurfType( int type ) { m_SurfType = type; }
 
-    int GetSurfCfdType() { return m_SurfCfdType; }
+    int GetSurfCfdType() const { return m_SurfCfdType; }
     void SetSurfCfdType( int type ) { m_SurfCfdType = type; }
 
     double FindNearest( double &u, double &w, const vec3d &pt ) const;
@@ -150,20 +150,20 @@ public:
     void CompCurvature( double u, double w, double& k1, double& k2, double& ka, double& kg ) const;
     void CompCurvature01( double u, double w, double& k1, double& k2, double& ka, double& kg ) const;
 
-    int GetNumUFeature()
+    int GetNumUFeature() const
     {
         return m_UFeature.size();
     }
-    int GetNumWFeature()
+    int GetNumWFeature() const
     {
         return m_WFeature.size();
     }
     void BuildFeatureLines( bool force_xsec_flag = false );
-    vector < double > GetUFeature()
+    vector < double > GetUFeature() const
     {
         return m_UFeature;
     }
-    vector < double > GetWFeature()
+    vector < double > GetWFeature() const
     {
         return m_WFeature;
     }
@@ -171,13 +171,13 @@ public:
     bool CapUMax(int capType, double len, double str, double offset, bool swflag);
     static bool CapWMin(int capType);
     static bool CapWMax(int capType);
-    void FetchXFerSurf( const std::string &geom_id, int surf_ind, int comp_ind, vector< XferSurf > &xfersurfs, const vector < double > &usuppress = std::vector< double >(), const vector < double > &wsuppress = std::vector< double >() );
+    void FetchXFerSurf( const std::string &geom_id, int surf_ind, int comp_ind, vector< XferSurf > &xfersurfs, const vector < double > &usuppress = std::vector< double >(), const vector < double > &wsuppress = std::vector< double >() ) const;
 
-    void ResetUSkip();
-    void FlagDuplicate( VspSurf *othersurf );
+    void ResetUSkip() const;
+    void FlagDuplicate( const VspSurf &othersurf ) const;
 
     void SetClustering( const double &le, const double &te );
-    void SetRootTipClustering( const vector < double > &root, const vector < double > &tip );
+    void SetRootTipClustering( const vector < double > &root, const vector < double > &tip ) const;
 
     void MakeUTess( const vector<int> &num_u, std::vector<double> &utess, const std::vector<int> & umerge ) const;
     void MakeVTess( int num_v, std::vector<double> &vtess, const int &n_cap, bool degen ) const;
@@ -192,21 +192,21 @@ public:
     void SplitTesselate( int num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap ) const;
     void SplitTesselate( const vector<int> &num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap, const std::vector<int> & umerge = std::vector<int>() ) const;
 
-    void TessUFeatureLine( int iu, std::vector< vec3d > & pnts, double tol );
-    void TessWFeatureLine( int iw, std::vector< vec3d > & pnts, double tol );
+    void TessUFeatureLine( int iu, std::vector< vec3d > & pnts, double tol ) const;
+    void TessWFeatureLine( int iw, std::vector< vec3d > & pnts, double tol ) const;
 
-    void TessAdaptLine( double umin, double umax, double wmin, double wmax, std::vector< vec3d > & pts, double tol, int Nlimit );
-    void TessAdaptLine( double umin, double umax, double wmin, double wmax, const vec3d & pmin, const vec3d & pmax, std::vector< vec3d > & pts, double tol, int Nlimit, int Nadapt = 0 );
+    void TessAdaptLine( double umin, double umax, double wmin, double wmax, std::vector< vec3d > & pts, double tol, int Nlimit ) const;
+    void TessAdaptLine( double umin, double umax, double wmin, double wmax, const vec3d & pmin, const vec3d & pmax, std::vector< vec3d > & pts, double tol, int Nlimit, int Nadapt = 0 ) const;
 
-    void SplitSurfs( vector< piecewise_surface_type > &surfvec, const vector < double > &usuppress, const vector < double > &wsuppress );
-    void SplitSurfs( vector< piecewise_surface_type > &surfvec );
+    void SplitSurfs( vector< piecewise_surface_type > &surfvec, const vector < double > &usuppress, const vector < double > &wsuppress ) const;
+    void SplitSurfs( vector< piecewise_surface_type > &surfvec ) const;
 
-    void ToSTEP_BSpline_Quilt( STEPutil * step, vector<SdaiB_spline_surface_with_knots *> &surfs, const string& label, bool splitsurf, bool mergepts, bool tocubic, double tol, bool trimte, const vector < double > &USplit, const vector < double > &WSplit );
+    void ToSTEP_BSpline_Quilt( STEPutil * step, vector<SdaiB_spline_surface_with_knots *> &surfs, const string& label, bool splitsurf, bool mergepts, bool tocubic, double tol, bool trimte, const vector < double > &USplit, const vector < double > &WSplit ) const;
 
-    void ToIGES( IGESutil* iges, bool splitsurf, bool tocubic, double tol, bool trimTE, const vector < double > &USplit, const vector < double > &WSplit, const string &labelprefix, bool labelSplitNo, const string &delim );
+    void ToIGES( IGESutil* iges, bool splitsurf, bool tocubic, double tol, bool trimTE, const vector < double > &USplit, const vector < double > &WSplit, const string &labelprefix, bool labelSplitNo, const string &delim ) const;
 
     // Apply STEP or IGES settings to this VSPSurf in preparation for export
-    vector < piecewise_surface_type > PrepCADSurfs( bool splitsurf, bool tocubic, double tol, bool trimTE, const vector < double >& USplit, const vector < double >& WSplit );
+    vector < piecewise_surface_type > PrepCADSurfs( bool splitsurf, bool tocubic, double tol, bool trimTE, const vector < double >& USplit, const vector < double >& WSplit ) const;
 
     void SetUSkipFirst( bool f );
     void SetUSkipLast( bool f );
@@ -215,12 +215,12 @@ public:
 
     enum { SKIN_NONE, SKIN_BODY_REV, SKIN_RIBS };
 
-    int  GetSkinType()                                      { return m_SkinType; }
-    void GetBodyRevCurve( VspCurve & crv )                  { crv = m_BodyRevCurve; }
-    int  GetSkinClosedFlag()                                { return m_SkinClosedFlag; }
-    void GetSkinRibVec( vector< rib_data_type > & ribvec )  { ribvec = m_SkinRibVec; }
-    void GetSkinDegreeVec( vector< int > & degvec )         { degvec = m_SkinDegreeVec; }
-    void GetSkinParmVec( vector< double > & parmvec )       { parmvec = m_SkinParmVec; }
+    int  GetSkinType()                                     const { return m_SkinType; }
+    void GetBodyRevCurve( VspCurve & crv )                 const { crv = m_BodyRevCurve; }
+    int  GetSkinClosedFlag()                               const { return m_SkinClosedFlag; }
+    void GetSkinRibVec( vector< rib_data_type > & ribvec ) const { ribvec = m_SkinRibVec; }
+    void GetSkinDegreeVec( vector< int > & degvec )        const { degvec = m_SkinDegreeVec; }
+    void GetSkinParmVec( vector< double > & parmvec )      const { parmvec = m_SkinParmVec; }
 
     void SetClone( int index, const Matrix4d &mat )
     {
@@ -231,8 +231,8 @@ public:
     {
         return m_CloneIndex != -1;
     }
-    int GetCloneIndex()                                     { return m_CloneIndex; }
-    void GetCloneMat( Matrix4d &mat )                       { mat = m_CloneMat; }
+    int GetCloneIndex()                                    const { return m_CloneIndex; }
+    void GetCloneMat( Matrix4d &mat )                      const { mat = m_CloneMat; }
 
     int GetNumSectU() const;
     int GetNumSectW() const;
@@ -270,14 +270,8 @@ protected:
     vector < double > m_UFeature;
     vector < double > m_WFeature;
 
-    vector < bool > m_USkip;
-
     double m_LECluster;
     double m_TECluster;
-
-    vector < double > m_RootCluster;
-    vector < double > m_TipCluster;
-
 
     //==== Store Skinning Inputs =====//
     int m_SkinType;
@@ -291,6 +285,12 @@ protected:
     Matrix4d m_CloneMat;
 
     VspSurf *m_FoilSurf;
+
+private:
+    mutable vector < bool > m_USkip;
+
+    mutable vector < double > m_RootCluster;
+    mutable vector < double > m_TipCluster;
 
 };
 #endif

@@ -16,7 +16,7 @@
 #include "AnalysisMgr.h"
 #include "SurfaceIntersectionMgr.h"
 #include "CfdMeshMgr.h"
-#include "Util.h"
+#include "VspUtil.h"
 #include "DesignVarMgr.h"
 #include "VarPresetMgr.h"
 #include "ParasiteDragMgr.h"
@@ -459,12 +459,6 @@ string ComputeCompGeom( int set, bool half_mesh, int file_export_types )
     if ( file_export_types & COMP_GEOM_CSV_TYPE )
     {
         veh->setExportCompGeomCsvFile( true );
-    }
-
-    veh->setExportDragBuildTsvFile( false );
-    if ( file_export_types & DRAG_BUILD_TSV_TYPE )
-    {
-        veh->setExportDragBuildTsvFile( true );
     }
 
     string id = veh->CompGeomAndFlatten( set, half_mesh );
@@ -1931,15 +1925,12 @@ int GetGeomVSPSurfCfdType( const string& geom_id, int main_surf_ind )
         return -1;
     }
 
-    vector < VspSurf > surf_vec;
-    geom_ptr->GetMainSurfVec( surf_vec );
-
-    if ( main_surf_ind < 0 || main_surf_ind >= surf_vec.size() )
+    if ( main_surf_ind < 0 || main_surf_ind >= geom_ptr->GetNumMainSurfs() )
     {
         ErrorMgr.AddError( VSP_INDEX_OUT_RANGE, "GetGeomVSPSurfCfdType::Main Surf Index " + to_string( main_surf_ind ) + " Out of Range" );
     }
 
-    return surf_vec[main_surf_ind].GetSurfCfdType();
+    return geom_ptr->GetMainCFDSurfType( main_surf_ind );
 }
 
 /// Get of the linkable parms ids for this geometry
@@ -2092,7 +2083,7 @@ vec3d GetGeomBBoxMax( const string& geom_id, int main_surf_ind, bool ref_frame_i
     }
 
     vector< VspSurf > surf_vec;
-    geom_ptr->GetSurfVec( surf_vec );
+    surf_vec = geom_ptr->GetSurfVecConstRef();
 
     if ( main_surf_ind < 0 || main_surf_ind >= surf_vec.size() )
     {
@@ -2134,7 +2125,7 @@ vec3d GetGeomBBoxMin( const string& geom_id, int main_surf_ind, bool ref_frame_i
     }
 
     vector< VspSurf > surf_vec;
-    geom_ptr->GetSurfVec( surf_vec );
+    surf_vec = geom_ptr->GetSurfVecConstRef();
 
     if ( main_surf_ind < 0 || main_surf_ind >= surf_vec.size() )
     {
@@ -3230,24 +3221,77 @@ void SetDriverGroup( const string & geom_id, int section_index, int driver_0, in
         ErrorMgr.AddError( VSP_INVALID_PTR, "SetDriverGroup::Can't Find Geom " + geom_id );
         return;
     }
-    else if ( geom_ptr->GetType().m_Type != MS_WING_GEOM_TYPE )
+
+    if ( geom_ptr->GetType().m_Type == MS_WING_GEOM_TYPE )
     {
-        ErrorMgr.AddError( VSP_INVALID_PTR, "SetDriverGroup::Invalid Geom Type " + geom_id );
+        WingGeom* wg = dynamic_cast<WingGeom*>( geom_ptr );
+        WingSect* ws = wg->GetWingSect( section_index );
+        if ( !ws )
+        {
+            ErrorMgr.AddError( VSP_INVALID_PTR, "SetDriverGroup::Invalid Wing Section Index " + to_string( ( long long )section_index ) );
+            return;
+        }
+
+        vector < int > prevchoices = ws->m_DriverGroup.GetChoices();
+
+        ws->m_DriverGroup.SetChoice( 0, driver_0 );
+        ws->m_DriverGroup.SetChoice( 1, driver_1 );
+        ws->m_DriverGroup.SetChoice( 2, driver_2 );
+
+        bool valid = ws->m_DriverGroup.ValidDrivers( ws->m_DriverGroup.GetChoices() );
+        if ( !valid )
+        {
+            ErrorMgr.AddError( VSP_INVALID_DRIVERS, "SetDriverGroup::Invalid wing drivers." );
+            ws->m_DriverGroup.SetChoices( prevchoices );
+            return;
+        }
+
+        ErrorMgr.NoError();
         return;
     }
-
-    WingGeom* wg = dynamic_cast<WingGeom*>( geom_ptr );
-    WingSect* ws = wg->GetWingSect( section_index );
-    if ( !ws )
+    else
     {
-        ErrorMgr.AddError( VSP_INVALID_PTR, "SetDriverGroup::Invalid Wing Section Index " + to_string( ( long long )section_index ) );
-        return;
-    }
+        GeomXSec* gxs = dynamic_cast < GeomXSec* > ( geom_ptr );
 
-    ws->m_DriverGroup.SetChoice( 0, driver_0 );
-    ws->m_DriverGroup.SetChoice( 1, driver_1 );
-    ws->m_DriverGroup.SetChoice( 2, driver_2 );
-    ErrorMgr.NoError();
+        XSecCurve* xsc = NULL;
+        if ( gxs ) // Proceed as GeomXSec
+        {
+            xsc = gxs->GetXSec( section_index )->GetXSecCurve();
+        }
+        else
+        {
+            BORGeom* bor = dynamic_cast < BORGeom* > ( geom_ptr );
+            if ( bor ) // Proceed as Body of Revolution
+            {
+                xsc = bor->GetXSecCurve();
+            }
+        }
+
+        if ( xsc ) // Succeeded in getting an XSecCurve
+        {
+            vector < int > prevchoices = xsc->m_DriverGroup->GetChoices();
+
+            // Only driver 0 used for Circles.
+            xsc->m_DriverGroup->SetChoice( 0, driver_0 );
+
+            // Driver 1 used for other XSecCurve types.
+            if ( driver_1 > -1 )
+                xsc->m_DriverGroup->SetChoice( 1, driver_1 );
+
+            bool valid = xsc->m_DriverGroup->ValidDrivers( xsc->m_DriverGroup->GetChoices() );
+            if ( !valid )
+            {
+                ErrorMgr.AddError( VSP_INVALID_DRIVERS, "SetDriverGroup::Invalid XSecCurve drivers." );
+                xsc->m_DriverGroup->SetChoices( prevchoices );
+                return;
+            }
+            ErrorMgr.NoError();
+            return;
+        }
+
+    }
+    ErrorMgr.AddError( VSP_INVALID_PTR, "SetDriverGroup::Invalid Geom Type " + geom_id );
+    return;
 }
 
 //===================================================================//
@@ -3705,49 +3749,6 @@ void SetXSecCurvatures( const string& xsec_id, int side, double top, double righ
     ErrorMgr.NoError();
 }
 
-//==== Specialized Geom Functions ====//
-void ChangeBORXSecShape( const string & geom_id, int type )
-{
-    Vehicle* veh = GetVehicle();
-    Geom* geom_ptr = veh->FindGeom( geom_id );
-    if ( !geom_ptr )
-    {
-        ErrorMgr.AddError( VSP_INVALID_PTR, "ChangeBORXSecShape::Can't Find Geom " + geom_id );
-        return;
-    }
-    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
-    {
-        ErrorMgr.AddError( VSP_INVALID_TYPE, "ChangeBORXSecShape::Geom " + geom_id + " is not a body of revolution" );
-        return;
-    }
-
-    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
-    bor_ptr->SetXSecCurveType( type );
-    ErrorMgr.NoError();
-}
-
-//==== Specialized Geom Functions ====//
-int GetBORXSecShape( const string & geom_id )
-{
-    Vehicle* veh = GetVehicle();
-    Geom* geom_ptr = veh->FindGeom( geom_id );
-    if ( !geom_ptr )
-    {
-        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORXSecShape::Can't Find Geom " + geom_id );
-        return XS_UNDEFINED;
-    }
-    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
-    {
-        ErrorMgr.AddError( VSP_INVALID_TYPE, "GetBORXSecShape::Geom " + geom_id + " is not a body of revolution" );
-        return XS_UNDEFINED;
-    }
-
-    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
-
-    ErrorMgr.NoError();
-    return bor_ptr->GetXSecCurveType();
-}
-
 void ReadFileAirfoil( const string& xsec_id, const string& file_name )
 {
     vector< vec3d > pnt_vec;
@@ -4183,7 +4184,7 @@ std::vector<vec3d> GetFeatureLinePnts( const string& geom_id )
     }
 
     vector<VspSurf> surf_vec;
-    geom_ptr->GetSurfVec( surf_vec );
+    surf_vec = geom_ptr->GetSurfVecConstRef();
 
     double tol = 1e-2;
 
@@ -4707,6 +4708,827 @@ vector < vec3d > GetAirfoilCoordinates( const std::string & geom_id, const doubl
     ordered_vec = geom_ptr->GetAirfoilCoordinates( foilsurf_u );
     ErrorMgr.NoError();
     return ordered_vec;
+}
+
+//===================================================================//
+//==================      BOR Functions        ======================//
+//===================================================================//
+
+//==== Specialized Geom Functions ====//
+void ChangeBORXSecShape( const string & geom_id, int type )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( geom_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ChangeBORXSecShape::Can't Find Geom " + geom_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "ChangeBORXSecShape::Geom " + geom_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+    bor_ptr->SetXSecCurveType( type );
+    ErrorMgr.NoError();
+}
+
+//==== Specialized Geom Functions ====//
+int GetBORXSecShape( const string & geom_id )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( geom_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORXSecShape::Can't Find Geom " + geom_id );
+        return XS_UNDEFINED;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "GetBORXSecShape::Geom " + geom_id + " is not a body of revolution" );
+        return XS_UNDEFINED;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    ErrorMgr.NoError();
+    return bor_ptr->GetXSecCurveType();
+}
+
+//==== Read XSec From File ====//
+vector<vec3d> ReadBORFileXSec( const string& bor_id, const string& file_name )
+{
+    vector< vec3d > pnt_vec;
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ReadBORFileXSec::Can't Find Geom " + bor_id );
+        return pnt_vec;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "ReadBORFileXSec::Geom " + bor_id + " is not a body of revolution" );
+        return pnt_vec;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ReadBORFileXSec::Can't Get XSecCurve" );
+        return pnt_vec;
+    }
+
+    if ( xsc->GetType() == XS_FILE_FUSE )
+    {
+        FileXSec* file_xs = dynamic_cast<FileXSec*>( xsc );
+        assert( file_xs );
+        if ( file_xs->ReadXsecFile( file_name ) )
+        {
+            ErrorMgr.NoError();
+            return file_xs->GetUnityFilePnts();
+        }
+        else
+        {
+            ErrorMgr.AddError( VSP_FILE_DOES_NOT_EXIST, "ReadBORFileXSec::Error reading fuselage file " + file_name );
+            return pnt_vec;
+        }
+    }
+
+    ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "ReadBORFileXSec::XSec Not XS_FILE_FUSE Type " );
+    return pnt_vec;
+}
+
+//==== Set XSec Pnts ====//
+void SetBORXSecPnts( const string& bor_id, vector< vec3d > & pnt_vec )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "SetBORXSecPnts::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "SetBORXSecPnts::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "SetBORXSecPnts::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() != XS_FILE_FUSE )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "SetBORXSecPnts::Wrong XSec Type" );
+        return;
+    }
+
+    FileXSec* file_xs = dynamic_cast<FileXSec*>( xsc );
+    assert( file_xs );
+    file_xs->SetPnts( pnt_vec );
+    ErrorMgr.NoError();
+}
+
+//==== Compute Point Along XSec ====//
+vec3d ComputeBORXSecPnt( const string& bor_id, double fract )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ComputeBORXSecPnt::Can't Find Geom " + bor_id );
+        return vec3d();
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "ComputeBORXSecPnt::Geom " + bor_id + " is not a body of revolution" );
+        return vec3d();
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ComputeBORXSecPnt::Can't Get XSecCurve" );
+        return vec3d();
+    }
+
+    vec3d pnt = xsc->GetCurve().CompPnt01( fract );
+    ErrorMgr.NoError();
+
+    return pnt;
+}
+
+//==== Compute Tan Along XSec ====//
+vec3d ComputeBORXSecTan( const string& bor_id, double fract )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ComputeBORXSecTan::Can't Find Geom " + bor_id );
+        return vec3d();
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "ComputeBORXSecTan::Geom " + bor_id + " is not a body of revolution" );
+        return vec3d();
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ComputeBORXSecTan::Can't Get XSecCurve" );
+        return vec3d();
+    }
+
+    vec3d pnt = xsc->GetCurve().CompTan01( fract );
+    ErrorMgr.NoError();
+
+    return pnt;
+}
+
+void ReadBORFileAirfoil( const string& bor_id, const string& file_name )
+{
+    vector< vec3d > pnt_vec;
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ReadBORFileAirfoil::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "ReadBORFileAirfoil::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ReadBORFileAirfoil::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() == XS_FILE_AIRFOIL )
+    {
+        FileAirfoil* file_xs = dynamic_cast<FileAirfoil*>( xsc );
+        assert( file_xs );
+        if( file_xs->ReadFile( file_name ) )
+        {
+            ErrorMgr.NoError();
+            return;
+        }
+        else
+        {
+            ErrorMgr.AddError( VSP_FILE_DOES_NOT_EXIST, "ReadBORFileAirfoil::Error reading airfoil file " + file_name );
+            return;
+        }
+    }
+
+    ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "ReadBORFileAirfoil::XSec Not XS_FILE_AIRFOIL Type " + bor_id );
+    return;
+}
+
+void SetBORAirfoilPnts( const string& bor_id, std::vector< vec3d > & up_pnt_vec, std::vector< vec3d > & low_pnt_vec )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "SetBORAirfoilPnts::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "SetBORAirfoilPnts::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "SetBORAirfoilPnts::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() != XS_FILE_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "SetBORAirfoilPnts::XSec Not XS_FILE_AIRFOIL Type" );
+        return;
+    }
+
+    FileAirfoil* file_xs = dynamic_cast<FileAirfoil*>( xsc );
+    assert( file_xs );
+    file_xs->SetAirfoilPnts( up_pnt_vec, low_pnt_vec );
+    ErrorMgr.NoError();
+}
+
+std::vector<vec3d> GetBORAirfoilUpperPnts( const string& bor_id )
+{
+    vector< vec3d > pnt_vec;
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORAirfoilUpperPnts::Can't Find Geom " + bor_id );
+        return pnt_vec;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "GetBORAirfoilUpperPnts::Geom " + bor_id + " is not a body of revolution" );
+        return pnt_vec;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORAirfoilUpperPnts::Can't Get XSecCurve" );
+        return pnt_vec;
+    }
+
+    if ( xsc->GetType() != XS_FILE_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "GetBORAirfoilUpperPnts::XSec Not XS_FILE_AIRFOIL Type" );
+        return pnt_vec;
+    }
+
+    FileAirfoil* file_xs = dynamic_cast<FileAirfoil*>( xsc );
+    assert( file_xs );
+    pnt_vec = file_xs->GetUpperPnts();
+    ErrorMgr.NoError();
+    return pnt_vec;
+}
+
+std::vector<vec3d> GetBORAirfoilLowerPnts( const string& bor_id )
+{
+    vector< vec3d > pnt_vec;
+
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORAirfoilLowerPnts::Can't Find Geom " + bor_id );
+        return pnt_vec;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "GetBORAirfoilLowerPnts::Geom " + bor_id + " is not a body of revolution" );
+        return pnt_vec;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORAirfoilLowerPnts::Can't Get XSecCurve" );
+        return pnt_vec;
+    }
+
+    if ( xsc->GetType() != XS_FILE_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "GetBORAirfoilLowerPnts::XSec Not XS_FILE_AIRFOIL Type" );
+        return pnt_vec;
+    }
+
+    FileAirfoil* file_xs = dynamic_cast<FileAirfoil*>( xsc );
+    assert( file_xs );
+    pnt_vec = file_xs->GetLowerPnts();
+    ErrorMgr.NoError();
+    return pnt_vec;
+}
+
+std::vector<double> GetBORUpperCSTCoefs( const string& bor_id )
+{
+    vector < double > ret_vec;
+
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORUpperCSTCoefs::Can't Find Geom " + bor_id );
+        return ret_vec;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "GetBORUpperCSTCoefs::Geom " + bor_id + " is not a body of revolution" );
+        return ret_vec;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORUpperCSTCoefs::Can't Get XSecCurve" );
+        return ret_vec;
+    }
+
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "GetBORUpperCSTCoefs::XSec Not XS_CST_AIRFOIL Type" );
+        return ret_vec;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    ret_vec = cst_xs->GetUpperCST();
+    ErrorMgr.NoError();
+    return ret_vec;
+}
+
+std::vector<double> GetBORLowerCSTCoefs( const string& bor_id )
+{
+    vector < double > ret_vec;
+
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORLowerCSTCoefs::Can't Find Geom " + bor_id );
+        return ret_vec;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "GetBORLowerCSTCoefs::Geom " + bor_id + " is not a body of revolution" );
+        return ret_vec;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORLowerCSTCoefs::Can't Get XSecCurve" );
+        return ret_vec;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "GetBORLowerCSTCoefs::XSec Not XS_CST_AIRFOIL Type" );
+        return ret_vec;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    ret_vec = cst_xs->GetLowerCST();
+    ErrorMgr.NoError();
+    return ret_vec;
+}
+
+int GetBORUpperCSTDegree( const string& bor_id )
+{
+    int deg = -1;
+
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORUpperCSTDegree::Can't Find Geom " + bor_id );
+        return deg;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "GetBORUpperCSTDegree::Geom " + bor_id + " is not a body of revolution" );
+        return deg;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORUpperCSTDegree::Can't Get XSecCurve" );
+        return deg;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "GetBORUpperCSTDegree::XSec Not XS_CST_AIRFOIL Type" );
+        return deg;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    deg = cst_xs->GetUpperDegree();
+    ErrorMgr.NoError();
+    return deg;
+}
+
+int GetBORLowerCSTDegree( const string& bor_id )
+{
+    int deg = -1;
+
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORLowerCSTDegree::Can't Find Geom " + bor_id );
+        return deg;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "GetBORLowerCSTDegree::Geom " + bor_id + " is not a body of revolution" );
+        return deg;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetBORLowerCSTDegree::Can't Get XSecCurve" );
+        return deg;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "GetBORLowerCSTDegree::XSec Not XS_CST_AIRFOIL Type" );
+        return deg;
+    }
+
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    deg = cst_xs->GetLowerDegree();
+    ErrorMgr.NoError();
+    return deg;
+}
+
+void SetBORUpperCST( const string& bor_id, int deg, const std::vector<double> &coefs )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "SetBORUpperCST::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "SetBORUpperCST::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "SetBORUpperCST::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "SetBORUpperCST::XSec Not XS_CST_AIRFOIL Type" );
+        return;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    ErrorMgr.NoError();
+    cst_xs->SetUpperCST( deg, coefs );
+}
+
+void SetBORLowerCST( const string& bor_id, int deg, const std::vector<double> &coefs )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "SetBORLowerCST::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "SetBORLowerCST::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "SetBORLowerCST::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "SetBORLowerCST::XSec Not XS_CST_AIRFOIL Type" );
+        return;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    ErrorMgr.NoError();
+    cst_xs->SetLowerCST( deg, coefs );
+}
+
+void PromoteBORCSTUpper( const string& bor_id )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "PromoteBORCSTUpper::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "PromoteBORCSTUpper::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "PromoteBORCSTUpper::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "PromoteBORCSTUpper::XSec Not XS_CST_AIRFOIL Type" );
+        return;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    ErrorMgr.NoError();
+    cst_xs->PromoteUpper();
+}
+
+void PromoteBORCSTLower( const string& bor_id )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "PromoteBORCSTLower::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "PromoteBORCSTLower::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "PromoteBORCSTLower::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "PromoteBORCSTLower::XSec Not XS_CST_AIRFOIL Type" );
+        return;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    ErrorMgr.NoError();
+    cst_xs->PromoteLower();
+}
+
+void DemoteBORCSTUpper( const string& bor_id )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "DemoteBORCSTUpper::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "DemoteBORCSTUpper::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "DemoteBORCSTUpper::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "DemoteBORCSTUpper::XSec Not XS_CST_AIRFOIL Type" );
+        return;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    ErrorMgr.NoError();
+    cst_xs->DemoteUpper();
+}
+
+void DemoteBORCSTLower( const string& bor_id )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "DemoteBORCSTLower::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "DemoteBORCSTLower::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "DemoteBORCSTLower::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( xsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "DemoteBORCSTLower::XSec Not XS_CST_AIRFOIL Type" );
+        return;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast<CSTAirfoil*>( xsc );
+    assert( cst_xs );
+
+    ErrorMgr.NoError();
+    cst_xs->DemoteLower();
+}
+
+void FitBORAfCST( const string & bor_id, int deg )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( bor_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "FitBORAfCST::Can't Find Geom " + bor_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != BOR_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_TYPE, "FitBORAfCST::Geom " + bor_id + " is not a body of revolution" );
+        return;
+    }
+
+    BORGeom* bor_ptr = dynamic_cast< BORGeom* > ( geom_ptr );
+
+    XSecCurve* xsc = bor_ptr->GetXSecCurve();
+
+    if ( !xsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "FitBORAfCST::Can't Get XSecCurve" );
+        return;
+    }
+
+    if ( ( xsc->GetType() != XS_FOUR_SERIES ) ||
+         ( xsc->GetType() != XS_SIX_SERIES ) ||
+         ( xsc->GetType() != XS_FOUR_DIGIT_MOD ) ||
+         ( xsc->GetType() != XS_FIVE_DIGIT ) ||
+         ( xsc->GetType() != XS_FIVE_DIGIT_MOD ) ||
+         ( xsc->GetType() != XS_ONE_SIX_SERIES ) ||
+         ( xsc->GetType() != XS_FILE_AIRFOIL ) )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "FitBORAfCST::XSec Not Fittable Airfoil Type" );
+        return;
+    }
+
+    Airfoil* af_xs = dynamic_cast< Airfoil* >( xsc );
+    if ( !af_xs )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "FitBORAfCST::Can't Get Airfoil" );
+        return;
+    }
+
+    VspCurve c = af_xs->GetOrigCurve();
+
+    bor_ptr->SetXSecCurveType( XS_CST_AIRFOIL );
+
+    XSecCurve* newxsc = bor_ptr->GetXSecCurve();;
+    if ( !newxsc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "FitBORAfCST::Can't Get New XSecCurve" );
+        return;
+    }
+
+    if ( newxsc->GetType() != XS_CST_AIRFOIL )
+    {
+        ErrorMgr.AddError( VSP_WRONG_XSEC_TYPE, "FitBORAfCST::XSec Not XS_CST_AIRFOIL Type" );
+        return;
+    }
+
+    CSTAirfoil* cst_xs = dynamic_cast< CSTAirfoil* >( newxsc );
+
+    assert( cst_xs );
+    cst_xs->FitCurve( c, deg );
+
+    ErrorMgr.NoError();
 }
 
 //===================================================================//
@@ -5726,6 +6548,13 @@ vector< string > FindContainerParmIDs( const string & parm_container_id )
     return parm_vec;
 }
 
+string GetVehicleID()
+{
+    Vehicle* veh = GetVehicle();
+
+    ErrorMgr.NoError();
+    return veh->GetID();
+}
 
 //===================================================================//
 //===============           Snap To Functions          ==============//
@@ -6216,6 +7045,66 @@ int PCurveSplit( const string & geom_id, const int & pcurveid, const double & ts
     }
 
     return pc->Split( tsplit );
+
+    ErrorMgr.NoError();
+}
+
+void ApproximateAllPropellerPCurves( const std::string & geom_id )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( geom_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ApproximateAllPropellerPCurves::Can't Find Geom " + geom_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != PROP_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ApproximateAllPropellerPCurves::Geom not a propeller " + geom_id );
+        return;
+    }
+
+    PropGeom* prop_ptr = dynamic_cast < PropGeom* > (geom_ptr );
+
+    if ( prop_ptr )
+    {
+        prop_ptr->ApproxCubicAllPCurves();
+    }
+    else
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ApproximateAllPropellerPCurves::Geom not a propeller " + geom_id );
+        return;
+    }
+
+    ErrorMgr.NoError();
+}
+
+void ResetPropellerThicknessCurve( const std::string & geom_id )
+{
+    Vehicle* veh = GetVehicle();
+    Geom* geom_ptr = veh->FindGeom( geom_id );
+    if ( !geom_ptr )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ResetPropellerThicknessCurve::Can't Find Geom " + geom_id );
+        return;
+    }
+    else if ( geom_ptr->GetType().m_Type != PROP_GEOM_TYPE )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ResetPropellerThicknessCurve::Geom not a propeller " + geom_id );
+        return;
+    }
+
+    PropGeom* prop_ptr = dynamic_cast < PropGeom* > (geom_ptr );
+
+    if ( prop_ptr )
+    {
+        prop_ptr->ResetThickness();
+    }
+    else
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "ResetPropellerThicknessCurve::Geom not a propeller " + geom_id );
+        return;
+    }
 
     ErrorMgr.NoError();
 }

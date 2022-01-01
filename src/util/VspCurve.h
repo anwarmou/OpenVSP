@@ -52,8 +52,7 @@ public:
 
     bool IsClosed() const;
 
-    void RoundJoint( double rad, int i );
-    void RoundAllJoints( double rad );
+    bool RoundJoint( double rad, int i );
 
     void Modify( int type, bool le, double len, double off, double str );
 
@@ -70,7 +69,7 @@ public:
     // creates C2 continuous piecewise cubic spline polynomial with clamped end slopes
     void InterpolateCSpline( vector< vec3d > & input_pnt_vec, const vec3d &start_slope, const vec3d &end_slope, const vector<double> &param );
 
-    void ToBinaryCubic( bool wingtype, double ttol = 1e-6, double atol = 0.01, int dmin = 2, int dmax =  15 );
+    void ToBinaryCubic( bool wingtype, double ttol = 1e-6, double atol = 0.01, int dmin = 2, int dmax = 12 );
 
     void SetCubicControlPoints( const vector< vec3d > & cntrl_pts ); // Automatic curve parameterization
     void SetCubicControlPoints( const vector < vec3d > & cntrl_pts, const vector < double > & param ); // Specify curve parameterization
@@ -111,6 +110,8 @@ public:
 
     double CompLength( double tol = 1e-6 ) const;
 
+    double CompArea( int idir, int jdir ) const;
+
     //===== Tesselate ====//
     void TesselateNoCorner( int num_pnts_u, double umin, double umax, vector< vec3d > & output, vector< double > &uout );
     void Tesselate( const vector< double > &u, vector< vec3d > & output );
@@ -123,6 +124,8 @@ public:
     void OffsetX( double x );
     void OffsetY( double y );
     void OffsetZ( double Z );
+
+    void ProjectOntoCylinder( double r, bool wingtype, double ttol = 1e-6, double atol = 0.01, int dmin = 2, int dmax =  15 );
 
     void RotateX( double ang );
     void RotateY( double ang );

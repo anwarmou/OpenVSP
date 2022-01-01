@@ -18,7 +18,7 @@ public:
     WireGeom( Vehicle* vehicle_ptr );
     virtual ~WireGeom();
 
-    virtual int GetNumMainSurfs()
+    virtual int GetNumMainSurfs() const
     {
         return 0;
     };
@@ -28,7 +28,7 @@ public:
 
     virtual void Scale();
     virtual void UpdateBBox();
-    virtual Matrix4d GetTotalTransMat();
+    virtual Matrix4d GetTotalTransMat() const;
 
     virtual void ReadP3D( FILE* fp, int ni, int nj, int nk );
     virtual void ReadXSec( FILE* fp );
@@ -36,11 +36,11 @@ public:
     virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
     virtual xmlNodePtr DecodeXml( xmlNodePtr & node );
 
-    virtual vector< TMesh* > CreateTMeshVec();
+    virtual vector< TMesh* > CreateTMeshVec() const;
 
     virtual void CreateDegenGeom( vector<DegenGeom> &dgs, bool preview = false );
 
-    virtual int GetNumTotalHrmSurfs();
+    virtual int GetNumTotalHrmSurfs() const;
     virtual void WriteXSecFile( int geom_no, FILE* dump_file );
 
     // Scale Transformation Matrix

@@ -197,7 +197,8 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     m_ExperimentalInputFormatFlag.SetDescript( "Flag to Use Experimental VSPGeom Input File Format" );
     m_ClMax.Init( "Clmax", groupname, this, -1, -1, 1e3 );
     m_ClMax.SetDescript( "Cl Max of Aircraft" );
-    m_ClMaxToggle.Init( "ClmaxToggle", groupname, this, false, false, true );
+    m_ClMaxToggle.Init( "ClmaxToggle", groupname, this, vsp::CLMAX_OFF, vsp::CLMAX_OFF, vsp::CLMAX_CARLSON );
+    m_ClMaxToggle.SetDescript( "Stall Modeling Option" );
     m_MaxTurnAngle.Init( "MaxTurnAngle", groupname, this, -1, -1, 360 );
     m_MaxTurnAngle.SetDescript( "Max Turning Angle of Aircraft" );
     m_MaxTurnToggle.Init( "MaxTurnToggle", groupname, this, false, false, true );
@@ -340,12 +341,12 @@ void VSPAEROMgrSingleton::Renew()
 
     m_WakeNumIter.Set( 5 );
 
-    m_ClMaxToggle.Set( false );
+    m_ClMaxToggle.Set( vsp::CLMAX_OFF );
     m_MaxTurnToggle.Set( false );
     m_FarDistToggle.Set( false );
     m_GroundEffectToggle.Set( false );
     m_FromSteadyState.Set( false );
-    m_NumWakeNodes.Set( 0 );
+    m_NumWakeNodes.Set( 64 );
 }
 
 xmlNodePtr VSPAEROMgrSingleton::EncodeXml( xmlNodePtr & node )
@@ -508,15 +509,21 @@ void VSPAEROMgrSingleton::UpdateSref()
 
 void VSPAEROMgrSingleton::UpdateSetupParmLimits()
 {
-    if ( m_ClMaxToggle() )
+    if ( m_ClMaxToggle.Get() == vsp::CLMAX_2D )
     {
         m_ClMax.SetLowerLimit( 0.0 );
         m_ClMax.Activate();
     }
-    else
+    else if ( m_ClMaxToggle.Get() == vsp::CLMAX_OFF )
     {
         m_ClMax.SetLowerLimit( -1.0 );
         m_ClMax.Set( -1.0 );
+        m_ClMax.Deactivate();
+    }
+    else if (m_ClMaxToggle.Get() == vsp::CLMAX_CARLSON)
+    {
+        m_ClMax.SetLowerLimit( -999 );
+        m_ClMax.Set( -999 );
         m_ClMax.Deactivate();
     }
 
@@ -785,8 +792,21 @@ void VSPAEROMgrSingleton::UpdateRotorDisks()
                                     {
                                         int indxToSearch = k + temp.back()->m_ParentGeomSurfNdx;
                                         temp.back()->m_XYZ = degen_vec[indxToSearch].getDegenDisk().x;
-                                        temp.back()->m_Normal = degen_vec[indxToSearch].getDegenDisk().nvec * -1.0;
-                                        if ( geom->GetFlipNormal( iSubsurf ) ) temp.back()->m_FlipNormalFlag = true;
+                                        // Get flag to flip normal vector but don't actually flip the normal vector. Instead flip the sign of RPM
+                                        temp.back()->m_FlipNormalFlag = geom->GetFlipNormal( iSubsurf );
+
+                                        // Identify normal vector before it has been flipped. 
+                                        // Alternatively, we could get the normal vector from degen_vec[indxToSearch].getDegenDisk().nvec 
+                                        // and flip it. Note, for unsteady propellers we flip the normal vector but keep the sign of RPM
+                                        // if the Prop is reversed
+                                        vector < Matrix4d > trans_mat_vec = geom->GetTransMatVec();
+                                        Matrix4d trans_mat = trans_mat_vec[iSubsurf]; // Translations for the specific symmetric copy
+
+                                        vec3d rotdir( 1, 0, 0 );
+
+                                        vec3d r_vec = trans_mat.xform( rotdir ) - temp.back()->m_XYZ;
+                                        temp.back()->m_Normal = r_vec;
+
                                         break;
                                     }
                                 }
@@ -1802,7 +1822,7 @@ Optional input of logFile allows outputting to a log file or the console
 string VSPAEROMgrSingleton::ComputeSolver( FILE * logFile )
 {
     Update(); // Force update to ensure correct number of unstead groups, actuator disks, etc when run though the API.
-    UpdateFilenames();
+    UpdateFilenames(); // Do we really need this? is also called by Update() moments before
 
     if ( m_DegenGeomVec.size() == 0 )
     {
@@ -2455,10 +2475,10 @@ int VSPAEROMgrSingleton::WaitForFile( string filename )
     // Wait until the results show up on the file system
     int n_wait = 0;
     // wait no more than 5 seconds = (50*100)/1000
-    while ( ( !FileExist( filename ) ) & ( n_wait < 50 ) )
+    while ( ( !FileExist( filename ) ) & ( n_wait < 100 ) )
     {
         n_wait++;
-        SleepForMilliseconds( 100 );
+        SleepForMilliseconds( 50 );
     }
     SleepForMilliseconds( 100 );  //additional wait for file
 
@@ -3778,7 +3798,7 @@ void VSPAEROMgrSingleton::UpdateBBox( vector < DrawObj* > & draw_obj_vec )
         Geom* geom = veh->FindGeom( m_RotorDiskVec[m_CurrentRotorDiskIndex]->GetParentID() );
         if ( geom )
         {
-            geom->GetSurfVec( surf_vec );
+            surf_vec = geom->GetSurfVecConstRef();
             surf_vec[m_RotorDiskVec[m_CurrentRotorDiskIndex]->GetSurfNum()].GetBoundingBox( bb );
             m_BBox.Update( bb );
         }
@@ -4759,7 +4779,7 @@ void VSPAEROMgrSingleton::HighlightUnsteadyGroup( vector < DrawObj* >& draw_obj_
                     continue;
                 }
 
-                geom->GetSurfVec( surf_vec );
+                surf_vec = geom->GetSurfVecConstRef();
                 int num_main_surf = geom->GetNumMainSurfs();
 
                 for ( size_t j = 0; j < num_main_surf; j++ )
@@ -5881,6 +5901,7 @@ UnsteadyGroup::UnsteadyGroup( void ) : ParmContainer()
     m_Iyz.SetDescript( "Iyz of unsteady group" );
 
     m_SelectedCompIndex = -1;
+    m_ReverseFlag = false;
 }
 
 UnsteadyGroup::~UnsteadyGroup( void )
@@ -5984,13 +6005,13 @@ void UnsteadyGroup::Update()
                 Matrix4d trans_mat = trans_mat_vec[( surf_index - 1 ) * num_main_surf]; // Translations for the specific symmetric copy
 
                 vec3d cen( 0, 0, 0 );
-                vec3d rotdir( 1, 0, 0 );
+                vec3d rotdir( -1, 0, 0 );
 
-                // Identify if the normal vector is flipped (due to symmetry or reversing the prop)
-                if ( geom->GetFlipNormal( ( surf_index - 1 ) * num_main_surf ) )
-                {
-                    rotdir.set_x( -1 );
-                }
+                // Identify if the normal vector is flipped and use it to flip the sign of RPM but calculate 
+                // the normal vector from the transformation matrix (which will consider symmetry)
+                // Note inverse of GetFlipNormal is used because Props are flipped by default
+                // see (m_XSecSurf.GetFlipUD() in UpdateSurf() in PropGeom)
+                m_ReverseFlag = !geom->GetFlipNormal( ( surf_index - 1 ) * num_main_surf );
 
                 o_vec = trans_mat.xform( cen );
                 r_vec = trans_mat.xform( rotdir ) - o_vec;
@@ -6066,6 +6087,10 @@ int UnsteadyGroup::WriteGroup( FILE* group_file )
     }
 
     double omega = m_RPM() * PI / 30;
+    if ( m_ReverseFlag )
+    {
+        omega *= -1;
+    }
 
     fprintf( group_file, "GeometryIsFixed = %d\n", geom_fixed );
     fprintf( group_file, "GeometryIsDynamic = %d\n", geom_dynamic );

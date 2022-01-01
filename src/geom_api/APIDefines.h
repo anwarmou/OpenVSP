@@ -146,7 +146,7 @@ enum COLLISION_ERRORS { COLLISION_OK,
 enum COMPUTATION_FILE_TYPE  {   NO_FILE_TYPE        = 0,
                                 COMP_GEOM_TXT_TYPE  = 1,
                                 COMP_GEOM_CSV_TYPE  = 2,
-                                DRAG_BUILD_TSV_TYPE = 4,
+                                DRAG_BUILD_TSV_TYPE_DEPRECATED = 4,
                                 SLICE_TXT_TYPE      = 8,
                                 MASS_PROP_TXT_TYPE  = 16,
                                 DEGEN_GEOM_CSV_TYPE = 32,
@@ -222,7 +222,8 @@ enum ERROR_CODE {   VSP_OK,
                     VSP_CONFORMAL_PARENT_UNSUPPORTED,
                     VSP_UNEXPECTED_RESET_REMAP_ID,
                     VSP_INVALID_INPUT_VAL,
-                    VSP_INVALID_CF_EQN
+                    VSP_INVALID_CF_EQN,
+                    VSP_INVALID_DRIVERS
                 };
 
 enum EXCRES_TYPE { EXCRESCENCE_COUNT = 0,
@@ -610,6 +611,11 @@ enum VSPAERO_STABILITY_TYPE { STABILITY_OFF,
                               STABILITY_IMPULSE // TODO: Implement with later VSPAERO version
                             };
 
+enum VSPAERO_CLMAX_TYPE { CLMAX_OFF,
+                          CLMAX_2D,
+                          CLMAX_CARLSON // Carlson's Pressure Correlation
+                        };
+
 enum VSP_SURF_CFD_TYPE { CFD_NORMAL,
                          CFD_NEGATIVE,
                          CFD_TRANSPARENT,
@@ -684,6 +690,14 @@ enum XSEC_CRV_TYPE {XS_UNDEFINED = -1,
                     XS_ONE_SIX_SERIES,
                     XS_NUM_TYPES
                    };
+
+enum XSEC_DRIVERS { WIDTH_XSEC_DRIVER,     // First two are used for Circle.  Others are used for general XSecCurves
+                    AREA_XSEC_DRIVER,      // Area must be second entry.
+                    HEIGHT_XSEC_DRIVER,
+                    HWRATIO_XSEC_DRIVER,
+                    NUM_XSEC_DRIVER,
+                    CIRCLE_NUM_XSEC_DRIVER = 2
+                  };
 
 enum XSEC_SIDES_TYPE {  XSEC_BOTH_SIDES,
                         XSEC_LEFT_SIDE,

@@ -17,6 +17,27 @@ PCurve::PCurve() : ParmContainer()
     m_Name = "PCurve"; // ParmContainer name
 }
 
+PCurve::~PCurve()
+{
+    for ( int i = 0; i < m_TParmVec.size(); i++ )
+    {
+        delete m_TParmVec[i];
+    }
+    m_TParmVec.clear();
+
+    for ( int i = 0; i < m_ValParmVec.size(); i++ )
+    {
+        delete m_ValParmVec[i];
+    }
+    m_ValParmVec.clear();
+
+    for ( int i = 0; i < m_EnforceG1Vec.size(); i++ )
+    {
+        delete m_EnforceG1Vec[i];
+    }
+    m_EnforceG1Vec.clear();
+}
+
 void PCurve::InitParms()
 {
     m_CurveType.Init( "CrvType", m_GroupName, this, vsp::PCHIP, vsp::LINEAR, vsp::CEDIT );
@@ -1011,7 +1032,7 @@ void PCurve::SetDispNames( const string & xname, const string & yname )
 
 void PCurve::SetCurve( const vector < double > & tvec, const vector < double > & valvec, int newtype, vector < bool > g1vec )
 {
-    ConvertTo( newtype );
+    m_CurveType = newtype;
     InitCurve( tvec, valvec, g1vec );
     RenameParms();
 }

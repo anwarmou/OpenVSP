@@ -21,7 +21,7 @@
 #include "Defines.h"
 #include "Vec2d.h"
 #include "Geom.h"
-#include "Util.h"
+#include "VspUtil.h"
 #include "ResultsMgr.h"
 #include <set>
 #include <map>
@@ -94,7 +94,7 @@ public:
 
     virtual void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec );
 
-    virtual int  GetNumXSecSurfs()
+    virtual int  GetNumXSecSurfs() const
     {
         return 0;
     }
@@ -109,15 +109,15 @@ public:
 
     virtual void InitIndexedMesh( const vector < TMesh* > &meshvec, int & offset );
     virtual void BuildIndexedMesh( int partOffset, bool half_flag = false );
-    virtual int  GetNumIndexedPnts()
+    virtual int  GetNumIndexedPnts() const
     {
         return m_IndexedNodeVec.size();
     }
-    virtual int  GetNumIndexedTris()
+    virtual int  GetNumIndexedTris() const
     {
         return m_IndexedTriVec.size();
     }
-    virtual int  GetNumIndexedParts()
+    virtual int  GetNumIndexedParts() const
     {
         return m_TMeshVec.size();
     }
@@ -172,18 +172,18 @@ public:
     virtual void AddHalfBox();
 
     virtual void UpdateSurf() {}
-    virtual int GetNumMainSurfs()
+    virtual int GetNumMainSurfs() const
     {
         return 0;
     }
 
     virtual void CreateDegenGeom( vector<DegenGeom> &dgs, bool preview = false );
 
-    virtual vector< TMesh* > CreateTMeshVec();
+    virtual vector< TMesh* > CreateTMeshVec() const;
     virtual void FlattenTMeshVec();
     virtual void FlattenSliceVec();
-    virtual Matrix4d GetTotalTransMat();
-    virtual void TransformMeshVec( vector<TMesh*> & meshVec, Matrix4d & TransMat );
+    virtual Matrix4d GetTotalTransMat() const;
+    virtual void TransformMeshVec( vector<TMesh*> & meshVec, const Matrix4d & TransMat ) const;
 
     virtual vector< string > GetTMeshNames();
     virtual vector< string > GetTMeshIDs();

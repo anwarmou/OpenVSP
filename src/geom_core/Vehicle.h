@@ -52,21 +52,6 @@
 #define NUM_SETS 20 // Number of sets
 #define DEFAULT_SET vsp::SET_TYPE::SET_SHOWN // Default set index
 
-/*!
-* Centralized place to access all GUI related Parm objects.
-*/
-class VehicleGuiDraw
-{
-public:
-    /*!
-    * Get Lights pointer.
-    */
-    static LightMgr * getLightMgr()
-    {
-        return LightMgr::getInstance();
-    }
-};
-
 //==== Vehicle ====//
 class Vehicle : public ParmContainer
 {
@@ -193,11 +178,6 @@ public:
     string GetWriteScriptDir()                              { return m_CustomScriptDirs[0]; }
     vector < string > GetCustomScriptDirs()                 { return m_CustomScriptDirs; }
 
-    const VehicleGuiDraw * getVGuiDraw() const
-    {
-        return &m_VGuiDraw;
-    }
-
     //=== Export Files ===//
     // Return Mesh Geom ID if the export generates a mesh, otherwise return an 
     // empty string. This facilitates deleting the generated mesh from the API.
@@ -258,9 +238,7 @@ public:
     void resetExportFileNames();
 
     bool getExportCompGeomCsvFile()                    { return m_exportCompGeomCsvFile(); }
-    bool getExportDragBuildTsvFile()                   { return m_exportDragBuildTsvFile(); }
     void setExportCompGeomCsvFile( bool b )            { m_exportCompGeomCsvFile.Set( b ); }
-    void setExportDragBuildTsvFile( bool b )           { m_exportDragBuildTsvFile.Set( b ); }
 
     bool getExportDegenGeomCsvFile( )                  { return m_exportDegenGeomCsvFile(); }
     bool getExportDegenGeomMFile( )                    { return m_exportDegenGeomMFile(); }
@@ -439,6 +417,55 @@ public:
     IntParm m_SVGView3_rot;
     IntParm m_SVGView4_rot;
 
+    // DesignVarMgr
+    IntParm m_WorkingXDDMType;
+
+    // FitModelMgr
+    BoolParm m_SelectOneFlag;
+    BoolParm m_SelectBoxFlag;
+    IntParm m_UType;
+    IntParm m_WType;
+    Parm m_UTargetPt;
+    Parm m_WTargetPt;
+
+    // ProjectionMgr
+    IntParm m_TargetType;
+    IntParm m_BoundaryType;
+    IntParm m_DirectionType;
+    Parm m_XComp;
+    Parm m_YComp;
+    Parm m_ZComp;
+
+    // ManageViewScreen
+    IntParm m_ViewportSizeXValue;
+    IntParm m_ViewportSizeYValue;
+    Parm m_CORXValue;
+    Parm m_CORYValue;
+    Parm m_CORZValue;
+    Parm m_PanXPosValue;
+    Parm m_PanYPosValue;
+    Parm m_ZoomValue;
+    Parm m_XRotationValue;
+    Parm m_YRotationValue;
+    Parm m_ZRotationValue;
+
+    // ScreenshotScreen
+    FractionParm m_NewRatioValue;
+    IntParm m_NewWidthValue;
+    IntParm m_NewHeightValue;
+    BoolParm m_TransparentBGFlag;
+
+    // UserParmScreen
+    Parm m_UserParmVal;
+    Parm m_UserParmMin;
+    Parm m_UserParmMax;
+
+    // ManageBackgroundScreen
+    FractionParm m_BGWidthScaleValue;
+    FractionParm m_BGHeightScaleValue;
+    FractionParm m_BGXOffsetValue;
+    FractionParm m_BGYOffsetValue;
+
     string m_BEMPropID;
 
     IntParm m_AFExportType;
@@ -450,7 +477,6 @@ public:
     BoolParm m_STLExportPropMainSurf;
 
     BoolParm m_exportCompGeomCsvFile;
-    BoolParm m_exportDragBuildTsvFile;
     BoolParm m_exportDegenGeomCsvFile;
     BoolParm m_exportDegenGeomMFile;
 
@@ -511,8 +537,6 @@ protected:
 
     ClippingMgr m_ClippingMgr;
     SnapTo m_SnapTo;
-
-    VehicleGuiDraw m_VGuiDraw;
 
     // Class to handle group transformations
     GroupTransformations m_GroupTransformations;

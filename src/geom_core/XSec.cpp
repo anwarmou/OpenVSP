@@ -22,7 +22,7 @@ XSec::XSec( XSecCurve *xsc )
     if ( xsc == NULL )
     {
         //==== Create A Default Curve ====//
-        xsc = new XSecCurve();
+        xsc = new CircleXSec();
     }
 
     m_XSCurve = xsc;
@@ -269,6 +269,23 @@ xmlNodePtr XSec::DecodeXSec(  xmlNodePtr & node   )
     return node;
 }
 
+// This is the principal direction component of a principal direction unit vector transformed by m_Transform.
+// This will give the ratio of a component's area when projected into the principal direction.
+double XSec::GetProjectionCosine()
+{
+    XSecSurf* xsecsurf = (XSecSurf*) GetParentContainerPtr();
+    int pdir = xsecsurf->GetPrincipalDirection();
+
+    // vec3d pvec;
+    // pvec.v[pdir] = 1;
+    // vec3d xvec = m_Transform.xformnorm( pvec );
+    // return xvec.v[pdir];
+
+    // The below is equivalent to the above.  The above follows from the definition and is hopefully more intuitive.
+    // The below is clearly the most efficient way to get this information.
+    return m_Transform.data()[ pdir * 5 ];
+}
+
 void XSec::GetBasis( double t, Matrix4d &basis )
 {
     // Get primary orientation of this XSecSurf
@@ -291,7 +308,7 @@ void XSec::GetBasis( double t, Matrix4d &basis )
     basis.postMult( rmat.data() );
 }
 
-// Given a position along a curve t, and a desired surfce angle theta, calculate
+// Given a position along a curve t, and a desired surface angle theta, calculate
 // the tangent and normal unit vectors that will be required by the surface
 // skinning algorithm.
 

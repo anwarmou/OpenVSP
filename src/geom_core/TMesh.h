@@ -22,7 +22,6 @@
 #include "Vec3d.h"
 #include "Matrix4d.h"
 #include "BndBox.h"
-#include "DragFactors.h"
 #include "XmlUtil.h"
 
 #include <vector>               //jrg windows?? 
@@ -423,7 +422,6 @@ public:
     double m_Density;
     double m_ShellMassArea;
     bool m_ShellFlag;
-    DragFactors m_DragFactors;
 
     double m_TheoArea;
     double m_WetArea;
@@ -435,7 +433,7 @@ public:
     double m_WetVol;
     vec3d m_AreaCenter;
 
-    void LoadGeomAttributes( Geom* geomPtr );
+    void LoadGeomAttributes( const Geom* geomPtr );
     int  RemoveDegenerate();
     void RemoveIsectEdges();
     void Intersect( TMesh* tm, bool UWFlag = false );
@@ -531,7 +529,7 @@ protected:
 
 };
 
-void CreateTMeshVecFromPts( Geom * geom,
+void CreateTMeshVecFromPts( const Geom * geom,
                             vector < TMesh* > & TMeshVec,
                             const vector< vector<vec3d> > & pnts,
                             const vector< vector<vec3d> > & norms,

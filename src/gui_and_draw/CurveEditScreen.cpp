@@ -17,10 +17,10 @@
 #include "Background.h"
 #include "GraphicSingletons.h"
 
-#include "Util.h"
+#include "VspUtil.h"
 
 //==== Constructor ====//
-CurveEditScreen::CurveEditScreen( ScreenMgr* mgr ) : TabScreen( mgr, 750, 615, "Edit Curve", 180, 425 )
+CurveEditScreen::CurveEditScreen( ScreenMgr* mgr ) : TabScreen( mgr, 750, 615+17, "Edit Curve", 180, 425 )
 {
     m_FLTK_Window->callback( staticCloseCB, this );
     m_MainLayout.SetGroupAndScreen( m_FLTK_Window, this );
@@ -87,9 +87,15 @@ CurveEditScreen::CurveEditScreen( ScreenMgr* mgr ) : TabScreen( mgr, 750, 615, "
     m_XSecLayout.InitWidthHeightVals();
     m_XSecLayout.SetButtonWidth( m_XSecLayout.GetRemainX() / 3 );
 
-    m_XSecLayout.AddButton( m_PreserveXSecARToggle, "Preserve Aspect Ratio" );
-    m_XSecLayout.AddSlider( m_WidthSlider, "Width", 10, "%5.3f" );
-    m_XSecLayout.AddSlider( m_HeightSlider, "Height", 10, "%5.3f" );
+    vector < string > xsec_driver_labels;
+    xsec_driver_labels.resize( vsp::NUM_XSEC_DRIVER );
+    xsec_driver_labels[vsp::WIDTH_XSEC_DRIVER] = string( "Width" );
+    xsec_driver_labels[vsp::HEIGHT_XSEC_DRIVER] = "Height";
+    xsec_driver_labels[vsp::AREA_XSEC_DRIVER] = "Area";
+    xsec_driver_labels[vsp::HWRATIO_XSEC_DRIVER] = "H/W Ratio";
+
+    m_XSecDriverGroupBank.SetDriverGroup( &m_DefaultXSecDriverGroup );
+    m_XSecLayout.AddDriverGroupBank( m_XSecDriverGroupBank, xsec_driver_labels, 10, "%6.5f" );
 
     m_XSecLayout.AddYGap();
     m_XSecLayout.SetSameLineFlag( false );
@@ -374,7 +380,7 @@ XSecCurve* CurveEditScreen::GetXSecCurve()
             return NULL;
         }
 
-        int aid = wing_ptr->m_ActiveAirfoil();
+        int aid = wing_ptr->m_ActiveXSec();
         XSec* xs = wing_ptr->GetXSec( aid );
 
         if ( !xs )
@@ -439,23 +445,16 @@ bool CurveEditScreen::Update()
     m_SymToggle.Update( edit_curve_xs->m_SymType.GetID() );
     m_ClosedCurveToggle.Update( edit_curve_xs->m_CloseFlag.GetID() );
 
-    m_WidthSlider.Update( edit_curve_xs->m_Width.GetID() );
-    m_HeightSlider.Update( edit_curve_xs->m_Height.GetID() );
+    m_XSecDriverGroupBank.SetDriverGroup( edit_curve_xs->m_DriverGroup );
+    vector< string > parm_ids = edit_curve_xs->GetDriverParms();
+    m_XSecDriverGroupBank.Update( parm_ids );
+
+    Geom* geom = m_ScreenMgr->GetCurrGeom();
+    m_XSecDriverGroupBank.EnforceXSecGeomType( geom->GetType().m_Type );
 
     m_AbsDimToggle.Update( edit_curve_xs->m_AbsoluteFlag.GetID() );
-    m_PreserveXSecARToggle.Update( edit_curve_xs->m_PreserveARFlag.GetID() );
 
     Geom* geom_ptr = m_ScreenMgr->GetCurrGeom();
-
-    if ( geom_ptr && ( geom_ptr->GetType().m_Type == MS_WING_GEOM_TYPE || geom_ptr->GetType().m_Type == PROP_GEOM_TYPE ) )
-    {
-        m_PreserveXSecARToggle.Deactivate();
-        edit_curve_xs->m_PreserveARFlag.Set( false );
-    }
-    else
-    {
-        m_PreserveXSecARToggle.Activate();
-    }
 
     if( m_XSecGlWin )
     {
@@ -920,7 +919,19 @@ void CurveEditScreen::GuiDeviceCallBack( GuiDevice* gui_device )
 
     if ( gui_device == &m_InitShapeButton )
     {
-        edit_curve_xs->InitShape(); // TODO: Force update
+        edit_curve_xs->InitShape();
+
+        Geom* geom_ptr = m_ScreenMgr->GetCurrGeom();
+
+        if ( !geom_ptr )
+        {
+            return;
+        }
+
+        // Set tess dirty flag and update. This fixes an issue where the XSec is drawn detatched 
+        // from the parent Geom surface since the surface was not updated
+        geom_ptr->m_SurfDirty = true;
+        geom_ptr->Update();
     }
     else if ( gui_device == &m_ReparameterizeButton )
     {

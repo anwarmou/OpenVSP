@@ -31,7 +31,7 @@ typedef piecewise_curve_type::tolerance_type curve_tolerance_type;
 typedef eli::geom::curve::piecewise_cubic_spline_creator<double, 3, curve_tolerance_type> piecewise_cubic_spline_creator_type;
 typedef eli::geom::curve::piecewise_linear_creator<double, 3, curve_tolerance_type> piecewise_linear_creator_type;
 typedef eli::geom::curve::piecewise_binary_cubic_creator<double, 3, curve_tolerance_type> piecewise_binary_cubic_creator;
-
+typedef eli::geom::curve::piecewise_binary_cubic_cylinder_projector<double, 3, curve_tolerance_type> piecewise_binary_cubic_cylinder_projector;
 //=============================================================================//
 //============================= VspCurve      =================================//
 //=============================================================================//
@@ -244,14 +244,9 @@ void octave_print( int figno, const piecewise_curve_type &pc )
 }
 #endif
 
-void VspCurve::RoundJoint( double rad, int i )
+bool VspCurve::RoundJoint( double rad, int i )
 {
-    m_Curve.round( rad, i );
-}
-
-void VspCurve::RoundAllJoints( double rad )
-{
-    m_Curve.round( rad );
+    return m_Curve.round( rad, i );
 }
 
 void VspCurve::Modify( int type, bool le, double len, double off, double str )
@@ -1195,6 +1190,11 @@ double VspCurve::CompLength( double tol ) const
     return len;
 }
 
+double VspCurve::CompArea( int idir, int jdir ) const
+{
+    return m_Curve.area( idir, jdir );
+}
+
 //===== Tesselate =====//
 void VspCurve::TesselateNoCorner( int num_pnts_u, double umin, double umax, vector< vec3d > & output, vector< double > &uout )
 {
@@ -1295,6 +1295,70 @@ void VspCurve::OffsetZ( double z )
 {
     vec3d offvec( 0, 0, z );
     Offset( offvec );
+}
+
+void VspCurve::ProjectOntoCylinder( double r, bool wingtype, double ttol, double atol, int dmin, int dmax )
+{
+    piecewise_binary_cubic_cylinder_projector pbccp;
+
+    double tmin, tmax, tmid;
+    tmin = m_Curve.get_parameter_min();
+    tmax = m_Curve.get_parameter_max();
+    tmid = ( tmin + tmax ) / 2.0;
+
+    if ( wingtype )
+    {
+        piecewise_curve_type crv, telow, teup, le, low, up, rest;
+
+        m_Curve.split( telow, crv, tmin + TMAGIC );
+        crv.split( low, rest, tmid - TMAGIC );
+        crv = rest;
+        crv.split( le, rest, tmid + TMAGIC );
+        crv = rest;
+        crv.split( up, teup, tmax - TMAGIC );
+
+        pbccp.setup( telow, r, ttol, atol, dmin, dmax );
+        pbccp.corner_create( telow );
+
+        pbccp.setup( low, r, ttol, atol, dmin, dmax );
+        pbccp.corner_create( low );
+
+        pbccp.setup( le, r, ttol, atol, dmin, dmax );
+        pbccp.corner_create( le );
+
+        pbccp.setup( up, r, ttol, atol, dmin, dmax );
+        pbccp.corner_create( up );
+
+        pbccp.setup( teup, r, ttol, atol, dmin, dmax );
+        pbccp.corner_create( teup );
+
+        m_Curve = telow;
+        m_Curve.push_back( low );
+        m_Curve.push_back( le );
+        m_Curve.push_back( up );
+        m_Curve.push_back( teup );
+
+        m_Curve.set_tmax( tmax );
+    }
+    else
+    {
+        piecewise_curve_type low, up;
+
+        m_Curve.split( low, up, tmid );
+
+        // Setup copies base curve into creator.
+        // tolerance, min adapt levels, max adapt levels
+        pbccp.setup( low, r, ttol, atol, dmin, dmax );
+        // Create makes new curve
+        pbccp.corner_create( m_Curve );
+
+        pbccp.setup( up, r, ttol, atol, dmin, dmax );
+        pbccp.corner_create( up );
+
+        m_Curve.push_back( up );
+
+        m_Curve.set_tmax( tmax );
+    }
 }
 
 //===== Rotate About X-Axis  =====//
@@ -1656,58 +1720,6 @@ void VspCurve::CreateRoundedRectangle( double w, double h, double k, double sk, 
     double h2 = 0.5 * h;
     double h_off = vsk * h2;
 
-    if ( r1 > wt2 )
-    {
-        r1 = wt2;
-    }
-    if ( r1 > wb2 )
-    {
-        r1 = wb2;
-    }
-    if ( r1 > h2 )
-    {
-        r1 = h2;
-    }
-
-    if ( r2 > wt2 )
-    {
-        r2 = wt2;
-    }
-    if ( r2 > wb2 )
-    {
-        r2 = wb2;
-    }
-    if ( r2 > h2 )
-    {
-        r2 = h2;
-    }
-
-    if ( r3 > wt2 )
-    {
-        r3 = wt2;
-    }
-    if ( r3 > wb2 )
-    {
-        r3 = wb2;
-    }
-    if ( r3 > h2 )
-    {
-        r3 = h2;
-    }
-
-    if ( r4 > wt2 )
-    {
-        r4 = wt2;
-    }
-    if ( r4 > wb2 )
-    {
-        r4 = wb2;
-    }
-    if ( r4 > h2 )
-    {
-        r4 = h2;
-    }
-
     // catch special cases of degenerate cases
     if ( ( w2 == 0 ) || ( h2 == 0 ) )
     {
@@ -1798,26 +1810,13 @@ void VspCurve::CreateRoundedRectangle( double w, double h, double k, double sk, 
     if ( round_curve )
     {
         vector < double > r_vec{ r1, r2, r3, r4 };
-        int i = 1;
-
-        for ( size_t r = 0; r < r_vec.size(); r++ )
+        // Iterate backwards to avoid adjusting node indices for added corners.
+        for ( int r = r_vec.size() - 1; r >= 0; r-- )
         {
             if ( r_vec[r] > 1e-12 )
             {
-                RoundJoint( r_vec[r], i );
-
-                // Indexing adjustments when rounding with max values
-                if ( r_vec[r] != wt2 && r_vec[r] != wb2 && r_vec[r] != h2 )
-                {
-                    i += 1;
-                }
-                else if ( r_vec[r] == wt2 && r_vec[r] == wb2 && r_vec[r] == h2 )
-                {
-                    i -= 1;
-                }
+                bool rtn = RoundJoint( r_vec[r], ( 2 * r ) + 1 );
             }
-
-            i += 2;
         }
     }
 }

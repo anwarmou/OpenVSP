@@ -13,6 +13,7 @@
 #include "StringUtil.h"
 #include "StlHelper.h"
 #include "Vehicle.h"
+#include "VspUtil.h"
 
 using std::string;
 
@@ -100,7 +101,7 @@ void ParmContainer::RemoveParm( const string& id )
 }
 
 //==== Return Pointer To Parent Container ====//
-ParmContainer* ParmContainer::GetParentContainerPtr()
+ParmContainer* ParmContainer::GetParentContainerPtr() const
 {
     return ParmMgr.FindParmContainer( m_ParentContainer );
 }
@@ -108,7 +109,7 @@ ParmContainer* ParmContainer::GetParentContainerPtr()
 //==== Create A Unique ID  =====//
 string ParmContainer::GenerateID()
 {
-    return ParmMgr.GenerateID( 10 );
+    return GenerateRandomID( 10 );
 }
 
 void ParmContainer::ChangeID( string id )

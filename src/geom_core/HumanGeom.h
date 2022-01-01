@@ -20,7 +20,7 @@
 #include "Defines.h"
 #include "Vec3d.h"
 #include "Vec2d.h"
-#include "Util.h"
+#include "VspUtil.h"
 #include "Vsp1DCurve.h"
 #include "ResultsMgr.h"
 
@@ -102,27 +102,27 @@ public:
 
     virtual void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec );
 
-    virtual int  GetNumXSecSurfs()
+    virtual int  GetNumXSecSurfs() const
     {
         return 0;
     }
 
     virtual void Scale();
 
-    virtual int GetNumMainMeshs()
+    virtual int GetNumMainMeshs() const
     {
         return 1;
     }
-    virtual int GetNumTotalMeshs();
+    virtual int GetNumTotalMeshs() const;
 
-    virtual int GetNumMainSurfs()
+    virtual int GetNumMainSurfs() const
     {
         return 0;
     }
 
     virtual void CreateDegenGeom( vector<DegenGeom> &dgs, bool preview = false );
 
-    virtual vector< TMesh* > CreateTMeshVec();
+    virtual vector< TMesh* > CreateTMeshVec() const;
 
     virtual void SetupMesh( Pinocchio::Mesh &m );
     template < typename vertmat > void SetupSkel( const vertmat & vm, Pinocchio::DataSkeleton &skeleton );
