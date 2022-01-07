@@ -10,7 +10,7 @@
 // ==== Constructor ==== //
 GroupTransformations::GroupTransformations()
 {
-    // Initialize paramters
+    // Initialize parameters
     m_GroupXLoc.Init( "Group_XLoc", "GroupXForm", this, 0, -1e12, 1e12 );
     m_GroupYLoc.Init( "Group_YLoc", "GroupXForm", this, 0, -1e12, 1e12 );
     m_GroupZLoc.Init( "Group_ZLoc", "GroupXForm", this, 0, -1e12, 1e12 );
@@ -29,7 +29,7 @@ GroupTransformations::~GroupTransformations()
 {
 }
 
-// ==== Handle a changed paramter ==== //
+// ==== Handle a changed parameter ==== //
 void GroupTransformations::ParmChanged( Parm * parm, int type )
 {
     // Check if this was not set from a device
@@ -98,7 +98,7 @@ void GroupTransformations::Update()
         }
 
         // Only apply rotation if either the geom has no active parent or its
-        // rotation coordinate system is not relative to another geometry's rotational coordiante system
+        // rotation coordinate system is not relative to another geometry's rotational coordinate system
         if ( !parent_in_group || ( thisGeom->m_RotAttachFlag.Get() == vsp::ATTACH_ROT_NONE && !thisGeom->IsParentJoint() ))
         {
             delta_xrot = m_GroupXRot.Get();
@@ -182,7 +182,7 @@ void GroupTransformations::ReInitialize()
         m_oldVarVals[i][6] = geom->m_Scale.Get();
     }
 
-    ResetParmeters();
+    ResetParameters();
 
     // Set Material and Color to defaults
     m_GroupMaterial.SetMaterialToDefault();
@@ -195,7 +195,7 @@ void GroupTransformations::ReInitialize()
 // ==== Calls the reset scale method on all active geoms ==== //
 void GroupTransformations::Reset()
 {
-    ResetParmeters();
+    ResetParameters();
 
     // Update the active geoms with the new values
     Update();
@@ -225,13 +225,13 @@ void GroupTransformations::Accept()
         m_oldVarVals[i][6] = thisGeom->m_Scale.Get();
     }
 
-    ResetParmeters();
+    ResetParameters();
 
     m_LateUpdateFlag = false;
 }
 
 // ==== Helper method that will set all the parameters back to default values ==== //
-void GroupTransformations::ResetParmeters()
+void GroupTransformations::ResetParameters()
 {
     // Set the values
     m_GroupXLoc.Set( 0 );
