@@ -670,7 +670,7 @@ void VSP_SURFACE::ReadVSPGeomDataFromFile(char *Name, FILE *VSPGeom_File)
 void VSP_SURFACE::DoRCMSort(void)
 {
 
-    int i, j, k, l, Tri, Node, iMin, NumberOfTris, NumberOfNodes, Done;
+    int i, j, k, l, Tri, Node, iMin = 0, NumberOfTris, NumberOfNodes, Done;
     int *TriPermArray, *NodePermArray, *NextTri, *TriOnFront, NumberOfTrisOnFront;
     VSPAERO_DOUBLE XMin, Xc;
     VSP_LOOP *TempTriList;
@@ -726,15 +726,15 @@ void VSP_SURFACE::DoRCMSort(void)
     
     NextTri = new int[Grid().NumberOfTris() + 1];
     
-    zero_int_array(TriPermArray, Grid().NumberOfTris());
+    zero_int_array(TriPermArray, Grid().NumberOfTris() + 1);
     
-    zero_int_array(TriOnFront, Grid().NumberOfTris());
+    zero_int_array(TriOnFront, Grid().NumberOfTris() + 1);
     
-    zero_int_array(NextTri, Grid().NumberOfTris());
+    zero_int_array(NextTri, Grid().NumberOfTris() + 1);
     
     NodePermArray = new int[Grid().NumberOfNodes() + 1];
     
-    zero_int_array(NodePermArray, Grid().NumberOfNodes());
+    zero_int_array(NodePermArray, Grid().NumberOfNodes() + 1);
     
     // Find left most tri in x
     
