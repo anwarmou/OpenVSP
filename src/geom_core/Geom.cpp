@@ -3926,28 +3926,52 @@ vector < vec3d > Geom::GetAirfoilCoordinates( double foilsurf_u_location )
     std::reverse( upper_pnts.begin(), upper_pnts.end() );
     std::reverse( lower_pnts.begin(), lower_pnts.end() );
 
-    ordered_vec.resize( upper_pnts.size() + lower_pnts.size() + 3 );
+    ordered_vec.reserve( upper_pnts.size() + lower_pnts.size() + 3 );
 
     // Identify TE/LE 
     vec3d TE_pnt = foil_curve.CompPnt01( 0.0 );
     vec3d LE_pnt = foil_curve.CompPnt01( 0.5 );
 
     // organize the coordinate points into a single vector
-    ordered_vec[0] = TE_pnt; // Start at TE
+    ordered_vec.push_back(TE_pnt); // Start at TE
+    
+    printf("TE_pnt: %f, %f, %f\n", TE_pnt.x(), TE_pnt.y(), TE_pnt.z());
 
     for ( size_t i = 0; i < upper_pnts.size(); i++ )
     {
-        ordered_vec[i + 1] = upper_pnts[i];
+        ordered_vec.push_back(upper_pnts[i]);
     }
 
-    ordered_vec[upper_pnts.size() + 1] = LE_pnt; // Include LE
+    // Remove duplicate entries with the same x-coordinate going from upper surface TE to LE
+    // leaving the last x-coordinate entry as the winner.
+    for (size_t i = 0; i < ordered_vec.size() - 1; i++)
+    {
+        if (ordered_vec[i].x() == ordered_vec[i + 1].x())
+        {
+            ordered_vec.erase(ordered_vec.begin() + i);
+            i--;
+        }
+    }
+
+    ordered_vec.push_back(LE_pnt); // Include LE
 
     for ( size_t i = 0; i < lower_pnts.size(); i++ )
     {
-        ordered_vec[i + upper_pnts.size() + 2] = lower_pnts[i];
+        ordered_vec.push_back(lower_pnts[i]);
     }
 
-    ordered_vec[upper_pnts.size() + lower_pnts.size() + 2] = TE_pnt; // End at TE
+    ordered_vec.push_back(TE_pnt); // End at TE
+
+    // Remove duplicate entries with the same x-coordinate going from upper surface TE to LE to lower surface TE
+    // leaving the most recent x-coordinate entry as the winner.
+    for (size_t i = 0; i < ordered_vec.size() - 1; i++)
+    {
+        if (ordered_vec[i].x() == ordered_vec[i + 1].x())
+        {
+            ordered_vec.erase(ordered_vec.begin() + i + 1);
+            i--;
+        }
+    }
 
     return ordered_vec;
 }
