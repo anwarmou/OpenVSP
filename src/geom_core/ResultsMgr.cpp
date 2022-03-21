@@ -751,7 +751,7 @@ void Results::WriteWaveDragFile( const string & file_name )
         fprintf( fid, "\n" );
         for ( int i = 0; i < num_cone_sections ; i++ )
         {
-            fprintf( fid, "Theta: %6.2f, Start: %6.2f, End: %6.2f\n", Find( "Theta" ).GetDouble( i ), Find( "Start_X" ).GetDouble( i ), Find( "End_X" ).GetDouble( i ) );
+            fprintf( fid, "Theta: %f, Start: %f, End: %f\n", Find( "Theta" ).GetDouble( i ), Find( "Start_X" ).GetDouble( i ), Find( "End_X" ).GetDouble( i ) );
 
             for ( int s = 0 ; s < num_slices ; s++ )
             {
