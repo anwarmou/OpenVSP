@@ -282,7 +282,7 @@ VORTEX_TRAIL& VORTEX_TRAIL::operator=(const VORTEX_TRAIL &Trailing_Vortex)
     S_[0] = new VSPAERO_DOUBLE[NumberOfSubVortices() + 3];
     S_[1] = new VSPAERO_DOUBLE[NumberOfSubVortices() + 3];
  
-    NodeList_ = new VSP_NODE[NumberOfSubVortices() + 3];
+    NodeList_ = new VSP_NODE[NumberOfSubVortices() + 3]{};
     
     for ( i = 1 ; i <= NumberOfSubVortices() + 2 ; i++ ) {
      

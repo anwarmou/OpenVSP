@@ -15889,7 +15889,7 @@ void VSP_SOLVER::CreateSurfaceVorticesInteractionList(int LoopType)
 
     for ( cpu = 0 ; cpu < NumberOfThreads_ ; cpu++ ) {
        
-       CommonEdgeList[cpu] = new LOOP_ENTRY[NumberOfVortexLoops_ + 1];
+       CommonEdgeList[cpu] = new LOOP_ENTRY[NumberOfVortexLoops_ + 1]{};
        
        EdgeIsCommon[cpu] = new int[MaxInteractionEdges + 1];
        
@@ -22923,7 +22923,7 @@ void VSP_SOLVER::WriteOutPSUWopWopLoadingDataForGroup(int c)
     int i, Level;
     int i_size, c_size, f_size;
     float Time, Fx, Fy, Fz, DynP;
-    FILE *WopFile;
+    FILE* WopFile = 0;
 
     // Sizeof int and float
 
