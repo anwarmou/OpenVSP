@@ -45,7 +45,7 @@ public:
     void Init();
 
     //==== Read And Execute Script File  ====//
-    void ReadExecuteScriptFile( const string &  file_name, const string &  function_name = "void main()" );
+    int ReadExecuteScriptFile( const string &  file_name, const string &  function_name = "main" );
 
     //==== Read Script From File - Return Module Name ====//
     string ReadScriptFromFile( const string & module_name, const string &  file_name );
@@ -59,7 +59,7 @@ public:
     //==== Find Script And Remove ====//
     bool RemoveScript( const string &  module_name );
 
-    bool ExecuteScript(  const char* module_name,  const char* function_name, bool arg_flag = false, double arg = 0.0 );
+    int ExecuteScript(  const char* module_name,  const char* function_name, bool arg_flag = false, double arg = 0.0, bool by_decl = true );
 
     void AddToMessages( const string & msg )                { m_ScriptMessages += msg; }
     void ClearMessages()                                    { m_ScriptMessages.clear(); }
@@ -102,7 +102,6 @@ public:
     double Deg2Rad( double d )                      { return d*DEG_2_RAD; }
     double Min( double x, double y )                { return  (x < y ) ? x : y; }
     double Max( double x, double y )                { return  (x > y ) ? x : y; }
-    string GetVSPVersion()                          { return VSPVERSION4; }
 
     void GenAPIDocs( const string & file_name )
     {
@@ -191,7 +190,7 @@ private:
 
     CScriptArray* GetEditXSecUVec( const string& xsec_id );
     CScriptArray* GetEditXSecCtrlVec( const string & xsec_id, const bool non_dimensional );
-    void SetEditXSecPnts( const string & xsec_id, CScriptArray* t_vec, CScriptArray* control_pts );
+    void SetEditXSecPnts( const string & xsec_id, CScriptArray* t_vec, CScriptArray* control_pts, CScriptArray* r_vec );
     CScriptArray* GetEditXSecFixedUVec( const string& xsec_id );
     void SetEditXSecFixedUVec( const string & xsec_id, CScriptArray* fixed_u_vec );
 

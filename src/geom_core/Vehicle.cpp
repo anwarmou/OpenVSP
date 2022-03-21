@@ -719,9 +719,9 @@ void Vehicle::ForceUpdate( int dirtyflag )
 }
 
 //===== Run Script ====//
-void Vehicle::RunScript( const string & file_name, const string & function_name )
+int Vehicle::RunScript( const string & file_name, const string & function_name )
 {
-    ScriptMgr.ReadExecuteScriptFile( file_name, function_name );
+    return ScriptMgr.ReadExecuteScriptFile( file_name, function_name );
 }
 
 
@@ -4397,6 +4397,7 @@ void Vehicle::AddLinkableContainers( vector< string > & linkable_container_vec )
         geom_vec[i]->AddLinkableContainers( linkable_container_vec );
     }
 
+    m_ClippingMgr.AddLinkableContainers( linkable_container_vec );
     StructureMgr.AddLinkableContainers( linkable_container_vec );
 }
 

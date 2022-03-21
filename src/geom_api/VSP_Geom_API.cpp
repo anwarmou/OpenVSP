@@ -29,6 +29,7 @@
 #include "VKTAirfoil.h"
 #include "StructureMgr.h"
 #include "FeaMeshMgr.h"
+#include "main.h"
 
 #include "eli/mutil/quad/simpson.hpp"
 
@@ -5637,7 +5638,7 @@ vector < vec3d > GetEditXSecCtrlVec( const std::string& xsec_id, const bool non_
     return edit_xs->GetCtrlPntVec( non_dimensional );
 }
 
-void SetEditXSecPnts( const std::string & xsec_id, vector < double > u_vec, vector < vec3d > control_pts )
+void SetEditXSecPnts( const std::string & xsec_id, vector < double > u_vec, vector < vec3d > control_pts, vector < double > r_vec )
 {
     XSec* xs = FindXSec( xsec_id );
     if ( !xs )
@@ -5657,7 +5658,7 @@ void SetEditXSecPnts( const std::string & xsec_id, vector < double > u_vec, vect
 
     ErrorMgr.NoError();
 
-    edit_xs->SetPntVecs( u_vec, control_pts );
+    edit_xs->SetPntVecs( u_vec, control_pts, r_vec );
 }
 
 void EditXSecDelPnt( const std::string & xsec_id, const int & indx )
@@ -5733,6 +5734,7 @@ void MoveEditXSecPnt( const std::string & xsec_id, const int & indx, const vec3d
     // edit_xs->MovePnt also moves adjacent CEDIT points, so just set parm values directly
     edit_xs->m_XParmVec[indx]->Set( new_pnt.x() );
     edit_xs->m_YParmVec[indx]->Set( new_pnt.y() );
+    edit_xs->m_ZParmVec[indx]->Set( new_pnt.z() );
 
     edit_xs->ParmChanged( NULL, Parm::SET_FROM_DEVICE ); // Force update
 
@@ -7958,6 +7960,11 @@ void DelProbe( const string &id )
 void DeleteAllProbes()
 {
     MeasureMgr.DelAllProbes();
+}
+
+string GetVSPVersion()
+{
+    return VSPVERSION4;
 }
 
 string GetVSPExePath()

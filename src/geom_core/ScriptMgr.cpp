@@ -23,6 +23,17 @@
 #include "StringUtil.h"
 #include "FileUtil.h"
 
+// Make sure int32_t is defined.
+#ifdef _MSC_VER
+    #if _MSC_VER >= 1600
+        #include <cstdint>
+    #else
+        typedef __int32 int32_t;
+    #endif
+#else
+    #include <cstdint>
+#endif
+
 using namespace vsp;
 
 //==== Implement a simple message callback function ====//
@@ -165,11 +176,11 @@ void ScriptMgrSingleton::RunTestScripts()
 }
 
 //==== Read And Execute Script File  ====//
-void ScriptMgrSingleton::ReadExecuteScriptFile( const string &  file_name, const string &  function_name )
+int ScriptMgrSingleton::ReadExecuteScriptFile( const string &  file_name, const string &  function_name )
 {
     string module_name = ReadScriptFromFile( "ReadExecute", file_name );
 
-    ExecuteScript( module_name.c_str(), function_name.c_str() );
+    return ExecuteScript( module_name.c_str(), function_name.c_str(), false, 0.0, false );
 }
 
 vector< string > ScriptMgrSingleton::ReadScriptsFromDir( const string & dir_name, const string & suffix )
@@ -296,23 +307,30 @@ bool ScriptMgrSingleton::RemoveScript( const string &  module_name )
 
 
 //==== Execute Function in Module ====//
-bool ScriptMgrSingleton::ExecuteScript(  const char* module_name,  const char* function_name, bool arg_flag, double arg )
+int ScriptMgrSingleton::ExecuteScript( const char* module_name, const char* function_name, bool arg_flag, double arg, bool by_decl )
 {
-    int r;
-
     // Find the function that is to be called.
     asIScriptModule *mod = m_ScriptEngine->GetModule( module_name );
 
     if ( !mod )
     {
         printf( "Error ExecuteScript GetModule %s\n", module_name );
-        return false;
+        return 1;
     }
 
-    asIScriptFunction *func = mod->GetFunctionByDecl( function_name );
+    asIScriptFunction *func = NULL;
+    if ( by_decl )
+    {
+        func = mod->GetFunctionByDecl( function_name );
+    }
+    else
+    {
+        func = mod->GetFunctionByName( function_name );
+    }
+
     if( func == 0 )
     {
-        return false;
+        return 1;
     }
 
     // Create our context, prepare it, and then execute
@@ -322,7 +340,7 @@ bool ScriptMgrSingleton::ExecuteScript(  const char* module_name,  const char* f
     {
         ctx->SetArgDouble( 0, arg );
     }
-    r = ctx->Execute();
+    int r = ctx->Execute();
     if( r != asEXECUTION_FINISHED )
     {
         // The execution didn't complete as expected. Determine what happened.
@@ -331,9 +349,13 @@ bool ScriptMgrSingleton::ExecuteScript(  const char* module_name,  const char* f
             // An exception occurred, let the script writer know what happened so it can be corrected.
             printf( "An exception '%s' occurred \n", ctx->GetExceptionString() );
         }
-        return false;
+        return 1;
     }
-    return true;
+
+    asDWORD ret = ctx->GetReturnDWord();
+    int32_t rval = ret;
+
+    return rval;
 }
 
 //==== Return Script Content Given Module Name ====//
@@ -738,6 +760,30 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "CF_TURB_EQN", "CF_TURB_HEATTRANSFER_WHITE_CHRISTOPH", CF_TURB_HEATTRANSFER_WHITE_CHRISTOPH, "/*!< Heat Transfer White-Christoph turbulent Cf equation. */" );
     assert( r >= 0 );
 
+    doc_struct.comment = "/*! Enum for Chevron curve modification types. */";
+
+    r = se->RegisterEnum( "CHEVRON_TYPE", doc_struct );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CHEVRON_TYPE", "CHEVRON_NONE", CHEVRON_NONE, "/*!< No chevron. */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CHEVRON_TYPE", "CHEVRON_PARTIAL", CHEVRON_PARTIAL, "/*!< One or more chevrons of limited extent. */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CHEVRON_TYPE", "CHEVRON_FULL", CHEVRON_FULL, "/*!< Full period of chevrons. */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CHEVRON_TYPE", "CHEVRON_NUM_TYPES", CHEVRON_NUM_TYPES, "/*!< Number of chevron types. */" );
+    assert( r >= 0 );
+
+    doc_struct.comment = "/*! Enum for Chevron W parameter modes. */";
+
+    r = se->RegisterEnum( "CHEVRON_W01_MODES", doc_struct );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CHEVRON_W01_MODES", "CHEVRON_W01_SE", CHEVRON_W01_SE, "/*!< Specify chevron W start and end. */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CHEVRON_W01_MODES", "CHEVRON_W01_CW", CHEVRON_W01_CW, "/*!< Specify chevron W center and width. */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CHEVRON_W01_MODES", "CHEVRON_W01_NUM_MODES", CHEVRON_W01_NUM_MODES, "/*!< Number of chevron W parameter mode types. */" );
+    assert( r >= 0 );
+
     doc_struct.comment = "/*! Enum for Snap To collision error types. */";
 
     r = se->RegisterEnum( "COLLISION_ERRORS", doc_struct );
@@ -838,6 +884,8 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     assert( r >= 0 );
     r = se->RegisterEnumValue( "DIR_INDEX", "Z_DIR", Z_DIR, "/*!< Z direction */" );
     assert( r >= 0 );
+    r = se->RegisterEnumValue( "DIR_INDEX", "ALL_DIR", ALL_DIR, "/*!< All directions */" );
+    assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum for selecting the GUI display type for Geoms. */";
 
@@ -889,6 +937,8 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     assert( r >= 0 );
     r = se->RegisterEnumValue( "ERROR_CODE", "VSP_FILE_WRITE_FAILURE", vsp::VSP_FILE_WRITE_FAILURE, "/*!< File write failure error */" );
     assert( r >= 0 );
+    r = se->RegisterEnumValue( "ERROR_CODE", "VSP_FILE_READ_FAILURE", vsp::VSP_FILE_READ_FAILURE, "/*!< File read failure error */" );
+    assert( r >= 0 );
     r = se->RegisterEnumValue( "ERROR_CODE", "VSP_WRONG_XSEC_TYPE", vsp::VSP_WRONG_XSEC_TYPE, "/*!< Wrong XSec type error */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "ERROR_CODE", "VSP_WRONG_FILE_TYPE", vsp::VSP_WRONG_FILE_TYPE, "/*!< Wrong file type error */" );
@@ -914,6 +964,10 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "ERROR_CODE", "VSP_INVALID_INPUT_VAL", vsp::VSP_INVALID_INPUT_VAL, "/*!< Invalid input value error */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "ERROR_CODE", "VSP_INVALID_CF_EQN", vsp::VSP_INVALID_CF_EQN, "/*!< Invalid friction coefficient equation error */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "ERROR_CODE", "VSP_INVALID_DRIVERS", vsp::VSP_INVALID_DRIVERS, "/*!< Invalid drivers for driver group */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "ERROR_CODE", "VSP_ADV_LINK_BUILD_FAIL", vsp::VSP_ADV_LINK_BUILD_FAIL, "/*!< Advanced link build failure */" );
     assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum used to indicate Parasite Drag Tool excressence type. */";
@@ -7997,7 +8051,15 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     u_vec[3] = 0.75;
     u_vec[4] = 1.0;
 
-    SetEditXSecPnts( xsec_2, u_vec, xsec2_pts ); // Note: points are unscaled by the width and height parms
+    array < double > r_vec(5);
+
+    r_vec[0] = 0.0;
+    r_vec[1] = 0.0;
+    r_vec[2] = 0.0;
+    r_vec[3] = 0.0;
+    r_vec[4] = 0.0;
+
+    SetEditXSecPnts( xsec_2, u_vec, xsec2_pts, r_vec ); // Note: points are unscaled by the width and height parms
 
     array < vec3d > new_pnts = GetEditXSecCtrlVec( xsec_2, true ); // The returned control points will not be scaled by width and height
     
@@ -8008,9 +8070,10 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \endcode
     \param [in] xsec_id XSec ID
     \param [in] u_vec Array of U parameter values
+    \param [in] r_vec Array of R parameter values
     \param [in] control_pts Nondimensionalized array of control points
 */)";
-    r = se->RegisterGlobalFunction( "void SetEditXSecPnts( const string& in xsec_id, array<double>@ u_vec, array<vec3d>@ control_pts )", asMETHOD( ScriptMgrSingleton, SetEditXSecPnts ), asCALL_THISCALL_ASGLOBAL, &ScriptMgr, doc_struct );
+    r = se->RegisterGlobalFunction( "void SetEditXSecPnts( const string& in xsec_id, array<double>@ u_vec, array<vec3d>@ control_pts, array<double>@ r_vec )", asMETHOD( ScriptMgrSingleton, SetEditXSecPnts ), asCALL_THISCALL_ASGLOBAL, &ScriptMgr, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -12081,7 +12144,7 @@ void ScriptMgrSingleton::RegisterUtility( asIScriptEngine* se )
     \endcode
     \return OpenVSP version string (i.e. "OpenVSP 3.17.1")
 */)";
-    r = se->RegisterGlobalFunction( "string GetVSPVersion( )", asMETHOD( ScriptMgrSingleton, GetVSPVersion ), asCALL_THISCALL_ASGLOBAL, &ScriptMgr, doc_struct);
+    r = se->RegisterGlobalFunction( "string GetVSPVersion( )", asFUNCTION( vsp::GetVSPVersion ), asCALL_CDECL, doc_struct);
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -12800,7 +12863,7 @@ CScriptArray* ScriptMgrSingleton::GetEditXSecCtrlVec( const std::string & xsec_i
     return GetProxyVec3dArray();
 }
 
-void ScriptMgrSingleton::SetEditXSecPnts( const string & xsec_id, CScriptArray* u_vec, CScriptArray* control_pts )
+void ScriptMgrSingleton::SetEditXSecPnts( const string & xsec_id, CScriptArray* u_vec, CScriptArray* control_pts, CScriptArray* r_vec )
 {
     vector < vec3d > control_pnt_vec( control_pts->GetSize() );
 
@@ -12816,7 +12879,14 @@ void ScriptMgrSingleton::SetEditXSecPnts( const string & xsec_id, CScriptArray* 
         new_u_vec[i] = *(double*)( u_vec->At( i ) );
     }
 
-    vsp::SetEditXSecPnts( xsec_id, new_u_vec, control_pnt_vec );
+    vector < double > new_r_vec( r_vec->GetSize() );
+
+    for ( int i = 0; i < (int)r_vec->GetSize(); i++ )
+    {
+        new_r_vec[i] = *(double*)( r_vec->At( i ) );
+    }
+
+    vsp::SetEditXSecPnts( xsec_id, new_u_vec, control_pnt_vec, new_r_vec );
 }
 
 CScriptArray* ScriptMgrSingleton::GetEditXSecFixedUVec( const std::string& xsec_id )
