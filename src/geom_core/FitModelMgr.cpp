@@ -838,7 +838,7 @@ void FitModelMgrSingleton::CalcMetricDeriv( const double *x, double *y, double *
     double *fprm;
     fprm = new double[m];
     double *xp;
-    xp = new double[n];
+    xp = new double[n + 1] {};
 
     for (j = 0; j < n; ++j)
     {
