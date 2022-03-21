@@ -175,7 +175,12 @@ void WaveDragSingleton::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
     double MAngle = asin( 1 / m_MachNumber.Get() );
 
     int itheta = m_ThetaIndex() - 1;
-    double theta = m_ThetaRad[ itheta ];
+    double theta = 0;
+
+    if ( itheta && ( itheta < m_ThetaRad.size() ) )
+    {
+        theta = m_ThetaRad[ itheta ];
+    }
 
     for ( int i = 0; i < nq; i++ )
     {
