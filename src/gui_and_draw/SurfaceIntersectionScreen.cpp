@@ -42,6 +42,7 @@ SurfaceIntersectionScreen::SurfaceIntersectionScreen( ScreenMgr* mgr ) : TabScre
     m_ConsoleDisplay = m_BorderConsoleLayout.AddFlTextDisplay( 115 );
     m_ConsoleBuffer = new Fl_Text_Buffer;
     m_ConsoleDisplay->buffer( m_ConsoleBuffer );
+    m_FLTK_Window->resizable( m_ConsoleDisplay );
 
     m_BorderConsoleLayout.AddYGap();
 
@@ -506,9 +507,11 @@ void SurfaceIntersectionScreen::LoadSetChoice()
 
 void SurfaceIntersectionScreen::AddOutputText( const string &text )
 {
+    Fl::lock();
     m_ConsoleBuffer->append( text.c_str() );
     m_ConsoleDisplay->insert_position( m_ConsoleDisplay->buffer()->length() );
     m_ConsoleDisplay->show_insert_position();
+    Fl::unlock();
 }
 
 void SurfaceIntersectionScreen::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )

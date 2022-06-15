@@ -85,6 +85,9 @@ class GroupLayout;
 //  ColResizeBrowser (None)         Fl_Browser with resizeable columns. Based on the code provided at Erco's 
 //                                      FLTK Cheat Page: http://seriss.com/people/erco/fltk/#Fl_Resize_Browser
 
+void fltk_unicode_subscripts( string & str );
+void fltk_unicode_plusminus( string & str );
+
 class VspSlider : public Fl_Slider
 {
 public:
@@ -551,6 +554,8 @@ public:
 
     virtual void SetFlag( int indx, int flag );
     virtual int GetFlag( int indx );
+    virtual void SetFlagByVal( int val, int flag );
+    virtual int GetFlagByVal( int val );
     virtual void ClearFlags();
 
     virtual vector< string > GetItems()
@@ -843,7 +848,7 @@ public:
     }
     virtual void DeviceCB( Fl_Widget* w )               {}
 
-    virtual void Init( VspScreen* screen, Fl_Output* output );
+    virtual void Init( VspScreen* screen, Fl_Output* output, Fl_Button* button = NULL );
     virtual void Update( const string & val );
 
     virtual string GetString()

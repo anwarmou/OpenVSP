@@ -219,7 +219,7 @@ public:
     virtual void TransferSubSurfData();
     virtual vector < SimpleSubSurface > GetSimpSubSurfs( string geom_id, int surfnum, int comp_id );
 
-    void addOutputText( const string &str, int output_type = VOCAL_OUTPUT );
+    void addOutputText( string str, int output_type = VOCAL_OUTPUT );
 
 //  virtual void Draw();
 //  virtual void Draw_BBox( BndBox box );
@@ -302,7 +302,6 @@ public:
     virtual void CheckFixPointIntersects()    {}; // Only for FeaMesh; do nothing for CfdMesh
     virtual void SetFixPointBorderNodes()    {}; // Only for FeaMesh; do nothing for CfdMesh
 
-    void TestStuff();
     vector< vec3d > debugPnts;
     vector< vec2d > debugUWs;
     vector< SurfPatch* > debugPatches;
@@ -326,7 +325,7 @@ public:
 
 #ifdef DEBUG_CFD_MESH
     FILE* m_DebugFile;
-    Stringc m_DebugDir;
+    string m_DebugDir;
 
     bool m_DebugDraw;
     vector< vector< vec3d > > m_DebugCurves;

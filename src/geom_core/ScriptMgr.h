@@ -82,8 +82,8 @@ public:
     CScriptArray* GetProxyDoubleArray();
     CScriptArray* GetProxyDoubleMatArray();
 
-    static void FillDoubleArray( vector < double > & in, CScriptArray* out );
-    static void FillVec3dArray( vector < vec3d > & in, CScriptArray* out );
+    template < class T > static void FillArray( vector < T > & in, CScriptArray* out );
+    template < class T > static void FillArray( CScriptArray* in, vector < T > & out );
 
     //==== Common Types =====//
     asITypeInfo* m_IntArrayType;
@@ -197,8 +197,12 @@ private:
     void DeleteGeomVec( CScriptArray* del_arr );
 
     void SetXSecPnts( const string& xsec_id, CScriptArray* pnt_arr );
+    void SetAirfoilUpperPnts( const string& xsec_id, CScriptArray* up_pnt_arr );
+    void SetAirfoilLowerPnts( const string& xsec_id, CScriptArray* low_pnt_arr );
     void SetAirfoilPnts( const string& xsec_id, CScriptArray* up_pnt_arr, CScriptArray* low_pnt_arr );
     void SetBORXSecPnts( const string& bor_id, CScriptArray* pnt_arr );
+    void SetBORAirfoilUpperPnts( const string& bor_id, CScriptArray* up_pnt_arr );
+    void SetBORAirfoilLowerPnts( const string& bor_id, CScriptArray* low_pnt_arr );
     void SetBORAirfoilPnts( const string& bor_id, CScriptArray* up_pnt_arr, CScriptArray* low_pnt_arr );
     void SetVec3dArray( CScriptArray* arr );
 
@@ -259,6 +263,7 @@ private:
     CScriptArray* GetAllProbes();
 
     CScriptArray* CompVecPnt01(const string &geom_id, const int &surf_indx, CScriptArray* us, CScriptArray* ws);
+    CScriptArray* CompVecPntRST(const string &geom_id, const int &surf_indx, CScriptArray* rs, CScriptArray* ss, CScriptArray* ts);
     CScriptArray* CompVecNorm01(const string &geom_id, const int &surf_indx, CScriptArray* us, CScriptArray* ws);
     void CompVecCurvature01(const string &geom_id, const int &surf_indx, CScriptArray* us, CScriptArray* ws, CScriptArray* k1s, CScriptArray* k2s, CScriptArray* kas, CScriptArray* kgs);
     void ProjVecPnt01(const string &geom_id, const int &surf_indx, CScriptArray* pts, CScriptArray* us, CScriptArray* ws, CScriptArray* ds );
@@ -266,6 +271,11 @@ private:
     void GetUWTess01(const string &geom_id, int &surf_indx, CScriptArray* us, CScriptArray* ws );
     void AxisProjVecPnt01(const string &geom_id, const int &surf_indx, const int &iaxis, CScriptArray* pts, CScriptArray* us, CScriptArray* ws, CScriptArray* ps_out, CScriptArray* ds );
     void AxisProjVecPnt01Guess(const string &geom_id, const int &surf_indx, const int &iaxis, CScriptArray* pts, CScriptArray* u0s, CScriptArray* w0s, CScriptArray* us, CScriptArray* ws, CScriptArray* ps_out, CScriptArray* ds );
+    void FindRSTVec(const string &geom_id, const int &surf_indx, CScriptArray* pts, CScriptArray* rs, CScriptArray* ss, CScriptArray* ts, CScriptArray* ds );
+    void FindRSTVecGuess(const string &geom_id, const int &surf_indx, CScriptArray* pts, CScriptArray* r0s, CScriptArray* s0s, CScriptArray* t0s, CScriptArray* rs, CScriptArray* ss, CScriptArray* ts, CScriptArray* ds );
+
+    void ConvertRSTtoLMNVec(const string &geom_id, const int &surf_indx, CScriptArray* rs, CScriptArray* ss, CScriptArray* ts, CScriptArray* ls, CScriptArray* ms, CScriptArray* ns );
+    void ConvertLMNtoRSTVec(const string &geom_id, const int &surf_indx, CScriptArray* ls, CScriptArray* ms, CScriptArray* ns, CScriptArray* rs, CScriptArray* ss, CScriptArray* ts );
 
 };
 

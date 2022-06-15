@@ -295,9 +295,32 @@ enum FEA_EXPORT_TYPE { FEA_MASS_FILE_NAME,
                        FEA_NUM_FILE_NAMES
                      };
 
+enum FEA_MATERIAL_TYPE { FEA_ISOTROPIC,
+                         FEA_ENG_ORTHO,
+                         FEA_NUM_MAT_TYPES
+                       };
+
+enum FEA_ORIENTATION_TYPE { FEA_ORIENT_GLOBAL_X,
+                            FEA_ORIENT_GLOBAL_Y,
+                            FEA_ORIENT_GLOBAL_Z,
+                            FEA_ORIENT_COMP_X,
+                            FEA_ORIENT_COMP_Y,
+                            FEA_ORIENT_COMP_Z,
+                            FEA_ORIENT_PART_U,
+                            FEA_ORIENT_PART_V,
+                            FEA_ORIENT_OML_U,
+                            FEA_ORIENT_OML_V,
+                            FEA_ORIENT_OML_R,
+                            FEA_ORIENT_OML_S,
+                            FEA_ORIENT_OML_T,
+                            FEA_NUM_ORIENT_TYPES
+                          };
+
 enum FEA_PART_ELEMENT_TYPE { FEA_SHELL = 0,
                              FEA_BEAM,
-                             FEA_SHELL_AND_BEAM
+                             FEA_SHELL_AND_BEAM,
+                             FEA_NO_ELEMENTS,
+                             FEA_NUM_ELEMENT_TYPES
                            };
 
 enum FEA_PART_TYPE { FEA_SLICE = 0,
@@ -308,6 +331,7 @@ enum FEA_PART_TYPE { FEA_SLICE = 0,
                      FEA_RIB_ARRAY,
                      FEA_SLICE_ARRAY,
                      FEA_SKIN,
+                     FEA_TRIM,
                      FEA_NUM_TYPES
                    };
 
@@ -541,6 +565,7 @@ enum SUBSURF_TYPE { SS_LINE,
                     SS_ELLIPSE,
                     SS_CONTROL,
                     SS_LINE_ARRAY,
+                    SS_FINITE_LINE,
                     SS_NUM_TYPES
                   };
 

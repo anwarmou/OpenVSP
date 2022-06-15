@@ -14,6 +14,7 @@
 #include "ParmMgr.h"
 #include "SubSurfaceMgr.h"
 #include "HingeGeom.h"
+#include "VspUtil.h"
 using namespace vsp;
 
 #include <float.h>
@@ -108,6 +109,7 @@ GeomBase::GeomBase( Vehicle* vehicle_ptr )
     m_SurfDirty = true;
     m_TessDirty = true;
     m_HighlightDirty = true;
+    m_FeaDirty = true;
 }
 
 //==== Destructor ====//
@@ -192,6 +194,10 @@ void GeomBase::SetDirtyFlags( Parm* parm_ptr )
         // GeomXSec::m_ActiveXSec
         // WingGeom::m_ActiveAirfoil
     }
+    else if ( gname.substr(0, 3) == string("Fea") )
+    {
+        m_FeaDirty = true;
+    }
     else
     {
         m_SurfDirty = true;
@@ -216,6 +222,10 @@ void GeomBase::SetDirtyFlag( int dflag )
     else if ( dflag == HIGHLIGHT )
     {
         m_HighlightDirty = true;
+    }
+    else if ( dflag == FEA )
+    {
+        m_FeaDirty = true;
     }
 }
 
@@ -1166,9 +1176,12 @@ void Geom::Update( bool fullupdate )
             m_SubSurfVec[i]->Update();  // Can be protected by m_SurfDirty, except for call to UpdateDrawObj - perhaps should be split out.  Some may depend on m_SurfVec, but could be switched to m_MainSurfVec instead.
         }
 
-        for ( int i = 0; i < (int)m_FeaStructVec.size(); i++ )
+        if ( m_XFormDirty || m_SurfDirty || m_FeaDirty ) // Everything except m_TessDirty
         {
-            m_FeaStructVec[i]->Update();  // Possibly can be moved to update path only when FEA GUI is open?
+            for ( int i = 0; i < (int)m_FeaStructVec.size(); i++ )
+            {
+                m_FeaStructVec[i]->Update();
+            }
         }
     }
 
@@ -1220,6 +1233,8 @@ void Geom::Update( bool fullupdate )
     m_TessDirty = false;
 
     m_HighlightDirty = false;
+
+    m_FeaDirty = false;
 
     UpdateChildren( fullupdate );
 
@@ -1371,7 +1386,6 @@ void Geom::UpdateFeatureLines( )
 void Geom::UpdateSymmAttach()
 {
     unsigned int num_surf = GetNumTotalSurfs();
-    m_SurfVec.clear();
     m_SurfIndxVec.clear();
     m_SurfSymmMap.clear();
     m_SurfCopyIndx.clear();
@@ -3093,8 +3107,8 @@ void Geom::ReadV2File( xmlNodePtr &root )
     {
         xmlNodePtr tex_node = XmlUtil::GetNode( root, "Applied_Texture", i );
 
-        apptex.nameStr = Stringc( XmlUtil::FindString( tex_node, "Name", "Default_Name" ) );
-        apptex.texStr  = Stringc( XmlUtil::FindString( tex_node, "Texture_Name", "Default_Name" ) );
+        apptex.nameStr = string( XmlUtil::FindString( tex_node, "Name", "Default_Name" ) );
+        apptex.texStr  = string( XmlUtil::FindString( tex_node, "Texture_Name", "Default_Name" ) );
         apptex.allSurfFlag  = !!XmlUtil::FindInt( tex_node, "All_Surf_Flag", 0 );
         apptex.surfID  = XmlUtil::FindInt( tex_node, "Surf_ID", 0 );
         apptex.u  = XmlUtil::FindDouble( tex_node, "U", 0.5 );
@@ -3805,6 +3819,40 @@ vec3d Geom::CompPnt01(const double &u, const double &w)
 vec3d Geom::CompPnt01(const int &indx, const double &u, const double &w)
 {
     return GetSurfPtr( indx )->CompPnt01( u, w );
+}
+
+vec3d Geom::CompTanU( const int &indx, const double &u, const double &w )
+{
+    double uu = clamp( u, 0.0, GetSurfPtr( indx )->GetUMax() );
+    double ww = clamp( w, 0.0, GetSurfPtr( indx )->GetWMax() );
+    return GetSurfPtr( indx )->CompTanU( uu, ww );
+}
+
+vec3d Geom::CompTanW( const int &indx, const double &u, const double &w )
+{
+    double uu = clamp( u, 0.0, GetSurfPtr( indx )->GetUMax() );
+    double ww = clamp( w, 0.0, GetSurfPtr( indx )->GetWMax() );
+    return GetSurfPtr( indx )->CompTanW( uu, ww );
+}
+
+vec3d Geom::CompPntRST( const int &indx, const double &r, const double &s, const double &t )
+{
+    return GetSurfPtr( indx )->CompPntRST( r, s, t );
+}
+
+vec3d Geom::CompTanR( const int &indx, const double &r, const double &s, const double &t )
+{
+    return GetSurfPtr( indx )->CompTanR( r, s, t );
+}
+
+vec3d Geom::CompTanS( const int &indx, const double &r, const double &s, const double &t )
+{
+    return GetSurfPtr( indx )->CompTanS( r, s, t );
+}
+
+vec3d Geom::CompTanT( const int &indx, const double &r, const double &s, const double &t )
+{
+    return GetSurfPtr( indx )->CompTanT( r, s, t );
 }
 
 bool Geom::CompRotCoordSys( const double &u, const double &w, Matrix4d &rotMat )
@@ -4676,6 +4724,11 @@ SubSurface* Geom::AddSubSurf( int type, int surfindex )
     {
         ssurf = new SSControlSurf(m_ID);
         ssurf->SetName(string("SS_CONT_" + to_string((long long)m_SubSurfVec.size())));
+    }
+    else if ( type == vsp::SS_FINITE_LINE )
+    {
+        ssurf = new SSFiniteLine( m_ID );
+        ssurf->SetName( string( "SS_FLINE_" + to_string( ( long long )m_SubSurfVec.size() ) ) );
     }
 
     if ( ssurf )
