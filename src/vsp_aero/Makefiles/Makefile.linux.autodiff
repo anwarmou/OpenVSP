@@ -10,8 +10,8 @@ include Makefile.COMMON
 #         'OBJS = ../ADEPT.2/Adept-2-master/adept/.libs/libadept.a '\
  
                    
-VSPAERO_ADJOINT_OPT =  'CCFLAGS = -O3 -march=native -funroll-loops -funroll-all-loops   \
-                    -Wno-unused -Wno-format-security -Wno-format-overflow -DMYTIME -DAUTODIFF -DADEPT_RECORDING_PAUSABLE' \
+VSPAERO_ADJOINT_OPT =  'CCFLAGS = -O3 -march=native -funroll-loops -funroll-all-loops -fopenmp  \
+                    -Wno-unused -Wno-format-security -Wno-format-overflow -DMYTIME -DVSPAERO_OPENMP -DAUTODIFF -DADEPT_RECORDING_PAUSABLE' \
          'LDC = c++' \
          'LDF = gfortran' \
          'DEFINES = ' \

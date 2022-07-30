@@ -49,6 +49,9 @@ public:
     bool m_DemoteSurfsCubicFlag;
     double m_CubicSurfTolerance;
 
+    bool m_ConvertToQuadsFlag;
+    bool m_HighOrderElementFlag;
+
     bool m_FarMeshFlag;
     bool m_FarCompFlag;
     bool m_HalfMeshFlag;
@@ -208,6 +211,7 @@ public:
         return m_Sources.size();
     }
 
+    void ScaleMesh( double scale );
     void ScaleAllSources( double scale );
 
     void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec );

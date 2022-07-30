@@ -97,11 +97,12 @@ public:
 
     enum
     {
-        FEA_TRI_6, FEA_BEAM, FEA_POINT_MASS, FEA_QUAD_8
+        FEA_TRI_3, FEA_TRI_6, FEA_BEAM, FEA_POINT_MASS, FEA_QUAD_4, FEA_QUAD_8
     };
     vector< FeaNode* > m_Corners;
     vector< FeaNode* > m_Mids;
 
+    vec3d m_Orientation;
 protected:
 
     int m_ElementType;
@@ -117,13 +118,11 @@ public:
     FeaTri()    {};
     virtual ~FeaTri()    {};
 
-    virtual void Create( vec3d & p0, vec3d & p1, vec3d & p2 );
+    virtual void Create( vec3d & p0, vec3d & p1, vec3d & p2, bool highorder );
     virtual void WriteCalculix( FILE* fp, int id, int noffset, int eoffset );
     virtual void WriteNASTRAN( FILE* fp, int id, int property_index, int noffset, int eoffset );
     virtual void WriteGmsh( FILE* fp, int id, int fea_part_index, int noffset, int eoffset );
     virtual double ComputeMass( int property_index );
-
-    vec3d m_Orientation;
 };
 
 //=== 8 Point Quad Element ====//
@@ -133,7 +132,7 @@ public:
     FeaQuad()    {};
     virtual ~FeaQuad()    {};
 
-    virtual void Create( vec3d & p0, vec3d & p1, vec3d & p2, vec3d & p3 );
+    virtual void Create( vec3d & p0, vec3d & p1, vec3d & p2, vec3d & p3, bool highorder );
     virtual void WriteCalculix( FILE* fp, int id, int noffset, int eoffset );
     virtual void WriteNASTRAN( FILE* fp, int id, int property_index, int noffset, int eoffset );
     virtual void WriteGmsh( FILE* fp, int id, int fea_part_index, int noffset, int eoffset );

@@ -56,12 +56,13 @@ public:
     void CleanupDistTable();
     void LimitTarget( SimpleGridDensity* grid_den );
     void TessEndPts();
-    void TessIntegrate();
-    void TessRevIntegrate( vector< double > &utess );
     bool NewtonFind( double starget, double &s, double &ireal, double &t, double &dsdi, double &u );
     bool BisectFind( double starget, double &s, double &ireal, double &t, double &dsdi, double &u, int direction );
-    void TessIntegrate( int direction, vector< double > &utess );
-    void SmoothTess();
+    void TessIntegrate( int direction, vector< double > &stess );
+    void STessToUTess();
+    void STessToUTess( const vector< double > &stess, vector< double > &utess );
+    void TessIntegrateAndSmooth();
+    void DoubleTess();
     void UWTess();
     void SpreadDensity( SCurve* BCurve );
     void CalcDensity( SimpleGridDensity* grid_den, SCurve* BCurve, list< MapSource* > & splitSources );
@@ -123,6 +124,7 @@ protected:
 
     vector< double > m_UTess;   // Tess Curve Pnts in U Space
     vector< vec3d > m_UWTess;   // Tess Curve Pnts in UW Space
+    vector< double > m_STess;    // Tess Curve Pnts in arc-length
 
     int num_segs;
     vector< double > u_vec;

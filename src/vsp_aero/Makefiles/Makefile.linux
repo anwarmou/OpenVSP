@@ -34,7 +34,7 @@ VSPAERO_SOLVER_OPT =  'CCFLAGS = -O3 -march=native -funroll-loops -funroll-all-l
 
 ################################## VSPAERO ADJOINT Code #################################       
 
-VSPAERO_ADJOINT_OPT =  'CCFLAGS = -O3 -march=native -funroll-loops -funroll-all-loops   \
+VSPAERO_ADJOINT_OPT =  'CCFLAGS = -O3 -march=native -funroll-loops -funroll-all-loops \
                     -Wno-unused -Wno-format-security -Wno-format-overflow -DMYTIME -DAUTODIFF -DADEPT_RECORDING_PAUSABLE' \
          'LDC = c++' \
          'LDF = gfortran' \
@@ -45,7 +45,35 @@ VSPAERO_ADJOINT_OPT =  'CCFLAGS = -O3 -march=native -funroll-loops -funroll-all-
          'LIBS =  '\
          'VPATH =../'\
          'PROGRAM = $(VSPAERO_ADJOINT_EXE)'   
-         
+
+################################## VSPAERO Complex Step Code #################################       
+
+VSPAERO_COMPLEX_OPT =  'CCFLAGS = -O3 -march=native -funroll-loops -funroll-all-loops -fopenmp \
+                    -Wno-unused -Wno-format-security -Wno-format-overflow -DMYTIME -DVSPAERO_OPENMP -DCOMPLEXDIFF' \
+         'LDC = c++' \
+         'LDF = gfortran' \
+         'DEFINES = ' \
+         'INCDIRS = -I/usr/local/include -I/usr/include/tcl  '\
+         'OBJS =  '\
+         'LIBDIRS = -L/usr/local/lib -L/lib -L/usr/lib ' \
+         'LIBS =  '\
+         'VPATH =../'\
+         'PROGRAM = $(VSPAERO_COMPLEX_EXE)'   
+
+################################## VSPAERO Optimizer Code #################################       
+
+VSPAERO_OPTIMIZER_OPT =  'CCFLAGS = -O3 -march=native -funroll-loops -funroll-all-loops -fopenmp \
+                    -Wno-unused -Wno-format-security -Wno-format-overflow -DMYTIME -DVSPAERO_OPENMP' \
+         'LDC = c++' \
+         'LDF = gfortran' \
+         'DEFINES = ' \
+         'INCDIRS = -I/usr/include/tcl -I../../ADEPT.2/Adept-2-master/include  '\
+         'OBJS =  ../SOLVER/solverlib.a ../ADJOINT/adjointlib.a ../../ADEPT.2/Adept-2-master/adept/.libs/libadept.a'\
+         'LIBDIRS = -L/usr/local/lib -L/lib -L/usr/lib ' \
+         'LIBS =  '\
+         'VPATH =../'\
+         'PROGRAM = $(VSPAERO_OPTIMIZER_EXE)'   
+                           
 ################################# VIEWER Code ##############################       
 
 #          'OBJS = ../Libs/libtiff.v4.0.3/tiff-4.0.3/libtiff/.libs/libtiff.a'\

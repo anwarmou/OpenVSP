@@ -205,6 +205,11 @@ void SCurve::InterpDistTable( double idouble, double &t, double &u, double &s, d
 {
     int imax = target_vec.size() - 1;
 
+    if ( idouble > imax )
+    {
+        idouble = 0.0;
+    }
+
     int ifloor = (int)floor( idouble );
     int iceil = (int)ceil( idouble );
 
@@ -366,18 +371,6 @@ void SCurve::TessEndPts()
     UWTess();
 }
 
-void SCurve::TessIntegrate()
-{
-    vector<double> utess;
-    TessIntegrate( 1, utess );
-    m_UTess.swap( utess );
-}
-
-void SCurve::TessRevIntegrate( vector< double > &utess )
-{
-    TessIntegrate( -1, utess );
-}
-
 // Bisection method solver to find i,u corresponding to starget.
 //
 // starget  i       Target s input.
@@ -503,9 +496,9 @@ bool SCurve::NewtonFind( double starget, double &s, double &ireal, double &t, do
 }
 
 
-void SCurve::TessIntegrate( int direction, vector< double > &utess )
+void SCurve::TessIntegrate( int direction, vector< double > &stess )
 {
-    utess.clear();
+    stess.clear();
 
     int nsubstep = 5;
 
@@ -540,7 +533,7 @@ void SCurve::TessIntegrate( int direction, vector< double > &utess )
     double t, u, s, dsdi;
     InterpDistTable( ireal, t, u, s, dsdi );
 
-    utess.push_back( u );
+    stess.push_back( s );
 
     while( ireal <= imax && ireal >= 0.0 )
     {
@@ -565,7 +558,7 @@ void SCurve::TessIntegrate( int direction, vector< double > &utess )
         // reason that isub should ever be greater than nsubstep.
         if( isub >= nsubstep )
         {
-            utess.push_back( u );
+            stess.push_back( s );
             isub = 0;
         }
     }
@@ -573,41 +566,88 @@ void SCurve::TessIntegrate( int direction, vector< double > &utess )
     // Just in case, double check the final point.
     if( direction < 0 )
     {
-        if( utess.back() > 0.0 )
+        if( stess.back() > 0.0 )
         {
-            utess.push_back( 0.0 );
+            stess.push_back( 0.0 );
         }
     }
     else
     {
-        if( utess.back() < 1.0 )
+        if( stess.back() < smax )
         {
-            utess.push_back( 1.0 );
+            stess.push_back( smax );
         }
     }
 }
 
-void SCurve::SmoothTess()
+void SCurve::STessToUTess()
 {
+    STessToUTess( m_STess, m_UTess );
+}
 
-    vector< double > UTessRev;
-    TessRevIntegrate( UTessRev );
+void SCurve::STessToUTess( const vector< double > &stess, vector< double > &utess )
+{
+    int ntess = stess.size();
+    utess.clear();
+    utess.resize( ntess, -1.0 );
 
-    int nfwd = m_UTess.size();
-    int nrev = UTessRev.size();
+    int ntable = dist_vec.size();
+    int ilow = 0;
+    int iup = 1;
+    utess[ 0 ] = 0;
+
+    for ( int i = 1; i < ntess - 1; i++ )
+    {
+        while( iup < ntable && stess[i] > dist_vec[ iup ] )
+        {
+            ilow++;
+            iup++;
+        }
+
+        if ( iup >= ntable )
+        {
+            iup = ntable - 1;
+            ilow = iup - 1;
+        }
+
+        double slow = dist_vec[ ilow ];
+        double sup = dist_vec[ iup ];
+        double frac = ( stess[i] - slow )/( sup - slow );
+
+        double ulow = u_vec[ ilow ];
+        double uup = u_vec[ iup ];
+
+        double u = ulow + frac * ( uup - ulow );
+        utess[ i ] = u;
+    }
+
+    utess[ ntess - 1 ] = 1.0;
+}
+
+void SCurve::TessIntegrateAndSmooth()
+{
+    TessIntegrate( 1, m_STess );
+
+    vector< double > STessRev;
+    TessIntegrate( -1, STessRev );
+
+    double smax = dist_vec.back();
+
+    int nfwd = m_STess.size();
+    int nrev = STessRev.size();
     int n;
 
     if( nfwd > nrev )
     {
         n = nrev;
-        m_UTess.pop_back();
-        m_UTess[ n - 1 ] = 1.0;
+        m_STess.pop_back();
+        m_STess[ n - 1 ] = smax;
     }
     else if( nrev > nfwd )
     {
         n = nfwd;
-        UTessRev.pop_back();
-        UTessRev[ n - 1 ] = 0.0;
+        STessRev.pop_back();
+        STessRev[ n - 1 ] = 0.0;
     }
     else
     {
@@ -616,26 +656,33 @@ void SCurve::SmoothTess()
 
     for( int i = 1; i < n - 1; i++ )
     {
-        double u = m_UTess[ i ];
-        double ur = UTessRev[ n - i - 1 ];
-        double uave = ( 2.0 * u - u * u + ur * ur ) / 2.0;
+        double s = m_STess[ i ];
+        double sr = STessRev[ n - i - 1 ];
 
-        m_UTess[ i ] = uave;
+        // Average of two weighted sums.
+        // One weighted by (s/smax), the other by (sr/smax).
+        // The weighting ensures the 'head' of each curve (forward or reverse) is taken as truth, with no
+        // contribution from the 'tail' of the opposing curve.  However, in the middle the two are averaged.
+        double save = ( 2.0 * s + ( (sr * sr) - (s * s) ) / smax ) / 2.0;
+
+        m_STess[ i ] = save;
     }
-    m_UTess[ 0 ] = 0.0;
-    m_UTess[ n - 1 ] = 1.0;
+    m_STess[ 0 ] = 0.0;
+    m_STess[ n - 1 ] = smax;
 }
 
 void SCurve::UWTess()
 {
+    int n = m_UTess.size();
     m_UWTess.clear();
+    m_UWTess.resize( n );
 
     vec3d uw;
-    for ( int i = 0 ; i < ( int )m_UTess.size() ; i++ )
+    for ( int i = 0 ; i < n ; i++ )
     {
         double u = m_UTess[i];
         uw = m_UWCrv.CompPnt01( u );
-        m_UWTess.push_back( uw );
+        m_UWTess[i] = uw;
     }
 }
 
@@ -663,11 +710,58 @@ void SCurve::ApplyESSurface( double u, double t )
     m_Surf->ApplyES( uw, t );
 }
 
+void SCurve::DoubleTess()
+{
+    int n = m_STess.size();
+
+    // Build up tvec corresponding to points m_STess
+    vector < double > tvec( n );
+    tvec[0] = target_vec[0];
+    int ilow = 0;
+    int iup = 1;
+    int ntable = dist_vec.size();
+    for( int i = 1; i < n - 1; i++ )
+    {
+        while( iup < ntable && m_STess[i] > dist_vec[ iup ] )
+        {
+            ilow++;
+            iup++;
+        }
+
+        if ( iup >= ntable )
+        {
+            iup = ntable - 1;
+            ilow = iup - 1;
+        }
+
+        double slow = dist_vec[ ilow ];
+        double sup = dist_vec[ iup ];
+        double frac = ( m_STess[i] - slow )/( sup - slow );
+
+        tvec[i] = target_vec[ ilow ] + frac * ( target_vec[ iup ] - target_vec[ ilow ] );
+    }
+    tvec[ n - 1 ] = target_vec[ ntable - 1 ];
+
+    // Build up doubleSTess with 'mid'-points inserted.  Points are inserted at a point adjusted
+    // for the target lengths at the start and end of the segment.
+    vector< double > doubleSTess( 2 * ( n - 1 ) + 1 );
+    for( int i = 0; i < n - 1; i++ )
+    {
+        doubleSTess[ 2 * i ] = m_STess[i];
+
+        double k = 1.0 / ( 1.0 + ( tvec[ i + 1 ] / tvec[ i ] ) );
+        doubleSTess[ 2 * i + 1 ] = m_STess[ i ] + k * ( m_STess[ i + 1 ] - m_STess[ i ] );
+    }
+    doubleSTess[ 2 * ( n - 1 ) ] = m_STess[ n - 1 ];
+
+    m_STess.swap( doubleSTess );
+}
 
 void SCurve::Tesselate()
 {
-    TessIntegrate();
-    SmoothTess();
+    TessIntegrateAndSmooth();
+    DoubleTess();
+    STessToUTess();
     UWTess();
 }
 

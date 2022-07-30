@@ -41,6 +41,9 @@ SimpleMeshCommonSettings::SimpleMeshCommonSettings()
     m_DemoteSurfsCubicFlag = false;
     m_CubicSurfTolerance = 1e-6;
 
+    m_ConvertToQuadsFlag = false;
+    m_HighOrderElementFlag = false;
+
     m_FarMeshFlag = false;
     m_FarCompFlag = false;
     m_HalfMeshFlag = false;
@@ -90,6 +93,9 @@ void SimpleMeshCommonSettings::CopyFrom( MeshCommonSettings* settings )
 
     m_DemoteSurfsCubicFlag = settings->m_DemoteSurfsCubicFlag.Get();
     m_CubicSurfTolerance = settings->m_CubicSurfTolerance.Get();
+
+    m_ConvertToQuadsFlag = settings->m_ConvertToQuadsFlag.Get();
+    m_HighOrderElementFlag = settings->m_HighOrderElementFlag.Get();
 
     m_FarMeshFlag = settings->m_FarMeshFlag.Get();
     m_FarCompFlag = settings->m_FarCompFlag.Get();
@@ -421,6 +427,20 @@ double SimpleGridDensity::GetTargetLen( vec3d& pos, bool farFlag, const string &
         }
     }
     return target_len;
+}
+
+void SimpleGridDensity::ScaleMesh( double scale )
+{
+    m_BaseLen *= scale;
+    m_FarMaxLen *= scale;
+    m_MinLen *= scale;
+    m_NCircSeg /= scale;
+    m_FarNCircSeg /= scale;
+    m_MaxGap *= scale;
+    m_FarMaxGap *= scale;
+    // m_GrowRatio;
+
+    ScaleAllSources( scale );
 }
 
 void SimpleGridDensity::ScaleAllSources( double scale )

@@ -143,11 +143,9 @@ public:
     virtual void AddDefaultSourcesCurrGeom();
     virtual void UpdateSourcesAndWakes();
     virtual void UpdateDomain();
-    virtual void ScaleTriSize( double scale );
 
-//  virtual void Draw();
-//  virtual void Draw_BBox( BndBox box );
-    void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec ) override;
+    virtual void UpdateDrawObjs() override;
+    virtual void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec ) override;
 
     void UpdateDisplaySettings() override;
 
@@ -171,7 +169,10 @@ public:
 
     enum { QUIET_OUTPUT, VOCAL_OUTPUT, };
     virtual void Remesh( int output_type );
-    virtual void RemeshSingleComp( int comp_id, int output_type );
+
+    virtual void PostMesh();
+
+    virtual void ConvertToQuads();
 
     virtual void InitMesh();
 
@@ -228,12 +229,13 @@ protected:
     BndBox m_Domain;
 
     vector<Edge*> m_BadEdges;
-    vector<Tri*> m_BadTris;
+    vector<Face*> m_BadFaces;
     vector< Node* > m_nodeStore;
 
 private:
     DrawObj m_MeshBadEdgeDO;
     DrawObj m_MeshBadTriDO;
+    DrawObj m_MeshBadQuadDO;
     DrawObj m_BBoxLineStripDO;
     DrawObj m_BBoxLinesDO;
     DrawObj m_BBoxLineStripSymSplit;

@@ -13,7 +13,7 @@
 
 #include "Vec2d.h"
 #include "Vec3d.h"
-#include "Tri.h"
+#include "Face.h"
 
 class Surf;
 class SimpleGridDensity;
@@ -36,6 +36,7 @@ class MeshSeg
 {
 public:
     int m_Index[2];
+    vec2d m_UWmid;
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -51,22 +52,22 @@ public:
     // void Draw();
 
     void Remesh();
-    void LoadSimpTris();
-    void CondenseSimpTris();
+    void LoadSimpFaces();
+    void CondenseSimpFaces();
     static int CheckDupOrAdd( int ind, map< int, vector< int > > & indMap, vector< vec3d > & pntVec );
 
 
     int Split( int num_iter );
     void SplitEdge( Edge* edge );
 
-    static bool ThreeEdgesThreeTris( Edge* edge );
+    static bool ThreeEdgesThreeFaces( Edge* edge );
     void SwapEdge( Edge* edge );
 
     int Collapse( int num_iter );
     static bool ValidCollapse( Edge* edge );
     void CollapseEdge( Edge* edge );
 
-    int RemoveRevTris();
+    int RemoveRevFaces();
 
     void LimitTargetEdgeLength();
     void LimitTargetEdgeLength( Edge* e );
@@ -94,25 +95,23 @@ public:
     void  RemoveNode( Node* nptr );
     Node* FindNode( const vec3d& p );
 
-    static bool ValidNodeMove( Node* nptr, const vec3d & move_to, Tri* ignoreTri = NULL );
+    static bool ValidNodeMove( Node* nptr, const vec3d & move_to, Face* ignoreFace = NULL );
 
     Edge* AddEdge( Node* n0, Node* n1 );
     void  RemoveEdge( Edge* eptr );
     Edge* FindEdge( Node* n0, Node* n1 );
 
-    Tri* AddTri( Node* nn0, Node* nn1, Node* nn2, Edge* ee0, Edge* ee1, Edge* ee2 );
-    void  RemoveTri( Tri* tptr );
-
-    static void TriangulateBorder( const vector< vec3d > &uw_border );
+    Face* AddFace( Node* nn0, Node* nn1, Node* nn2, Edge* ee0, Edge* ee1, Edge* ee2 );
+    Face* AddFace( Node* nn0, Node* nn1, Node* nn2, Node* nn3, Edge* ee0, Edge* ee1, Edge* ee2, Edge* ee3 );
+    void  RemoveFace( Face* fptr );
 
     void InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_indexes, SurfaceIntersectionSingleton *MeshMgr );
-
-    static void CheckValidTriInput( vector< vec2d > & uw_points, vector< MeshSeg > & segs_indexes );
-
 
     void ReadSTL( const char* file_name );
     void WriteSTL( const char* file_name );
     void WriteSTL( FILE* fp );
+
+    void ConvertToQuads();
 
     void SetSurfPtr( Surf* sptr )
     {
@@ -136,9 +135,14 @@ public:
 
     void ColorTris();
 
-    list <Tri*> GetTriList()
+    int GetNumFaces()
     {
-        return triList;
+        return faceList.size();
+    }
+
+    const list <Face*> & GetFaceList()
+    {
+        return faceList;
     }
 
     vector < vec3d >& GetSimpPntVec()
@@ -149,25 +153,29 @@ public:
     {
         return simpUWPntVec;
     }
-    vector < SimpTri >& GetSimpTriVec()
+    vector < SimpFace >& GetSimpFaceVec()
     {
-        return simpTriVec;
+        return simpFaceVec;
     }
 
     void StretchSimpPnts( double start_x, double end_x, double factor, double angle );
 
-    void RemoveInteriorTrisEdgesNodes();
+    void RemoveInteriorFacesEdgesNodes();
 
 protected:
 
     Surf* m_Surf;
     SimpleGridDensity* m_GridDensity;
 
-    list < Tri* > triList;
+    list < Face* > faceList;
     list < Edge* > edgeList;
     list < Node* > nodeList;
 
-    vector< Tri* > garbageTriVec;
+    // List of edge splitting nodes along borders.  These points should lie on both surfaces along an intersection
+    // curve.  Created in Mesh::InitMesh.  Used in Mesh::ConvertToQuads().
+    map< Edge*, Node* > m_BorderEdgeSplitNode;
+
+    vector< Face* > garbageFaceVec;
     vector< Edge* > garbageEdgeVec;
     vector< Node* > garbageNodeVec;
 
@@ -176,7 +184,7 @@ protected:
 
     vector< vec3d > simpPntVec;
     vector< vec2d > simpUWPntVec;
-    vector< SimpTri > simpTriVec;
+    vector< SimpFace > simpFaceVec;
 };
 
 

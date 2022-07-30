@@ -631,8 +631,6 @@ void Surf::BuildGrid()
         }
     }
 
-    m_Mesh.TriangulateBorder( uw_border );
-
     //for ( i = 0 ; i < 10 ; i++ )
     //{
     //  m_Mesh.Remesh(100);
@@ -696,49 +694,6 @@ void Surf::IntersectLineSeg( vec3d & p0, vec3d & p1, vector< double > & t_vals )
     for ( int i = 0 ; i < ( int )m_PatchVec.size() ; i++ )
     {
         m_PatchVec[i]->IntersectLineSeg( p0, p1, line_box, t_vals );
-    }
-}
-
-void Surf::IntersectLineSegMesh( vec3d & p0, vec3d & p1, vector< double > & t_vals )
-{
-    BndBox line_box;
-    line_box.Update( p0 );
-    line_box.Update( p1 );
-
-    if ( !Compare( line_box, m_BBox ) )
-    {
-        return;
-    }
-
-    double tparm, uparm, vparm;
-    list< Tri* >::iterator t;
-    list <Tri*> triList = m_Mesh.GetTriList();
-
-    vec3d dir = p1 - p0;
-
-    for ( t = triList.begin() ; t != triList.end(); ++t )
-    {
-        int iFlag = intersect_triangle( p0.v, dir.v,
-                                        ( *t )->n0->pnt.v, ( *t )->n1->pnt.v, ( *t )->n2->pnt.v, &tparm, &uparm, &vparm );
-
-        if ( iFlag && tparm > 0.0 )
-        {
-            //==== Find If T is Already Included ====//
-            int dupFlag = 0;
-            for ( int j = 0 ; j < ( int )t_vals.size() ; j++ )
-            {
-                if ( std::abs( tparm - t_vals[j] ) < 1.0e-7 )
-                {
-                    dupFlag = 1;
-                    break;
-                }
-            }
-
-            if ( !dupFlag )
-            {
-                t_vals.push_back( tparm );
-            }
-        }
     }
 }
 
@@ -897,7 +852,7 @@ void Surf::InitMesh( vector< ISegChain* > chains, SurfaceIntersectionSingleton *
     //==== Store Only One Instance of each IPnt ====//
     set< IPnt* > ipntSet;
     for ( int i = 0 ; i < ( int )chains.size() ; i++ )
-        for ( int j = 0 ; j < ( int )chains[i]->m_TessVec.size() ; j++ )
+        for ( int j = 0 ; j < ( int )chains[i]->m_TessVec.size() ; j += 2 )
         {
             ipntSet.insert( chains[i]->m_TessVec[j] );
         }
@@ -936,12 +891,17 @@ void Surf::InitMesh( vector< ISegChain* > chains, SurfaceIntersectionSingleton *
     MeshSeg seg;
     vector< MeshSeg > isegVec;
     for ( int i = 0 ; i < ( int )chains.size() ; i++ )
-        for ( int j = 1 ; j < ( int )chains[i]->m_TessVec.size() ; j++ )
+    {
+        int n = chains[i]->m_TessVec.size();
+        int nhalf = 0.5 * ( n - 1 )  + 1;
+        for ( int j = 0 ; j < nhalf - 1; j++ )
         {
-            seg.m_Index[0] = chains[i]->m_TessVec[j - 1]->m_Index;
-            seg.m_Index[1] = chains[i]->m_TessVec[j]->m_Index;
+            seg.m_Index[0] = chains[i]->m_TessVec[2 * j]->m_Index;
+            seg.m_Index[1] = chains[i]->m_TessVec[2 * (j + 1)]->m_Index;
+            seg.m_UWmid = chains[i]->m_TessVec[2 * j + 1]->GetPuw( this )->m_UW;
             isegVec.push_back( seg );
         }
+    }
 
 //  ////jrg Check For Duplicate Segs
 //  vector< MeshSeg > dupMeshSegVec;
@@ -1313,27 +1273,34 @@ bool Surf::BorderMatch( Surf* otherSurf )
 
 void Surf::Subtag( bool tag_subs )
 {
-    vector< SimpTri >& tri_vec = m_Mesh.GetSimpTriVec();
+    vector< SimpFace >& face_vec = m_Mesh.GetSimpFaceVec();
     const vector< vec2d >& pnts = m_Mesh.GetSimpUWPntVec();
     vector< SubSurface* > s_surfs;
 
     if ( tag_subs ) s_surfs = SubSurfaceMgr.GetSubSurfs( m_GeomID, m_MainSurfID );
 
-    for ( int t = 0 ; t < ( int ) tri_vec.size() ; t++ )
+    for ( int f = 0 ; f < ( int ) face_vec.size() ; f++ )
     {
-        SimpTri& tri = tri_vec[t];
-        tri.m_Tags.push_back( m_BaseTag );
-        vec2d center = ( pnts[tri.ind0] + pnts[tri.ind1] + pnts[tri.ind2] ) * 1 / 3.0;
-        vec2d cent2d = center;
+        SimpFace& face = face_vec[f];
+        face.m_Tags.push_back( m_BaseTag );
+        vec2d center;
+        if ( face.m_isQuad )
+        {
+            center = ( pnts[face.ind0] + pnts[face.ind1] + pnts[face.ind2] + pnts[face.ind3] ) * 1 / 4.0;
+        }
+        else
+        {
+            center = ( pnts[face.ind0] + pnts[face.ind1] + pnts[face.ind2] ) * 1 / 3.0;
+        }
 
         for ( int s = 0 ; s < ( int ) s_surfs.size() ; s++ )
         {
-            if ( s_surfs[s]->Subtag( vec3d( cent2d.x(), cent2d.y(), 0 ) ) )
+            if ( s_surfs[s]->Subtag( vec3d( center.x(), center.y(), 0 ) ) )
             {
-                tri.m_Tags.push_back( s_surfs[s]->m_Tag );
+                face.m_Tags.push_back( s_surfs[s]->m_Tag );
             }
         }
-        SubSurfaceMgr.m_TagCombos.insert( tri.m_Tags );
+        SubSurfaceMgr.m_TagCombos.insert( face.m_Tags );
     }
 }
 
@@ -1445,6 +1412,11 @@ vec3d Surf::CompPnt( double u, double w ) const
 vec3d Surf::CompPnt01( double u, double w ) const
 {
     return m_SurfCore.CompPnt01( u, w );
+}
+
+vec3d Surf::CompNorm( double u, double w ) const
+{
+    return m_SurfCore.CompNorm( u, w );
 }
 
 // Compute the individual element material orientation after mesh has been created.  Consequently, we

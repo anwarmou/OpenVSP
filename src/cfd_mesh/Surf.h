@@ -47,6 +47,7 @@ public:
 
     vec3d CompPnt( double u, double w ) const;
     vec3d CompPnt01( double u, double w ) const;
+    vec3d CompNorm( double u, double w ) const;
 
     const SurfCore* GetSurfCore() const
     {
@@ -153,7 +154,6 @@ public:
 
     void Intersect( Surf* surfPtr, SurfaceIntersectionSingleton *MeshMgr );
     void IntersectLineSeg( vec3d & p0, vec3d & p1, vector< double > & t_vals );
-    void IntersectLineSegMesh( vec3d & p0, vec3d & p1, vector< double > & t_vals );
 
     bool BorderCurveOnSurface( Surf* surfPtr, SurfaceIntersectionSingleton *MeshMgr );
     void PlaneBorderCurveIntersect( Surf* surfPtr, SCurve* brdPtr, SurfaceIntersectionSingleton *MeshMgr );

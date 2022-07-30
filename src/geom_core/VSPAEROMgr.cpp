@@ -193,8 +193,8 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     m_Symmetry.SetDescript( "Toggle X-Z Symmetry to Improve Calculation Time" );
     m_Write2DFEMFlag.Init( "Write2DFEMFlag", groupname, this, false, false, true );
     m_Write2DFEMFlag.SetDescript( "Toggle File Write for 2D FEM" );
-    m_ExperimentalInputFormatFlag.Init( "ExperimentalInputFormatFlag", groupname, this, false, false, true );
-    m_ExperimentalInputFormatFlag.SetDescript( "Flag to Use Experimental VSPGeom Input File Format" );
+    m_AlternateInputFormatFlag.Init( "AlternateInputFormatFlag", groupname, this, false, false, true );
+    m_AlternateInputFormatFlag.SetDescript( "Flag to Use Alternate Geometry Input File Format" );
     m_ClMax.Init( "Clmax", groupname, this, -1, -1, 1e3 );
     m_ClMax.SetDescript( "Cl Max of Aircraft" );
     m_ClMaxToggle.Init( "ClmaxToggle", groupname, this, vsp::CLMAX_OFF, vsp::CLMAX_OFF, vsp::CLMAX_CARLSON );
@@ -596,24 +596,21 @@ void VSPAEROMgrSingleton::UpdateFilenames()    //A.K.A. SetupDegenFile()
         // Generate the base name based on the vsp3filename without the extension
         int pos = -1;
 
-        if ( m_ExperimentalInputFormatFlag() )
-        {
-            m_VSPGeomFileFull = veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE );
-            m_CompGeomFileFull = veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE );
-
-            m_ModelNameBase = m_VSPGeomFileFull;
-            pos = m_ModelNameBase.find( ".vspgeom" );
-            if ( pos >= 0 )
-            {
-                m_ModelNameBase.erase( pos, m_ModelNameBase.length() - 1 );
-            }
-        }
-
         switch ( m_AnalysisMethod.Get() )
         {
         case vsp::VORTEX_LATTICE:
-            if ( m_ExperimentalInputFormatFlag() )
+            if ( m_AlternateInputFormatFlag() )
             {
+                m_VSPGeomFileFull = veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE );
+                m_CompGeomFileFull = veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE );
+
+                m_ModelNameBase = m_VSPGeomFileFull;
+                pos = m_ModelNameBase.find( ".vspgeom" );
+                if ( pos >= 0 )
+                {
+                    m_ModelNameBase.erase( pos, m_ModelNameBase.length() - 1 );
+                }
+
                 m_DegenFileFull = m_ModelNameBase + string( "_DegenGeom.csv" );
             }
             else
@@ -671,8 +668,18 @@ void VSPAEROMgrSingleton::UpdateFilenames()    //A.K.A. SetupDegenFile()
             break;
 
         case vsp::PANEL:
-            if ( m_ExperimentalInputFormatFlag() )
+            if ( !m_AlternateInputFormatFlag() )
             {
+                m_VSPGeomFileFull = veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE );
+                m_CompGeomFileFull = veh->getExportFileName( vsp::VSPAERO_VSPGEOM_TYPE );
+
+                m_ModelNameBase = m_VSPGeomFileFull;
+                pos = m_ModelNameBase.find( ".vspgeom" );
+                if ( pos >= 0 )
+                {
+                    m_ModelNameBase.erase( pos, m_ModelNameBase.length() - 1 );
+                }
+
                 m_CompGeomFileFull = m_ModelNameBase + string( ".tri" );
             }
             else
@@ -1127,7 +1134,7 @@ string VSPAEROMgrSingleton::ComputeGeometry()
     // Cleanup previously created meshGeom IDs created from VSPAEROMgr
     Geom* last_mesh = veh->FindGeom( m_LastPanelMeshGeomId );
     vector < string > geom_vec = veh->GetGeomSet( m_GeomSet() );
-    if ( last_mesh && m_AnalysisMethod() == vsp::VORTEX_LATTICE && !m_ExperimentalInputFormatFlag() )
+    if ( last_mesh && m_AnalysisMethod() == vsp::VORTEX_LATTICE && !m_AlternateInputFormatFlag() )
     {
         veh->ShowOnlySet( m_GeomSet() );
     }
@@ -1137,19 +1144,30 @@ string VSPAEROMgrSingleton::ComputeGeometry()
         // Support mesh generated outside of VSPAERO if it is the only Geom in the set
         Geom* geom = veh->FindGeom( geom_vec[0] );
         // Can't generate VLM VSPGeom file from existing MeshGeom (i.e. imported *.tri file)
-        if ( geom->GetType().m_Type == MESH_GEOM_TYPE && !( m_ExperimentalInputFormatFlag() && m_AnalysisMethod() == vsp::VORTEX_LATTICE ) )
+        if ( geom->GetType().m_Type == MESH_GEOM_TYPE && !( m_AlternateInputFormatFlag() && m_AnalysisMethod() == vsp::VORTEX_LATTICE ) )
         {
             last_mesh = geom;
             m_LastPanelMeshGeomId = geom_vec[0];
         }
     }
     
-    if ( ( last_mesh && ( geom_vec.size() != 1 && last_mesh->GetID() != geom_vec[0] ) ) &&
-        ( m_AnalysisMethod() == vsp::PANEL || m_ExperimentalInputFormatFlag() ) )
+    if ( last_mesh && ( geom_vec.size() != 1 && last_mesh->GetID() != geom_vec[0] ) )
     {
-        // Remove the previous mesh, which has been updated
-        veh->DeleteGeomVec( vector< string >{ m_LastPanelMeshGeomId } );
-        last_mesh = NULL;
+        if ( m_AnalysisMethod() == vsp::PANEL )
+        {
+            // Remove the previous mesh, which has been updated
+            veh->DeleteGeomVec( vector< string >{ m_LastPanelMeshGeomId } );
+            last_mesh = NULL;
+        }
+        else // VLM
+        {
+            if ( m_AlternateInputFormatFlag() )
+            {
+                // Remove the previous mesh, which has been updated
+                veh->DeleteGeomVec( vector< string >{ m_LastPanelMeshGeomId } );
+                last_mesh = NULL;
+            }
+        }
     }
 
     m_DegenGeomVec.clear();
@@ -1180,7 +1198,7 @@ string VSPAEROMgrSingleton::ComputeGeometry()
     // setting is for the vsp::DEGEN_GEOM_CSV_TYPE
     string degenGeomFile_orig = veh->getExportFileName( vsp::DEGEN_GEOM_CSV_TYPE );
 
-    if ( m_ExperimentalInputFormatFlag() && m_AnalysisMethod() == vsp::VORTEX_LATTICE )
+    if ( m_AlternateInputFormatFlag() && m_AnalysisMethod() == vsp::VORTEX_LATTICE )
     {
         m_LastPanelMeshGeomId = veh->WriteVSPGeomFile( m_VSPGeomFileFull, -1, m_GeomSet(), halfFlag, false, true );
 
@@ -1218,7 +1236,7 @@ string VSPAEROMgrSingleton::ComputeGeometry()
             mesh_set = vsp::SET_SHOWN; // Only MeshGeom is shown after geometry is computed
         }
 
-        if ( m_ExperimentalInputFormatFlag() )
+        if ( !m_AlternateInputFormatFlag() )
         {
             // Write out mesh to *.vspgeom file. Only the MeshGeom is shown
             veh->WriteVSPGeomFile( m_VSPGeomFileFull, mesh_set, -1 );
@@ -1255,22 +1273,30 @@ string VSPAEROMgrSingleton::ComputeGeometry()
     res->Add( NameValData( "GeometrySet", m_GeomSet() ) );
     res->Add( NameValData( "AnalysisMethod", m_AnalysisMethod.Get() ) );
     res->Add( NameValData( "DegenGeomFileName", m_DegenFileFull ) );
-    if ( m_AnalysisMethod.Get() == vsp::PANEL || m_ExperimentalInputFormatFlag.Get() )
+    if ( m_AnalysisMethod.Get() == vsp::PANEL )
     {
-        if ( m_ExperimentalInputFormatFlag.Get() )
+        if ( m_AlternateInputFormatFlag.Get() )
         {
-            res->Add( NameValData( "VSPGeomFileName", m_VSPGeomFileFull ) );
+            res->Add( NameValData( "CompGeomFileName", m_CompGeomFileFull ) );
         }
         else
         {
-            res->Add( NameValData( "CompGeomFileName", m_CompGeomFileFull ) );
+            res->Add( NameValData( "VSPGeomFileName", m_VSPGeomFileFull ) );
         }
         res->Add( NameValData( "Mesh_GeomID", m_LastPanelMeshGeomId ) );
     }
     else
     {
-        res->Add( NameValData( "CompGeomFileName", string() ) );
-        res->Add( NameValData( "Mesh_GeomID", string() ) );
+        if ( m_AlternateInputFormatFlag.Get() )
+        {
+            res->Add( NameValData( "VSPGeomFileName", m_VSPGeomFileFull ) );
+        }
+        else
+        {
+            res->Add( NameValData( "CompGeomFileName", string() ) );
+            res->Add( NameValData( "Mesh_GeomID", string() ) );
+        }
+        res->Add( NameValData( "Mesh_GeomID", m_LastPanelMeshGeomId ) );
     }
 
     return res->GetID();
@@ -1498,6 +1524,20 @@ string VSPAEROMgrSingleton::CreateSetupFile()
     {
         fprintf( case_file, "Num Unsteady Groups = %d \n", NumUnsteadyGroups() ); // Number of unsteady groups
         fprintf( case_file, "Num Unsteady Props = %d \n", NumUnsteadyRotorGroups() ); // number of unsteady propellers
+    }
+
+    if ( m_CpSliceFlag() && m_CpSliceVec.size() > 0 )
+    {
+        fprintf( case_file, "NumberOfQuadTrees = %d \n", m_CpSliceVec.size() );
+
+        for ( i = 0; i < m_CpSliceVec.size(); i++ )
+        {
+            CpSlice* slice = m_CpSliceVec[i];
+            if ( slice )
+            {
+                fprintf( case_file, "%d %d %lf \n", i + 1, slice->m_CutType() + 1, slice->m_CutPosition() );
+            }
+        }
     }
 
     //Finish up by closing the file and making sure that it appears in the file system
@@ -2169,8 +2209,6 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
 
         //====== Modify/Update the setup file ======//
         if ( m_Verbose ) { printf( "Writing vspaero setup file: %s\n", m_SetupFile.c_str() ); }
-        // if the setup file doesn't exist, create one with the current settings
-        // TODO output a warning to the user that we are creating a default file
         CreateSetupFile();
 
         //====== Modify/Update the groups file for unsteady analysis ======//
@@ -2542,13 +2580,13 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
 
         //READ wake iteration table
         /* Example wake iteration table
-        Iter      Mach       AoA      Beta       CL         CDo       CDi      CDtot      CS        L/D        E        CFx       CFy       CFz       CMx       CMy       CMz       T/QS
-        1   0.00000   1.00000   0.00000   0.03329   0.00364   0.00009   0.00373  -0.00000   8.93773 395.42033  -0.00049  -0.00000   0.03329  -0.00000  -0.09836  -0.00000   0.00000
-        2   0.00000   1.00000   0.00000   0.03329   0.00364   0.00009   0.00373  -0.00000   8.93494 394.87228  -0.00049  -0.00000   0.03328  -0.00000  -0.09834  -0.00000   0.00000
+  Iter      Mach       AoA      Beta       CL         CDo       CDi      CDtot     CDt     CDtot_t      CS        L/D        E        CFx       CFy       CFz       CMx       CMy       CMz      T/QS
+        1   0.00100  10.00000   0.00000   0.76736   0.01024   0.02568   0.03592   0.02535   0.03559   0.00006  21.36474   1.01383  -0.10796   0.00006   0.76016   0.00228  -0.87399   0.00019   0.00000
+        2   0.00100  10.00000   0.00000   0.77200   0.01029   0.02600   0.03628   0.02566   0.03595   0.00001  21.27622   1.01353  -0.10846   0.00001   0.76479   0.00005  -0.88307   0.00001   0.00000
         ...
         */
-        int wake_iter_table_columns = 19;
-        int num_unsteady_pqr_col = 20;
+        int wake_iter_table_columns = 20;
+        int num_unsteady_pqr_col = 21;
         bool unsteady_flag = false;
         bool unsteady_pqr = false;
 
@@ -2576,6 +2614,8 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
             std::vector<double> CDo;
             std::vector<double> CDi;
             std::vector<double> CDtot;
+            std::vector<double> CDt;
+            std::vector<double> CDtott;
             std::vector<double> CS;
             std::vector<double> LoD;
             std::vector<double> E;
@@ -2585,48 +2625,49 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
             std::vector<double> CMx;
             std::vector<double> CMy;
             std::vector<double> CMz;
-            std::vector<double> CDtrefftz;
             std::vector<double> ToQS;
             std::vector<double> UnstdAng;
 
             while ( data_string_array.size() >= wake_iter_table_columns )
             {
+                int icol = 0;
                 if ( unsteady_flag )
                 {
-                    time.push_back( std::stod( data_string_array[0] ) );
+                    time.push_back( std::stod( data_string_array[icol] ) ); icol++;
                 }
                 else
                 {
-                    i.push_back( std::stoi( data_string_array[0] ) );
+                    i.push_back( std::stoi( data_string_array[icol] ) ); icol++;
                 }
 
-                Mach.push_back(     std::stod( data_string_array[1] ) );
-                Alpha.push_back(    std::stod( data_string_array[2] ) );
-                Beta.push_back(     std::stod( data_string_array[3] ) );
+                Mach.push_back(     std::stod( data_string_array[icol] ) ); icol++;
+                Alpha.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                Beta.push_back(     std::stod( data_string_array[icol] ) ); icol++;
 
-                CL.push_back(       std::stod( data_string_array[4] ) );
-                CDo.push_back(      std::stod( data_string_array[5] ) );
-                CDi.push_back(      std::stod( data_string_array[6] ) );
-                CDtot.push_back(    std::stod( data_string_array[7] ) );
-                CS.push_back(       std::stod( data_string_array[8] ) );
+                CL.push_back(       std::stod( data_string_array[icol] ) ); icol++;
+                CDo.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                CDi.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                CDtot.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                CDt.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                CDtott.push_back(   std::stod( data_string_array[icol] ) ); icol++;
+                CS.push_back(       std::stod( data_string_array[icol] ) ); icol++;
 
-                LoD.push_back(      std::stod( data_string_array[9] ) );
-                E.push_back(        std::stod( data_string_array[10] ) );
+                LoD.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                E.push_back(        std::stod( data_string_array[icol] ) ); icol++;
 
-                CFx.push_back(      std::stod( data_string_array[11] ) );
-                CFy.push_back(      std::stod( data_string_array[12] ) );
-                CFz.push_back(      std::stod( data_string_array[13] ) );
+                CFx.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                CFy.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                CFz.push_back(      std::stod( data_string_array[icol] ) ); icol++;
 
-                CMx.push_back(      std::stod( data_string_array[14] ) );
-                CMy.push_back(      std::stod( data_string_array[15] ) );
-                CMz.push_back(      std::stod( data_string_array[16] ) );
+                CMx.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                CMy.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                CMz.push_back(      std::stod( data_string_array[icol] ) ); icol++;
 
-                CDtrefftz.push_back( std::stod( data_string_array[17] ) );
-                ToQS.push_back(      std::stod( data_string_array[18] ) );
+                ToQS.push_back(      std::stod( data_string_array[icol] ) ); icol++;
 
                 if ( unsteady_pqr ) // Additional columns for pqr analysis
                 {
-                    UnstdAng.push_back( std::stod( data_string_array[19] ) );
+                    UnstdAng.push_back( std::stod( data_string_array[icol] ) ); icol++;
                 }
 
                 data_string_array = ReadDelimLine( fp, seps );
@@ -2650,6 +2691,8 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
                 res->Add( NameValData( "CDo", CDo ) );
                 res->Add( NameValData( "CDi", CDi ) );
                 res->Add( NameValData( "CDtot", CDtot ) );
+                res->Add( NameValData( "CDt", CDt ) );
+                res->Add( NameValData( "CDtott", CDtott ) );
                 res->Add( NameValData( "CS", CS ) );
                 res->Add( NameValData( "L/D", LoD ) );
                 res->Add( NameValData( "E", E ) );
@@ -2660,7 +2703,6 @@ void VSPAEROMgrSingleton::ReadHistoryFile( string filename, vector <string> &res
                 res->Add( NameValData( "CMy", CMy ) );
                 res->Add( NameValData( "CMz", CMz ) );
                 res->Add( NameValData( "T/QS", ToQS ) );
-                res->Add( NameValData( "CDtrefftz", CDtrefftz ) );
 
                 if ( unsteady_pqr )
                 {
@@ -2698,7 +2740,7 @@ void VSPAEROMgrSingleton::ReadPolarFile( string filename, vector <string> &res_i
     std::vector<string> table_column_names;
     std::vector<string> data_string_array;
 
-    int num_polar_col = 21; // number of columns in the file
+    int num_polar_col = 23; // number of columns in the file
 
     double tol = 1e-8; // tolerance for comparing values to account for machine precision errors
     int num_history_res = ResultsMgr.GetNumResults( "VSPAERO_History" );
@@ -2727,6 +2769,8 @@ void VSPAEROMgrSingleton::ReadPolarFile( string filename, vector <string> &res_i
                     std::vector<double> CDo;
                     std::vector<double> CDi;
                     std::vector<double> CDtot;
+                    std::vector<double> CDt;
+                    std::vector<double> CDtott;
                     std::vector<double> CS;
                     std::vector<double> L_D;
                     std::vector<double> E;
@@ -2743,27 +2787,30 @@ void VSPAEROMgrSingleton::ReadPolarFile( string filename, vector <string> &res_i
 
                     while ( num_polar_col == data_string_array.size() )
                     {
-                        Beta.push_back( std::stod( data_string_array[0] ) );
-                        Mach.push_back( std::stod( data_string_array[1] ) );
-                        Alpha.push_back( std::stod( data_string_array[2] ) );
-                        Re_1e6.push_back( std::stod( data_string_array[3] ) );
-                        CL.push_back( std::stod( data_string_array[4] ) );
-                        CDo.push_back( std::stod( data_string_array[5] ) );
-                        CDi.push_back( std::stod( data_string_array[6] ) );
-                        CDtot.push_back( std::stod( data_string_array[7] ) );
-                        CS.push_back( std::stod( data_string_array[8] ) );
-                        L_D.push_back( std::stod( data_string_array[9] ) );
-                        E.push_back( std::stod( data_string_array[10] ) );
-                        CFx.push_back( std::stod( data_string_array[11] ) );
-                        CFy.push_back( std::stod( data_string_array[12] ) );
-                        CFz.push_back( std::stod( data_string_array[13] ) );
-                        CMx.push_back( std::stod( data_string_array[14] ) );
-                        CMy.push_back( std::stod( data_string_array[15] ) );
-                        CMz.push_back( std::stod( data_string_array[16] ) );
-                        CMl.push_back( std::stod( data_string_array[17] ) );
-                        CMm.push_back( std::stod( data_string_array[18] ) );
-                        CMn.push_back( std::stod( data_string_array[19] ) );
-                        Fopt.push_back( std::stod( data_string_array[20] ) );
+                        int icol = 0;
+                        Beta.push_back(   std::stod( data_string_array[icol] ) ); icol++;
+                        Mach.push_back(   std::stod( data_string_array[icol] ) ); icol++;
+                        Alpha.push_back(  std::stod( data_string_array[icol] ) ); icol++;
+                        Re_1e6.push_back( std::stod( data_string_array[icol] ) ); icol++;
+                        CL.push_back(     std::stod( data_string_array[icol] ) ); icol++;
+                        CDo.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CDi.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CDtot.push_back(  std::stod( data_string_array[icol] ) ); icol++;
+                        CDt.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CDtott.push_back( std::stod( data_string_array[icol] ) ); icol++;
+                        CS.push_back(     std::stod( data_string_array[icol] ) ); icol++;
+                        L_D.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        E.push_back(      std::stod( data_string_array[icol] ) ); icol++;
+                        CFx.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CFy.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CFz.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CMx.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CMy.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CMz.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CMl.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CMm.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        CMn.push_back(    std::stod( data_string_array[icol] ) ); icol++;
+                        Fopt.push_back(   std::stod( data_string_array[icol] ) ); icol++;
 
                         if ( ( abs( ( 1e6 * Re_1e6.back() ) - recref ) > tol ) && num_history_res > 0 )
                         {
@@ -2881,6 +2928,8 @@ void VSPAEROMgrSingleton::ReadPolarFile( string filename, vector <string> &res_i
                     res->Add( NameValData( "CDo", CDo ) );
                     res->Add( NameValData( "CDi", CDi ) );
                     res->Add( NameValData( "CDtot", CDtot ) );
+                    res->Add( NameValData( "CDt", CDt ) );
+                    res->Add( NameValData( "CDtott", CDtott ) );
                     res->Add( NameValData( "CS", CS ) );
                     res->Add( NameValData( "L_D", L_D ) );
                     res->Add( NameValData( "E", E ) );
@@ -3945,10 +3994,11 @@ string VSPAEROMgrSingleton::ExecuteCpSlicer( FILE * logFile )
     vector<string> args;
 
     // Add model file name
+    args.push_back( "-slice" );
     args.push_back( m_ModelNameBase );
 
     //====== Execute VSPAERO Slicer ======//
-    m_SlicerThread.ForkCmd( veh->GetExePath(), veh->GetSLICERCmd(), args );
+    m_SlicerThread.ForkCmd( veh->GetExePath(), veh->GetLOADSCmd(), args );
 
     // ==== MonitorSolverProcess ==== //
     MonitorSolver( logFile );
@@ -3967,6 +4017,58 @@ string VSPAEROMgrSingleton::ExecuteCpSlicer( FILE * logFile )
     }
 
     return res->GetID();
+}
+
+void VSPAEROMgrSingleton::ComputeQuadTreeSlices( FILE * logFile )
+{
+    UpdateFilenames();
+
+    if ( !FileExist( m_AdbFile ) )
+    {
+        fprintf( stderr, "\nError: Aerothermal database (*.adb) file not found. "
+                         "Execute VSPAERO before running the quad tree slicer\n" );
+        return;
+    }
+
+    // Setup file needs to be re-written to update desired slices.
+    CreateSetupFile();
+
+    ExecuteQuadTreeSlicer( logFile );
+}
+
+void VSPAEROMgrSingleton::ExecuteQuadTreeSlicer( FILE * logFile )
+{
+    Vehicle* veh = VehicleMgr.GetVehicle();
+    if ( !veh )
+    {
+        return;
+    }
+
+    WaitForFile( m_AdbFile );
+    if ( !FileExist( m_AdbFile ) )
+    {
+        fprintf( stderr, "WARNING: Aerothermal database file not found: %s\n\tFile: %s \tLine:%d\n", m_AdbFile.c_str(), __FILE__, __LINE__ );
+        return;
+    }
+
+    //====== Send command to be executed by the system at the command prompt ======//
+    vector<string> args;
+
+    // Add model file name
+    args.push_back( "-interrogate" );
+
+    if ( m_RotateBladesFlag() || m_StabilityType.Get() > vsp::STABILITY_DEFAULT )
+    {
+        args.push_back( "-unsteady" );
+    }
+
+    args.push_back( m_ModelNameBase );
+
+    //====== Execute VSPAERO Slicer ======//
+    m_SolverProcess.ForkCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
+
+    // ==== MonitorSolverProcess ==== //
+    MonitorSolver( logFile );
 }
 
 void VSPAEROMgrSingleton::ClearCpSliceResults()
@@ -4407,14 +4509,19 @@ map < pair < string, int >, vector < int > > VSPAEROMgrSingleton::GetVSPAEROGeom
 
             if ( m_AnalysisMethod() == vsp::VORTEX_LATTICE )
             {
-                if ( degen_type_vec[i] == DegenGeom::SURFACE_TYPE )
-                {
-                    surface_geoms.push_back( std::make_pair( all_geom_vec[i], s ) );
-                }
-                else if ( degen_type_vec[i] == DegenGeom::BODY_TYPE )
+                if ( degen_type_vec[i] == DegenGeom::BODY_TYPE )
                 {
                     body_geoms.push_back( std::make_pair( all_geom_vec[i], s ) );
                 }
+            }
+        }
+
+        // Only write VLM lifting surfaces once.
+        if ( m_AnalysisMethod() == vsp::VORTEX_LATTICE )
+        {
+            if ( degen_type_vec[i] == DegenGeom::SURFACE_TYPE )
+            {
+                surface_geoms.push_back( std::make_pair( all_geom_vec[i], 1 ) );
             }
         }
     }

@@ -44,6 +44,24 @@ linux-clang:
 	@echo '     '
 	@echo '     '	
 
+osx:
+	@echo '     '
+	@echo 'Updating VSPAERO for osx on intel                '
+	@echo '     '
+	@make -f Makefile.osx
+	@echo '     '
+	@echo '     '
+	@echo '     '
+
+osx-clang:
+	@echo '     '
+	@echo 'Updating VSPAERO for osx on intel                '
+	@echo '     '
+	@make -f Makefile.osx.clang
+	@echo '     '
+	@echo '     '
+	@echo '     '
+	
 ################################################################################      
 #                                                                              #
 #                              CLEAN THINGS UP                                 #

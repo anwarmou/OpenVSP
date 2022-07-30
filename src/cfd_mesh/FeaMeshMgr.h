@@ -124,6 +124,7 @@ public:
     virtual void TransferDrawObjData();
     virtual bool FeaDataAvailable();
     virtual void SetAllDisplayFlags( bool flag );
+    virtual void UpdateDrawObjs();
     virtual void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec );
 
     virtual void UpdateDisplaySettings();
@@ -184,7 +185,9 @@ protected:
     unsigned int m_NumFeaParts;
     unsigned int m_NumFeaSubSurfs;
     unsigned int m_NumFeaFixPoints;
+    unsigned int m_NumEls;
     unsigned int m_NumTris;
+    unsigned int m_NumQuads;
     unsigned int m_NumBeams;
 
     vector < string > m_FeaPartNameVec;
@@ -227,15 +230,17 @@ protected:
 
 private:
 
-    vector< DrawObj > m_FeaElementDO;
+    vector< DrawObj > m_FeaTriElementDO;
+    vector< DrawObj > m_FeaQuadElementDO;
     vector< DrawObj > m_CapFeaElementDO;
     vector< DrawObj > m_FeaNodeDO;
-    vector< DrawObj > m_TriOrientationDO;
+    vector< DrawObj > m_ElOrientationDO;
     vector< DrawObj > m_CapNormDO;
-    vector< DrawObj > m_SSFeaElementDO;
+    vector< DrawObj > m_SSTriElementDO;
+    vector< DrawObj > m_SSQuadElementDO;
     vector< DrawObj > m_SSCapFeaElementDO;
     vector< DrawObj > m_SSFeaNodeDO;
-    vector< DrawObj > m_SSTriOrientationDO;
+    vector< DrawObj > m_SSElOrientationDO;
     vector< DrawObj > m_SSCapNormDO;
 };
 
