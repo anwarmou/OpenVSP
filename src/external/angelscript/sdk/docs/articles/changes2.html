@@ -15,6 +15,55 @@ BODY { FONT-SIZE: 12px; FONT-FAMILY: Arial; }
 
 <h1>AngelScript Change Log</h1>
 
+<h2>Version 2.36.0 WIP - 2022/07/20</h2>
+
+<ul>
+<li>Bug fixes
+<ul>
+<li>Fixed 32bit/64bit compatibility of saved bytecode with unsafe references enabled (Thanks Alexander Orefkov)
+<li>Fixed 32bit/64bit compatibility of saved bytecode in functions returning handles (Thanks Alexander Orefkov)
+<li>Destructor for template value types now get a unique function with correct object type (Thanks Miss)
+<li>Fixed crash in compiler when compiling initialization lists for a global variable with a higher index than 2^15 (Thanks Miss)
+<li>Fixed crash that could happen on cleaning up stack when unsafe references is used (Thanks Polyak Istvan)
+<li>Fixed crash in context stack unwind if it happened at a position after a branch return that returns a value object by value (Thanks Miss)
+<li>Fixed GetAddressOfVar returning null for registered value pod types without constructor (Thanks mghughes)
+<li>Fixed GetAddressOfVar returning null for registered value types when the same offset is shared in multiple scopes (Thanks Alexander Orefkov)
+<li>asIScriptEngine::AssignScriptObject didn't return any error when a type didn't have a value assignment operator
+</ul>
+<li>Script language
+<ul>
+<li>Improved implicit conversion rules to reduce number of type ambiguity errors for function overloads and ternary operators (Thanks Violet CLM)
+<li>Ternary condition will now return the result as handle if possible to avoid unnecessary copy of objects (Thanks Violet CLM)
+</ul>
+<li>Library
+<ul>
+<li>Added engine property asEP_IGNORE_DUPLICATE_SHARED_INTF to add backwards compatibility with 2.35.0 when scripts include declaration of shared interfaces more than once (Thanks Violet CLM)
+<li>Compiler now stores info on temporary variables too to allow these to be inspected at runtime
+<li>Added engine property to dynamically turn off debug output
+<li>When asEP_ALLOW_UNSAFE_REFERENCES is turned on the destruction of temporary objects will be deferred to end of expressions (Thanks Alexander Orefkov)
+</ul>
+<li>Library interface
+<ul>
+<li>asIScriptContext::GetAddressOfVar now supports returning the address of a reference parameter without dereferencing it
+<li>asIScriptContext::GetAddressOfVar now supports returning the address of local value types even when not initialized yet
+<li>Added asIScriptContext::GetVar to retrieve static information on variables on the stack
+<li>Deprecated asIScriptContext::GetVarName and GetVarTypeId
+<li>asIScriptContext has new methods to support serialization of context state (Thanks Patrick Jeeves)
+</ul>
+<li>Add-ons &amp; Samples
+<ul>
+<li>Fixed script array comparison for 64bit integers (Thanks Violet CLM)
+<li>CScriptArray with CScriptHandle as sub type can now be correctly copied (Thanks Cyprinus Carpio)
+<li>CScriptArray::SetValue now works with CScriptHandle as sub type (Thanks Cyprinus Carpio)
+<li>Fixed a compatibility issue in autowrapper WRAP_MFN_PR on clang compilers (Thanks ramcdona)
+</ul>
+<li>Project
+<ul>
+<li>Added support for Linux with arm64 in gnuc project (Thanks Aracadian)
+<li>Added MSVC2022 project files
+</ul>
+</ul>
+
 <h2>Version 2.35.1 - 2021/09/27</h2>
 
 <ul>
@@ -67,7 +116,7 @@ BODY { FONT-SIZE: 12px; FONT-FAMILY: Arial; }
 <li>Added gnuc makefile for asrun sample
 <li>Added generic calling convention bindings for script exception routines add-on (Thanks gjl)
 <li>Fixed problem in script builder that caused it to fail to recognize meta data on members of shared classes (Thanks noizex)
-<li>Script builder can not gather meta data on members of interfaces too
+<li>Script builder can now gather meta data on members of interfaces too
 <li>Fixed WRAP_MFN_PR when used with method without overload in derived class on MSVC (Thanks 1vanK)
 <li>Script builder now removes lines starting with #! to support shebang interpreter directives
 <li>Fixed the samples concurrent and events on Linux (Thanks Dantrell B)

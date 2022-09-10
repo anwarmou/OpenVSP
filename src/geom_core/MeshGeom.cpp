@@ -734,7 +734,7 @@ void MeshGeom::BuildIndexedMesh( int partOffset, bool half_flag )
                     ttri->m_N0->m_ID != ttri->m_N2->m_ID &&
                     ttri->m_N1->m_ID != ttri->m_N2->m_ID )
             {
-                if ( half_flag && ( ( ( ttri->m_N0->GetXYZPnt() + ttri->m_N1->GetXYZPnt() + ttri->m_N2->GetXYZPnt() ) / 3. ).y() < 0 ) )
+                if ( half_flag && ( ( ( ttri->m_N0->GetXYZPnt() + ttri->m_N1->GetXYZPnt() + ttri->m_N2->GetXYZPnt() ) / 3. ).y() < 1e-5 ) )
                 {
                     // Don't keep tris with enter with -Y component
                     continue;
@@ -4092,6 +4092,14 @@ void MeshGeom::AddHalfBox( string id )
     tm->AddTri( E, A, B, vec3d( 0, 0, -1 ) );
     tm->AddTri( E, B, F, vec3d( 0, 0, -1 ) );
 
+}
+
+void MeshGeom::IgnoreYLessThan( const double & ytol )
+{
+    for ( int i = 0; i < m_TMeshVec.size(); i++ )
+    {
+        m_TMeshVec[i]->IgnoreYLessThan( ytol );
+    }
 }
 
 TMesh* MeshGeom::GetMeshByID( const string & id )

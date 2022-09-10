@@ -89,6 +89,15 @@ public:
     bool IsClosedU() const;
     bool IsClosedW() const;
 
+    void RollU( const int &iu ) { m_Surface.roll_u( iu ); }
+    void RollW( const int &iw ) { m_Surface.roll_v( iw ); }
+
+    int SplitU( const double &u );
+    int SplitW( const double &w );
+
+    void JoinU( const VspSurf & sa, const VspSurf & sb );
+    void JoinW( const VspSurf & sa, const VspSurf & sb );
+
     bool GetFlipNormal() const { return m_FlipNormal; }
     void FlipNormal() { m_FlipNormal = !m_FlipNormal; }
     void ResetFlipNormal( ) { m_FlipNormal = false; }
@@ -181,8 +190,8 @@ public:
     {
         return m_WFeature;
     }
-    bool CapUMin(int capType, double len, double str, double offset, bool swflag);
-    bool CapUMax(int capType, double len, double str, double offset, bool swflag);
+    bool CapUMin(int capType, double len, double str, double offset, const vec3d &ptoff, bool swflag);
+    bool CapUMax(int capType, double len, double str, double offset, const vec3d &ptoff, bool swflag);
     static bool CapWMin(int capType);
     static bool CapWMax(int capType);
     void FetchXFerSurf( const std::string &geom_id, int surf_ind, int comp_ind, int part_surf_num, vector< XferSurf > &xfersurfs, const vector < double > &usuppress = std::vector< double >(), const vector < double > &wsuppress = std::vector< double >() ) const;
@@ -192,6 +201,8 @@ public:
 
     void SetClustering( const double &le, const double &te );
     void SetRootTipClustering( const vector < double > &root, const vector < double > &tip ) const;
+    double GetRootCluster( const int &index ) const;
+    double GetTipCluster( const int &index ) const;
 
     void MakeUTess( const vector<int> &num_u, std::vector<double> &utess, const std::vector<int> & umerge ) const;
     void MakeVTess( int num_v, std::vector<double> &vtess, const int &n_cap, bool degen ) const;
@@ -206,6 +217,7 @@ public:
     void SplitTesselate( int num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap ) const;
     void SplitTesselate( const vector<int> &num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap, const std::vector<int> & umerge = std::vector<int>() ) const;
 
+    void TessULine( double u, std::vector< vec3d > & pnts, double tol ) const;
     void TessUFeatureLine( int iu, std::vector< vec3d > & pnts, double tol ) const;
     void TessWFeatureLine( int iw, std::vector< vec3d > & pnts, double tol ) const;
 
@@ -214,6 +226,9 @@ public:
 
     void SplitSurfs( vector< piecewise_surface_type > &surfvec, const vector < double > &usuppress, const vector < double > &wsuppress ) const;
     void SplitSurfs( vector< piecewise_surface_type > &surfvec ) const;
+
+    void TrimU( double u, bool before );
+    void TrimV( double v, bool before );
 
     void ToSTEP_BSpline_Quilt( STEPutil * step, vector<SdaiB_spline_surface_with_knots *> &surfs, const string& label, bool splitsurf, bool mergepts, bool tocubic, double tol, bool trimte, const vector < double > &USplit, const vector < double > &WSplit ) const;
 

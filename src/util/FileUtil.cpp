@@ -13,6 +13,7 @@
 #ifdef WIN32
 #include <windows.h>
 #include <Shlwapi.h>
+#include <direct.h>
 #else
 #include <unistd.h>
 #include <libgen.h>
@@ -247,24 +248,21 @@ string PathToHome()
 #endif
 }
 
-bool CheckForFile( const string &path, string &file )
+string PathToCWD()
 {
-    FILE *fp = NULL;
+    char buff[FILENAME_MAX];
+#ifdef WIN32
+    _getcwd( buff, FILENAME_MAX );
+#else
+    getcwd( buff, FILENAME_MAX );
+#endif
+    return string( buff );
+}
 
+bool CheckForFile( const string &path, const string &file )
+{
     string pathfile = path + string( "/" ) + file;
-
-    fp = fopen( pathfile.c_str(), "r" );
-
-    if( fp )
-    {
-        fclose( fp );
-        return true;
-    }
-    else
-    {
-        file = string();
-        return false;
-    }
+    return FileExist( pathfile );
 }
 
 bool FileExist( const string & file )

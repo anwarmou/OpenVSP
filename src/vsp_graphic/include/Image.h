@@ -20,6 +20,9 @@ public:
     * fileName - the path and name of the image file.
     */
     Image( std::string fileName );
+
+    Image( unsigned int width, unsigned int height, unsigned int bpp );
+
     /*!
     * Destructor.
     */
@@ -51,10 +54,18 @@ public:
     */
     unsigned int getType();
 
+    unsigned int getBPP();
+
     /*!
     * Return the image's byte data.
     */
     unsigned char * getImageData();
+
+    void flipud();
+
+    void crop( unsigned int x0, unsigned int y0, unsigned int w, unsigned int h );
+
+    void alphabounds( unsigned int &x0, unsigned int &y0, unsigned int &xf, unsigned int &yf );
 
 protected:
     /*!

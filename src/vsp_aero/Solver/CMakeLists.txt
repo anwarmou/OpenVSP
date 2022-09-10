@@ -55,6 +55,24 @@ else()
     )
 
     INSTALL( PROGRAMS ${BINARY_DIR}/vspaero DESTINATION . )
+    INSTALL( PROGRAMS ${BINARY_DIR}/vspaero DESTINATION python/openvsp/openvsp )
+
+# When built as an external project (typically using a secondary compiler for OpenMP compatibility to produce
+# production releases, there is no vspaero target in this context.  Consequently, add_custom_command(TARGET does
+# not work.  If this is a CI system building releases, then this does not matter -- both of these commands
+# are for the convenience of a local developer.  However,  if someone is doing a local build with an alternate
+# compiler, then they should do some work to make these commands function as intended.
+#
+#    add_custom_command(TARGET vspaero POST_BUILD
+#            COMMAND ${CMAKE_COMMAND} -E copy
+#            $<TARGET_FILE:vspaero>
+#            ${CMAKE_BINARY_DIR}/python_pseudo/openvsp/openvsp/vspaero )
+#
+#    add_custom_command(TARGET vspaero POST_BUILD
+#            COMMAND ${CMAKE_COMMAND} -E copy
+#            $<TARGET_FILE:vspaero>
+#            ${CMAKE_BINARY_DIR}/src/vsp/vspaero )
+
 	IF ( NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" )
         INSTALL( PROGRAMS ${BINARY_DIR}/vspaero_complex DESTINATION . )
     ENDIF()
@@ -279,6 +297,18 @@ if(BUILD_VSPAERO)
     endif()
 
     INSTALL( TARGETS ${SOLVER_TARGETS} RUNTIME DESTINATION . )
+    INSTALL( TARGETS vspaero RUNTIME DESTINATION python/openvsp/openvsp )
+
+    add_custom_command(TARGET vspaero POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:vspaero>
+            ${CMAKE_BINARY_DIR}/python_pseudo/openvsp/openvsp/vspaero )
+
+    add_custom_command(TARGET vspaero POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:vspaero>
+            ${CMAKE_BINARY_DIR}/src/vsp/vspaero )
+
     # INSTALL( TARGETS solver LIBRARY DESTINATION . )
 
     if(Adept2_FOUND AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

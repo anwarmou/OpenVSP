@@ -2720,6 +2720,11 @@ void FeaMeshMgrSingleton::WriteCalculix()
     int noffset = m_StructSettings.m_NodeOffset;
     int eoffset = m_StructSettings.m_ElementOffset;
 
+    // This code does not currently support mixed quads and tris.
+    // Element sets must be made unique.  Properties and orientation should only be written for
+    // element sets that are actually used.
+    bool quadmesh = GetSettingsPtr()->m_ConvertToQuadsFlag;
+
     string fn = GetStructSettingsPtr()->GetExportFileName( vsp::FEA_CALCULIX_FILE_NAME );
     FILE* fp = fopen( fn.c_str(), "w" );
     if ( fp )
@@ -2767,12 +2772,12 @@ void FeaMeshMgrSingleton::WriteCalculix()
 
                 for ( int isurf = 0; isurf < surf_num; isurf++ )
                 {
-                    if ( m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL || m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL_AND_BEAM )
+                    if ( !quadmesh && ( m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL || m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL_AND_BEAM ) )
                     {
                         int nnode = 3;
                         if ( highorder ) nnode = 6;
 
-                        fprintf( fp, "*ELEMENT, TYPE=S%d, ELSET=ET%s_%d\n", nnode, m_FeaPartNameVec[i].c_str(), isurf );
+                        fprintf( fp, "*ELEMENT, TYPE=S%d, ELSET=E%s_%d\n", nnode, m_FeaPartNameVec[i].c_str(), isurf );
 
                         for ( int j = 0; j < m_FeaElementVec.size(); j++ )
                         {
@@ -2788,12 +2793,12 @@ void FeaMeshMgrSingleton::WriteCalculix()
                         fprintf( fp, "\n" );
                     }
 
-                    if ( m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL || m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL_AND_BEAM )
+                    if ( quadmesh && ( m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL || m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL_AND_BEAM ) )
                     {
                         int nnode = 4;
                         if ( highorder ) nnode = 8;
 
-                        fprintf( fp, "*ELEMENT, TYPE=S%d, ELSET=EQ%s_%d\n", nnode, m_FeaPartNameVec[i].c_str(), isurf );
+                        fprintf( fp, "*ELEMENT, TYPE=S%d, ELSET=E%s_%d\n", nnode, m_FeaPartNameVec[i].c_str(), isurf );
 
                         for ( int j = 0; j < m_FeaElementVec.size(); j++ )
                         {
@@ -2916,12 +2921,12 @@ void FeaMeshMgrSingleton::WriteCalculix()
 
             for ( int isurf = 0; isurf < surf_num; isurf++ )
             {
-                if ( m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL || m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL_AND_BEAM )
+                if ( !quadmesh & ( m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL || m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL_AND_BEAM ) )
                 {
                     int nnode = 3;
                     if ( highorder ) nnode = 6;
 
-                    fprintf( fp, "\n*ELEMENT, TYPE=S%d, ELSET=ET%s_%d\n", nnode, m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
+                    fprintf( fp, "\n*ELEMENT, TYPE=S%d, ELSET=E%s_%d\n", nnode, m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
 
                     for ( int j = 0; j < m_FeaElementVec.size(); j++ )
                     {
@@ -2936,12 +2941,12 @@ void FeaMeshMgrSingleton::WriteCalculix()
                     fprintf( fp, "\n" );
                 }
 
-                if ( m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL || m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL_AND_BEAM )
+                if ( quadmesh && ( m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL || m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL_AND_BEAM ) )
                 {
                     int nnode = 4;
                     if ( highorder ) nnode = 8;
 
-                    fprintf( fp, "\n*ELEMENT, TYPE=S%d, ELSET=EQ%s_%d\n", nnode, m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
+                    fprintf( fp, "\n*ELEMENT, TYPE=S%d, ELSET=E%s_%d\n", nnode, m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
 
                     for ( int j = 0; j < m_FeaElementVec.size(); j++ )
                     {
@@ -2994,9 +2999,7 @@ void FeaMeshMgrSingleton::WriteCalculix()
         }
 
         //==== Intersection Nodes ====//
-        fprintf( fp, "**Intersections\n" );
-        fprintf( fp, "*NODE, NSET=Nintersections\n" );
-
+        bool IntersectHeader = false;
         for ( unsigned int j = 0; j < (int)m_FeaNodeVec.size(); j++ )
         {
             if ( m_PntShift[j] >= 0 )
@@ -3004,22 +3007,40 @@ void FeaMeshMgrSingleton::WriteCalculix()
                 if ( m_FeaNodeVec[j]->m_Tags.size() > 1 &&
                     !m_FeaNodeVec[j]->m_FixedPointFlag )
                 {
+                    if ( !IntersectHeader )
+                    {
+                        fprintf( fp, "**Intersections\n" );
+                        fprintf( fp, "*NODE, NSET=Nintersections\n" );
+                        IntersectHeader = true;
+                    }
                     m_FeaNodeVec[j]->WriteCalculix( fp, noffset );
                 }
             }
         }
-        fprintf( fp, "\n" );
+        if ( IntersectHeader )
+        {
+            fprintf( fp, "\n" );
+        }
 
         //==== Remaining Nodes ====//
-        fprintf( fp, "**Remaining Nodes\n" );
-        fprintf( fp, "*NODE, NSET=RemainingNodes\n" );
+        bool RemainingHeader = false;
         for ( int i = 0; i < (int)m_FeaNodeVec.size(); i++ )
         {
             if ( m_PntShift[i] >= 0 &&
                  m_FeaNodeVec[i]->m_Tags.size() == 0 )
             {
+                if ( !RemainingHeader )
+                {
+                    fprintf( fp, "**Remaining Nodes\n" );
+                    fprintf( fp, "*NODE, NSET=RemainingNodes\n" );
+                    RemainingHeader = true;
+                }
                 m_FeaNodeVec[i]->WriteCalculix( fp, noffset );
             }
+        }
+        if ( RemainingHeader )
+        {
+            fprintf( fp, "\n" );
         }
 
         //==== FeaProperties ====//
@@ -3037,12 +3058,20 @@ void FeaMeshMgrSingleton::WriteCalculix()
                     if ( m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL || m_FeaPartIncludedElementsVec[i] == vsp::FEA_SHELL_AND_BEAM )
                     {
                         fprintf( fp, "\n" );
-                        sprintf( str, "ET%s_%d", m_FeaPartNameVec[i].c_str(), isurf );
                         char ostr[256];
                         sprintf( ostr, "O%s_%d", m_FeaPartNameVec[i].c_str(), isurf );
-                        m_SimplePropertyVec[property_id].WriteCalculix( fp, str, ostr );
-                        sprintf( str, "EQ%s_%d", m_FeaPartNameVec[i].c_str(), isurf );
-                        m_SimplePropertyVec[property_id].WriteCalculix( fp, str, ostr );
+
+                        if ( !quadmesh )
+                        {
+                            sprintf( str, "E%s_%d", m_FeaPartNameVec[ i ].c_str(), isurf );
+                            m_SimplePropertyVec[ property_id ].WriteCalculix( fp, str, ostr );
+                        }
+                        else
+                        {
+                            sprintf( str, "E%s_%d", m_FeaPartNameVec[ i ].c_str(), isurf );
+                            m_SimplePropertyVec[ property_id ].WriteCalculix( fp, str, ostr );
+                        }
+
                         m_SimpleMaterialVec[ m_SimplePropertyVec[ property_id ].GetSimpFeaMatIndex() ].m_Used = true;
 
                         Surf *srf = GetFeaSurf( i, isurf );  // i is partID, isurf is surf_number
@@ -3083,12 +3112,20 @@ void FeaMeshMgrSingleton::WriteCalculix()
                 if ( m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL || m_SimpleSubSurfaceVec[i].m_IncludedElements == vsp::FEA_SHELL_AND_BEAM )
                 {
                     fprintf( fp, "\n" );
-                    sprintf( str, "ET%s_%d", m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
                     char ostr[256];
                     sprintf( ostr, "O%s_%d", m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
-                    m_SimplePropertyVec[property_id].WriteCalculix( fp, str, ostr );
-                    sprintf( str, "EQ%s_%d", m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
-                    m_SimplePropertyVec[property_id].WriteCalculix( fp, str, ostr );
+
+                    if ( !quadmesh )
+                    {
+                        sprintf( str, "E%s_%d", m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
+                        m_SimplePropertyVec[property_id].WriteCalculix( fp, str, ostr );
+                    }
+                    else
+                    {
+                        sprintf( str, "E%s_%d", m_SimpleSubSurfaceVec[i].GetName().c_str(), isurf );
+                        m_SimplePropertyVec[property_id].WriteCalculix( fp, str, ostr );
+                    }
+
                     m_SimpleMaterialVec[ m_SimplePropertyVec[ property_id ].GetSimpFeaMatIndex() ].m_Used = true;
 
                     vec3d orient = ovec[isurf];

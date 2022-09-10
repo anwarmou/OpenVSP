@@ -16,8 +16,9 @@ int ScanFolder();
 
 string PathToExe();
 string PathToHome();
+string PathToCWD();
 
-bool CheckForFile( const string & path, string &file );
+bool CheckForFile( const string & path, const string &file );
 bool FileExist( const string & file );
 string GetFilename( const string &pathfile );
 

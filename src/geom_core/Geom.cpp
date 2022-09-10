@@ -1127,7 +1127,13 @@ void Geom::Update( bool fullupdate )
     m_CappingDone = false;
 
     if ( m_SurfDirty )
-        Scale();
+    {
+        double sf = m_Scale() / m_LastScale();
+        if ( sf != 1.0 )
+        {
+            Scale();
+        }
+    }
 
     UpdateSets();
 
@@ -1335,9 +1341,10 @@ void Geom::UpdateEndCaps()
         m_CapUMinSuccess[i] = false;
         m_CapUMaxSuccess[i] = false;
 
+        vec3d ptoff;
         // NOTE: These return a bool that is true if it modified the surface to create a cap
-        m_CapUMinSuccess[i] = m_MainSurfVec[i].CapUMin(m_CapUMinOption(), m_CapUMinLength(), m_CapUMinStrength(), m_CapUMinOffset(), m_CapUMinSweepFlag());
-        m_CapUMaxSuccess[i] = m_MainSurfVec[i].CapUMax(m_CapUMaxOption(), m_CapUMaxLength(), m_CapUMaxStrength(), m_CapUMaxOffset(), m_CapUMaxSweepFlag());
+        m_CapUMinSuccess[i] = m_MainSurfVec[i].CapUMin(m_CapUMinOption(), m_CapUMinLength(), m_CapUMinStrength(), m_CapUMinOffset(), ptoff, m_CapUMinSweepFlag());
+        m_CapUMaxSuccess[i] = m_MainSurfVec[i].CapUMax(m_CapUMaxOption(), m_CapUMaxLength(), m_CapUMaxStrength(), m_CapUMaxOffset(), ptoff, m_CapUMaxSweepFlag());
     }
 
     switch( m_CapUMinOption() ){
@@ -1552,11 +1559,16 @@ void Geom::UpdateSurfVec()
 template <typename T>
 void Geom::ApplySymm( vector<T> const &source, vector<T> &dest )
 {
+    int num_main = GetNumMainSurfs();
     unsigned int num_surf = GetNumTotalSurfs();
     dest.clear();
-    dest.resize( num_surf);
 
-    int num_main = GetNumMainSurfs();
+    if ( source.size() != num_main )
+    {
+        return;
+    }
+
+    dest.resize( num_surf );
     for ( int i = 0 ; i < ( int )num_main ; i++ )
     {
         dest[i] = source[i];
@@ -1680,12 +1692,12 @@ void Geom::UpdateChildren( bool fullupdate )
 void Geom::UpdateBBox()
 {
     //==== Load Bounding Box ====//
-    m_BBox.Reset();
+    BndBox new_box;
     BndBox bb;
     for ( int i = 0 ; i < GetNumTotalSurfs() ; i++ )
     {
         m_SurfVec[i].GetBoundingBox( bb );
-        m_BBox.Update( bb );
+        new_box.Update( bb );
     }
 
     // If the surface vec size is zero ( like blank geom )
@@ -1693,16 +1705,21 @@ void Geom::UpdateBBox()
 
     if ( !GetNumTotalSurfs() )
     {
-        m_BBox.Update( vec3d(0,0,0) );
+        new_box.Update( vec3d(0,0,0) );
     }
 
-    m_BbXLen = m_BBox.GetMax( 0 ) - m_BBox.GetMin( 0 );
-    m_BbYLen = m_BBox.GetMax( 1 ) - m_BBox.GetMin( 1 );
-    m_BbZLen = m_BBox.GetMax( 2 ) - m_BBox.GetMin( 2 );
+    if ( new_box != m_BBox )
+    {
+        m_BbXLen = new_box.GetMax( 0 ) - new_box.GetMin( 0 );
+        m_BbYLen = new_box.GetMax( 1 ) - new_box.GetMin( 1 );
+        m_BbZLen = new_box.GetMax( 2 ) - new_box.GetMin( 2 );
 
-    m_BbXMin = m_BBox.GetMin( 0 );
-    m_BbYMin = m_BBox.GetMin( 1 );
-    m_BbZMin = m_BBox.GetMin( 2 );
+        m_BbXMin = new_box.GetMin( 0 );
+        m_BbYMin = new_box.GetMin( 1 );
+        m_BbZMin = new_box.GetMin( 2 );
+
+        m_BBox = new_box;
+    }
 }
 
 //Sets cfd surf types to negative if or normal depending on the state of the GUI negative button
@@ -2278,45 +2295,49 @@ void Geom::UpdateDrawObj()
     }
     m_FeatureDrawObj_vec[0].m_PntVec.reserve( numfealineseg );
 
-    //==== Tesselate Surface ====//
-    for ( int i = 0 ; i < GetNumTotalSurfs() ; i++ )
+    int nsurf = GetNumTotalSurfs();
+    if ( m_TessVec.size() == nsurf && m_SurfVec.size() == nsurf && m_FeatureTessVec.size() == nsurf )
     {
-        int iflip = 0;
-        if ( m_TessVec[i].GetFlipNormal() )
+        //==== Tesselate Surface ====//
+        for ( int i = 0 ; i < nsurf ; i++ )
         {
-            iflip = 1;
-        }
-
-        if ( m_SurfVec[i].GetSurfCfdType() == vsp::CFD_TRANSPARENT )
-        {
-            iflip += 2;
-        }
-
-        m_WireShadeDrawObj_vec[iflip].m_PntMesh.insert( m_WireShadeDrawObj_vec[iflip].m_PntMesh.end(),
-                m_TessVec[i].m_pnts.begin(), m_TessVec[i].m_pnts.end() );
-        m_WireShadeDrawObj_vec[iflip].m_NormMesh.insert( m_WireShadeDrawObj_vec[iflip].m_NormMesh.end(),
-                m_TessVec[i].m_norms.begin(), m_TessVec[i].m_norms.end() );
-
-        m_WireShadeDrawObj_vec[iflip].m_uTexMesh.insert( m_WireShadeDrawObj_vec[iflip].m_uTexMesh.end(),
-                m_TessVec[i].m_utex.begin(), m_TessVec[i].m_utex.end() );
-        m_WireShadeDrawObj_vec[iflip].m_vTexMesh.insert( m_WireShadeDrawObj_vec[iflip].m_vTexMesh.end(),
-                m_TessVec[i].m_vtex.begin(), m_TessVec[i].m_vtex.end() );
-
-        if( m_GuiDraw.GetDispFeatureFlag() )
-        {
-            int nfl = m_FeatureTessVec[i].m_ptline.size();
-
-            for( int j = 0; j < nfl; j++ )
+            int iflip = 0;
+            if ( m_TessVec[i].GetFlipNormal() )
             {
-                int n = m_FeatureTessVec[i].m_ptline[j].size() - 1;
-
-                for ( int k = 0; k < n; k++ )
-                {
-                    m_FeatureDrawObj_vec[0].m_PntVec.push_back( m_FeatureTessVec[i].m_ptline[j][ k ] );
-                    m_FeatureDrawObj_vec[0].m_PntVec.push_back( m_FeatureTessVec[i].m_ptline[j][ k + 1 ] );
-                }
+                iflip = 1;
             }
 
+            if ( m_SurfVec[i].GetSurfCfdType() == vsp::CFD_TRANSPARENT )
+            {
+                iflip += 2;
+            }
+
+            m_WireShadeDrawObj_vec[iflip].m_PntMesh.insert( m_WireShadeDrawObj_vec[iflip].m_PntMesh.end(),
+                    m_TessVec[i].m_pnts.begin(), m_TessVec[i].m_pnts.end() );
+            m_WireShadeDrawObj_vec[iflip].m_NormMesh.insert( m_WireShadeDrawObj_vec[iflip].m_NormMesh.end(),
+                    m_TessVec[i].m_norms.begin(), m_TessVec[i].m_norms.end() );
+
+            m_WireShadeDrawObj_vec[iflip].m_uTexMesh.insert( m_WireShadeDrawObj_vec[iflip].m_uTexMesh.end(),
+                    m_TessVec[i].m_utex.begin(), m_TessVec[i].m_utex.end() );
+            m_WireShadeDrawObj_vec[iflip].m_vTexMesh.insert( m_WireShadeDrawObj_vec[iflip].m_vTexMesh.end(),
+                    m_TessVec[i].m_vtex.begin(), m_TessVec[i].m_vtex.end() );
+
+            if( m_GuiDraw.GetDispFeatureFlag() )
+            {
+                int nfl = m_FeatureTessVec[i].m_ptline.size();
+
+                for( int j = 0; j < nfl; j++ )
+                {
+                    int n = m_FeatureTessVec[i].m_ptline[j].size() - 1;
+
+                    for ( int k = 0; k < n; k++ )
+                    {
+                        m_FeatureDrawObj_vec[0].m_PntVec.push_back( m_FeatureTessVec[i].m_ptline[j][ k ] );
+                        m_FeatureDrawObj_vec[0].m_PntVec.push_back( m_FeatureTessVec[i].m_ptline[j][ k + 1 ] );
+                    }
+                }
+
+            }
         }
     }
 
@@ -3633,7 +3654,15 @@ void Geom::CreateDegenGeom( vector<DegenGeom> &dgs, const vector< vector< vec3d 
     degenGeom.setTransMat( tmatvec );
 
     degenGeom.setNumXSecs( pnts.size() );
-    degenGeom.setNumPnts( pnts[0].size() );
+    if ( pnts.size() > 0 )
+    {
+        degenGeom.setNumPnts( pnts[0].size() );
+    }
+    else
+    {
+        degenGeom.setNumPnts( 0 );
+        return;
+    }
     degenGeom.setName( GetName() );
 
     degenGeom.createDegenSurface( pnts, uwpnts, flipnormal );

@@ -503,8 +503,8 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_AttachLayout.SetFitWidthFlag( true );
     m_AttachLayout.SetSameLineFlag( false );
 
-    m_AttachLayout.AddSlider( m_AttachUSlider, "U", 1, " %5.4f" );
-    m_AttachLayout.AddSlider( m_AttachVSlider, "W", 1, " %5.4f" );
+    m_AttachLayout.AddSlider( m_AttachUSlider, "U", 1, " %7.6f" );
+    m_AttachLayout.AddSlider( m_AttachVSlider, "W", 1, " %7.6f" );
 
 
     //=============== SubSurface Tab ===================//
@@ -565,6 +565,17 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SSLineConstToggleGroup.AddButton( m_SSLineConstWButton.GetFlButton() );
 
     m_SSLineGroup.ForceNewLine();
+
+    m_SSLineGroup.AddLabel( "Scale", remain_x / 3 );
+    m_SSLineGroup.AddButton( m_SSLine01Toggle, "[0, 1]" );
+    m_SSLineGroup.AddButton( m_SSLine0NToggle, "[0, N]" );
+
+    m_SSLineScaleToggleGroup.Init( this );
+    m_SSLineScaleToggleGroup.AddButton( m_SSLine0NToggle.GetFlButton() ); // 0 false added first
+    m_SSLineScaleToggleGroup.AddButton( m_SSLine01Toggle.GetFlButton() ); // 1 true added second
+
+    m_SSLineGroup.ForceNewLine();
+
     m_SSLineGroup.AddLabel( "Test", remain_x / 3 );
     m_SSLineGroup.AddButton( m_SSLineGreaterToggle, "Greater" );
     m_SSLineGroup.AddButton( m_SSLineLessToggle, "Less" );
@@ -576,7 +587,8 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SSLineGroup.SetFitWidthFlag( true );
     m_SSLineGroup.SetSameLineFlag( false );
     m_SSLineGroup.ForceNewLine();
-    m_SSLineGroup.AddSlider( m_SSLineConstSlider, "Value", 1, "%5.4f" );
+    m_SSLineGroup.AddSlider( m_SSLineConstSlider, "Value01", 1, "%7.6f" );
+    m_SSLineGroup.AddSlider( m_SSLineConstSlider0N, "Value0N", 1, "%7.6f" );
 
     //==== SSRectangle ====//
     m_SSCommonGroup.AddSubGroupLayout( m_SSRecGroup, m_SSCommonGroup.GetW(), m_SSCommonGroup.GetRemainY() );
@@ -597,11 +609,11 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SSRecGroup.SetSameLineFlag( false );
     m_SSRecGroup.ForceNewLine();
 
-    m_SSRecGroup.AddSlider( m_SSRecCentUSlider, "Center U", 1, "%5.4f" );
-    m_SSRecGroup.AddSlider( m_SSRecCentWSlider, "Center W", 1, "%5.4f" );
-    m_SSRecGroup.AddSlider( m_SSRecULenSlider, "U Length", 1, "%5.4f" );
-    m_SSRecGroup.AddSlider( m_SSRecWLenSlider, "W Length", 1, "%5.4f" );
-    m_SSRecGroup.AddSlider( m_SSRecThetaSlider, "Theta", 25, "%5.4f" );
+    m_SSRecGroup.AddSlider( m_SSRecCentUSlider, "Center U", 1, "%7.6f" );
+    m_SSRecGroup.AddSlider( m_SSRecCentWSlider, "Center W", 1, "%7.6f" );
+    m_SSRecGroup.AddSlider( m_SSRecULenSlider, "U Length", 1, "%7.6f" );
+    m_SSRecGroup.AddSlider( m_SSRecWLenSlider, "W Length", 1, "%7.6f" );
+    m_SSRecGroup.AddSlider( m_SSRecThetaSlider, "Theta", 25, "%7.6f" );
 
     //==== SS_Ellipse ====//
     m_SSCommonGroup.AddSubGroupLayout( m_SSEllGroup, m_SSCommonGroup.GetW(), m_SSCommonGroup.GetRemainY() );
@@ -623,11 +635,11 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SSEllGroup.ForceNewLine();
 
     m_SSEllGroup.AddSlider( m_SSEllTessSlider, "Num Points", 100, "%5.0f" );
-    m_SSEllGroup.AddSlider( m_SSEllCentUSlider, "Center U", 1, "%5.4f" );
-    m_SSEllGroup.AddSlider( m_SSEllCentWSlider, "Center W", 1, "%5.4f" );
-    m_SSEllGroup.AddSlider( m_SSEllULenSlider, "U Length", 1, "%5.4f" );
-    m_SSEllGroup.AddSlider( m_SSEllWLenSlider, "W Length", 1, "%5.4f" );
-    m_SSEllGroup.AddSlider( m_SSEllThetaSlider, "Theta", 25, "%5.4f" );
+    m_SSEllGroup.AddSlider( m_SSEllCentUSlider, "Center U", 1, "%7.6f" );
+    m_SSEllGroup.AddSlider( m_SSEllCentWSlider, "Center W", 1, "%7.6f" );
+    m_SSEllGroup.AddSlider( m_SSEllULenSlider, "U Length", 1, "%7.6f" );
+    m_SSEllGroup.AddSlider( m_SSEllWLenSlider, "W Length", 1, "%7.6f" );
+    m_SSEllGroup.AddSlider( m_SSEllThetaSlider, "Theta", 25, "%7.6f" );
 
     //===== SSControl ====//
     m_SSCommonGroup.AddSubGroupLayout( m_SSConGroup, m_SSCommonGroup.GetW(), m_SSCommonGroup.GetRemainY() );
@@ -664,8 +676,8 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SSConGroup.AddYGap();
     m_SSConGroup.AddDividerBox( "Spanwise" );
 
-    m_SSConGroup.AddSlider(m_SSConUSSlider, "Start U", 1, "%5.4f");
-    m_SSConGroup.AddSlider(m_SSConUESlider, "End U", 1, "%5.4f");
+    m_SSConGroup.AddSlider(m_SSConUSSlider, "Start U", 1, "%7.6f");
+    m_SSConGroup.AddSlider(m_SSConUESlider, "End U", 1, "%7.6f");
 
     m_SSConGroup.AddYGap();
     m_SSConGroup.AddDividerBox( "Chordwise" );
@@ -688,11 +700,11 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SSConSAbsRelToggleGroup.AddButton( m_SSConSAbsButton.GetFlButton() );
     m_SSConSAbsRelToggleGroup.AddButton( m_SSConSRelButton.GetFlButton() );
 
-    m_SSConGroup.AddSlider( m_SSConSLenSlider, "Start Length", 10.0, "%5.4f" );
-    m_SSConGroup.AddSlider( m_SSConSFracSlider, "Start Length/C", 1.0, "%5.4f");
+    m_SSConGroup.AddSlider( m_SSConSLenSlider, "Start Length", 10.0, "%7.6f" );
+    m_SSConGroup.AddSlider( m_SSConSFracSlider, "Start Length/C", 1.0, "%7.6f");
 
-    m_SSConGroup.AddSlider( m_SSConELenSlider, "End Length", 10.0, "%5.4f" );
-    m_SSConGroup.AddSlider( m_SSConEFracSlider, "End Length/C", 1.0, "%5.4f" );
+    m_SSConGroup.AddSlider( m_SSConELenSlider, "End Length", 10.0, "%7.6f" );
+    m_SSConGroup.AddSlider( m_SSConEFracSlider, "End Length/C", 1.0, "%7.6f" );
 
     m_SSConGroup.AddYGap();
     m_SSConGroup.AddDividerBox( "Surface End Angle" );
@@ -708,8 +720,8 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SSConGroup.SetFitWidthFlag( true );
     m_SSConGroup.ForceNewLine();
 
-    m_SSConGroup.AddSlider( m_SSConSAngleSlider, "Start Angle", 10.0, "%5.4f" );
-    m_SSConGroup.AddSlider( m_SSConEAngleSlider, "End Angle", 10.0, "%5.4f" );
+    m_SSConGroup.AddSlider( m_SSConSAngleSlider, "Start Angle", 10.0, "%7.6f" );
+    m_SSConGroup.AddSlider( m_SSConEAngleSlider, "End Angle", 10.0, "%7.6f" );
 
     m_SSConGroup.AddSlider( m_SSConTessSlider, "Num Points", 100, "%5.0f" );
 
@@ -721,10 +733,10 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_SSFLineGroup.SetSameLineFlag( false );
     m_SSFLineGroup.ForceNewLine();
 
-    m_SSFLineGroup.AddSlider( m_SSFLineUStartSlider, "U Start", 1, "%5.4f" );
-    m_SSFLineGroup.AddSlider( m_SSFLineUEndSlider, "U End", 1, "%5.4f" );
-    m_SSFLineGroup.AddSlider( m_SSFLineWStartSlider, "W Start", 1, "%5.4f" );
-    m_SSFLineGroup.AddSlider( m_SSFLineWEndSlider, "W End", 1, "%5.4f" );
+    m_SSFLineGroup.AddSlider( m_SSFLineUStartSlider, "U Start", 1, "%7.6f" );
+    m_SSFLineGroup.AddSlider( m_SSFLineUEndSlider, "U End", 1, "%7.6f" );
+    m_SSFLineGroup.AddSlider( m_SSFLineWStartSlider, "W Start", 1, "%7.6f" );
+    m_SSFLineGroup.AddSlider( m_SSFLineWEndSlider, "W End", 1, "%7.6f" );
 
     m_RotActive = true;
 }
@@ -904,8 +916,22 @@ bool GeomScreen::Update()
             assert( ssline );
 
             m_SSLineConstToggleGroup.Update( ssline->m_ConstType.GetID() );
+            m_SSLineScaleToggleGroup.Update( ssline->m_Val01.GetID() );
             m_SSLineTestToggleGroup.Update( ssline->m_TestType.GetID() );
             m_SSLineConstSlider.Update( ssline->m_ConstVal.GetID() );
+            m_SSLineConstSlider0N.Update( ssline->m_ConstVal0N.GetID() );
+
+            if ( ssline->m_Val01() )
+            {
+                m_SSLineConstSlider.Activate();
+                m_SSLineConstSlider0N.Deactivate();
+            }
+            else
+            {
+                m_SSLineConstSlider.Deactivate();
+                m_SSLineConstSlider0N.Activate();
+            }
+
             SubSurfDispGroup( &m_SSLineGroup );
 
         }
@@ -3246,16 +3272,16 @@ BlendScreen::BlendScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_BlendLayout.AddX( m_BlendLayout.GetW()/2 + 2 );
     m_BlendLayout.AddSubGroupLayout( m_OutLELayout, m_BlendLayout.GetW()/2 - 2, m_BlendLayout.GetStdHeight() * 4 + m_BlendLayout.GetDividerHeight() );
 
-    m_InLEChoice.AddItem( "FREE" );
-    m_InLEChoice.AddItem( "ANGLES" );
-    m_InLEChoice.AddItem( "IN_LE_TRAP" );
-    m_InLEChoice.AddItem( "IN_TE_TRAP" );
-    m_InLEChoice.AddItem( "OUT_LE_TRAP" );
-    m_InLEChoice.AddItem( "OUT_TE_TRAP" );
-    m_InLEChoice.AddItem( "IN_ANGLES" );
-    m_InLEChoice.AddItem( "LE_ANGLES" );
-    m_InLEChoice.SetFlag( BLEND_MATCH_IN_ANGLES, FL_MENU_INVISIBLE );
-    m_InLEChoice.SetFlag( BLEND_MATCH_LE_ANGLES, FL_MENU_INVISIBLE );
+    m_InLEChoice.AddItem( "FREE", vsp::BLEND_FREE );
+    m_InLEChoice.AddItem( "ANGLES", vsp::BLEND_ANGLES );
+    m_InLEChoice.AddItem( "IN_LE_TRAP", vsp::BLEND_MATCH_IN_LE_TRAP );
+    m_InLEChoice.AddItem( "IN_TE_TRAP", vsp::BLEND_MATCH_IN_TE_TRAP );
+    m_InLEChoice.AddItem( "OUT_LE_TRAP", vsp::BLEND_MATCH_OUT_LE_TRAP );
+    m_InLEChoice.AddItem( "OUT_TE_TRAP", vsp::BLEND_MATCH_OUT_TE_TRAP );
+    m_InLEChoice.AddItem( "IN_ANGLES", vsp::BLEND_MATCH_IN_ANGLES );
+    m_InLEChoice.AddItem( "LE_ANGLES", vsp::BLEND_MATCH_LE_ANGLES );
+    m_InLEChoice.SetFlagByVal( BLEND_MATCH_IN_ANGLES, FL_MENU_INVISIBLE );
+    m_InLEChoice.SetFlagByVal( BLEND_MATCH_LE_ANGLES, FL_MENU_INVISIBLE );
 
     m_InLELayout.SetButtonWidth( bw );
     m_InLELayout.SetChoiceButtonWidth( m_InLELayout.GetButtonWidth() );
@@ -3265,15 +3291,15 @@ BlendScreen::BlendScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_InLELayout.AddSlider( m_InLEDihedral, "Dihedral", dihRng, angleFmt );
     m_InLELayout.AddSlider( m_InLEStrength, "Strength", strengthRng, strengthFmt );
 
-    m_OutLEChoice.AddItem( "FREE" );
-    m_OutLEChoice.AddItem( "ANGLES" );
-    m_OutLEChoice.AddItem( "IN_LE_TRAP" );
-    m_OutLEChoice.AddItem( "IN_TE_TRAP" );
-    m_OutLEChoice.AddItem( "OUT_LE_TRAP" );
-    m_OutLEChoice.AddItem( "OUT_TE_TRAP" );
-    m_OutLEChoice.AddItem( "IN_ANGLES" );
-    m_OutLEChoice.AddItem( "LE_ANGLES" );
-    m_OutLEChoice.SetFlag( BLEND_MATCH_LE_ANGLES, FL_MENU_INVISIBLE );
+    m_OutLEChoice.AddItem( "FREE", vsp::BLEND_FREE );
+    m_OutLEChoice.AddItem( "ANGLES", vsp::BLEND_ANGLES );
+    m_OutLEChoice.AddItem( "IN_LE_TRAP", vsp::BLEND_MATCH_IN_LE_TRAP );
+    m_OutLEChoice.AddItem( "IN_TE_TRAP", vsp::BLEND_MATCH_IN_TE_TRAP );
+    m_OutLEChoice.AddItem( "OUT_LE_TRAP", vsp::BLEND_MATCH_OUT_LE_TRAP );
+    m_OutLEChoice.AddItem( "OUT_TE_TRAP", vsp::BLEND_MATCH_OUT_TE_TRAP );
+    m_OutLEChoice.AddItem( "IN_ANGLES", vsp::BLEND_MATCH_IN_ANGLES );
+    m_OutLEChoice.AddItem( "LE_ANGLES", vsp::BLEND_MATCH_LE_ANGLES );
+    m_OutLEChoice.SetFlagByVal( BLEND_MATCH_LE_ANGLES, FL_MENU_INVISIBLE );
 
     m_OutLELayout.SetButtonWidth( bw );
     m_OutLELayout.SetChoiceButtonWidth( m_OutLELayout.GetButtonWidth() );
@@ -3294,15 +3320,15 @@ BlendScreen::BlendScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_BlendLayout.AddSubGroupLayout( m_OutTELayout, m_BlendLayout.GetW()/2 - 2, m_BlendLayout.GetStdHeight() * 4 + m_BlendLayout.GetDividerHeight() );
 
 
-    m_InTEChoice.AddItem( "FREE" );
-    m_InTEChoice.AddItem( "ANGLES" );
-    m_InTEChoice.AddItem( "IN_LE_TRAP" );
-    m_InTEChoice.AddItem( "IN_TE_TRAP" );
-    m_InTEChoice.AddItem( "OUT_LE_TRAP" );
-    m_InTEChoice.AddItem( "OUT_TE_TRAP" );
-    m_InTEChoice.AddItem( "IN_ANGLES" );
-    m_InTEChoice.AddItem( "LE_ANGLES" );
-    m_InTEChoice.SetFlag( BLEND_MATCH_IN_ANGLES, FL_MENU_INVISIBLE );
+    m_InTEChoice.AddItem( "FREE", vsp::BLEND_FREE );
+    m_InTEChoice.AddItem( "ANGLES", vsp::BLEND_ANGLES );
+    m_InTEChoice.AddItem( "IN_LE_TRAP", vsp::BLEND_MATCH_IN_LE_TRAP );
+    m_InTEChoice.AddItem( "IN_TE_TRAP", vsp::BLEND_MATCH_IN_TE_TRAP );
+    m_InTEChoice.AddItem( "OUT_LE_TRAP", vsp::BLEND_MATCH_OUT_LE_TRAP );
+    m_InTEChoice.AddItem( "OUT_TE_TRAP", vsp::BLEND_MATCH_OUT_TE_TRAP );
+    m_InTEChoice.AddItem( "IN_ANGLES", vsp::BLEND_MATCH_IN_ANGLES );
+    m_InTEChoice.AddItem( "LE_ANGLES", vsp::BLEND_MATCH_LE_ANGLES );
+    m_InTEChoice.SetFlagByVal( BLEND_MATCH_IN_ANGLES, FL_MENU_INVISIBLE );
 
     m_InTELayout.SetButtonWidth( bw );
     m_InTELayout.SetChoiceButtonWidth( m_InTELayout.GetButtonWidth() );
@@ -3313,14 +3339,14 @@ BlendScreen::BlendScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_InTELayout.AddSlider( m_InTEStrength, "Strength", strengthRng, strengthFmt );
 
 
-    m_OutTEChoice.AddItem( "FREE" );
-    m_OutTEChoice.AddItem( "ANGLES" );
-    m_OutTEChoice.AddItem( "IN_LE_TRAP" );
-    m_OutTEChoice.AddItem( "IN_TE_TRAP" );
-    m_OutTEChoice.AddItem( "OUT_LE_TRAP" );
-    m_OutTEChoice.AddItem( "OUT_TE_TRAP" );
-    m_OutTEChoice.AddItem( "IN_ANGLES" );
-    m_OutTEChoice.AddItem( "LE_ANGLES" );
+    m_OutTEChoice.AddItem( "FREE", vsp::BLEND_FREE );
+    m_OutTEChoice.AddItem( "ANGLES", vsp::BLEND_ANGLES );
+    m_OutTEChoice.AddItem( "IN_LE_TRAP", vsp::BLEND_MATCH_IN_LE_TRAP );
+    m_OutTEChoice.AddItem( "IN_TE_TRAP", vsp::BLEND_MATCH_IN_TE_TRAP );
+    m_OutTEChoice.AddItem( "OUT_LE_TRAP", vsp::BLEND_MATCH_OUT_LE_TRAP );
+    m_OutTEChoice.AddItem( "OUT_TE_TRAP", vsp::BLEND_MATCH_OUT_TE_TRAP );
+    m_OutTEChoice.AddItem( "IN_ANGLES", vsp::BLEND_MATCH_IN_ANGLES );
+    m_OutTEChoice.AddItem( "LE_ANGLES", vsp::BLEND_MATCH_LE_ANGLES );
 
     m_OutTELayout.SetButtonWidth( bw );
     m_OutTELayout.SetChoiceButtonWidth( m_OutTELayout.GetButtonWidth() );
@@ -3391,77 +3417,77 @@ bool BlendScreen::Update()
 
 
         // Set pull-down menu flags to 'normal'
-        m_InTEChoice.SetFlag( BLEND_MATCH_LE_ANGLES, 0 );
+        m_InTEChoice.SetFlagByVal( BLEND_MATCH_LE_ANGLES, 0 );
 
-        m_OutLEChoice.SetFlag( BLEND_MATCH_IN_ANGLES, 0 );
+        m_OutLEChoice.SetFlagByVal( BLEND_MATCH_IN_ANGLES, 0 );
 
-        m_OutTEChoice.SetFlag( BLEND_MATCH_IN_ANGLES, 0 );
-        m_OutTEChoice.SetFlag( BLEND_MATCH_LE_ANGLES, 0 );
+        m_OutTEChoice.SetFlagByVal( BLEND_MATCH_IN_ANGLES, 0 );
+        m_OutTEChoice.SetFlagByVal( BLEND_MATCH_LE_ANGLES, 0 );
 
-        m_InLEChoice.SetFlag( BLEND_MATCH_IN_LE_TRAP, 0 );
-        m_InLEChoice.SetFlag( BLEND_MATCH_IN_TE_TRAP, 0 );
-        m_InLEChoice.SetFlag( BLEND_MATCH_OUT_LE_TRAP, 0 );
-        m_InLEChoice.SetFlag( BLEND_MATCH_OUT_TE_TRAP, 0 );
+        m_InLEChoice.SetFlagByVal( BLEND_MATCH_IN_LE_TRAP, 0 );
+        m_InLEChoice.SetFlagByVal( BLEND_MATCH_IN_TE_TRAP, 0 );
+        m_InLEChoice.SetFlagByVal( BLEND_MATCH_OUT_LE_TRAP, 0 );
+        m_InLEChoice.SetFlagByVal( BLEND_MATCH_OUT_TE_TRAP, 0 );
 
-        m_InTEChoice.SetFlag( BLEND_MATCH_IN_LE_TRAP, 0 );
-        m_InTEChoice.SetFlag( BLEND_MATCH_IN_TE_TRAP, 0 );
-        m_InTEChoice.SetFlag( BLEND_MATCH_OUT_LE_TRAP, 0 );
-        m_InTEChoice.SetFlag( BLEND_MATCH_OUT_TE_TRAP, 0 );
+        m_InTEChoice.SetFlagByVal( BLEND_MATCH_IN_LE_TRAP, 0 );
+        m_InTEChoice.SetFlagByVal( BLEND_MATCH_IN_TE_TRAP, 0 );
+        m_InTEChoice.SetFlagByVal( BLEND_MATCH_OUT_LE_TRAP, 0 );
+        m_InTEChoice.SetFlagByVal( BLEND_MATCH_OUT_TE_TRAP, 0 );
 
-        m_OutLEChoice.SetFlag( BLEND_MATCH_IN_LE_TRAP, 0 );
-        m_OutLEChoice.SetFlag( BLEND_MATCH_IN_TE_TRAP, 0 );
-        m_OutLEChoice.SetFlag( BLEND_MATCH_OUT_LE_TRAP, 0 );
-        m_OutLEChoice.SetFlag( BLEND_MATCH_OUT_TE_TRAP, 0 );
+        m_OutLEChoice.SetFlagByVal( BLEND_MATCH_IN_LE_TRAP, 0 );
+        m_OutLEChoice.SetFlagByVal( BLEND_MATCH_IN_TE_TRAP, 0 );
+        m_OutLEChoice.SetFlagByVal( BLEND_MATCH_OUT_LE_TRAP, 0 );
+        m_OutLEChoice.SetFlagByVal( BLEND_MATCH_OUT_TE_TRAP, 0 );
 
-        m_OutTEChoice.SetFlag( BLEND_MATCH_IN_LE_TRAP, 0 );
-        m_OutTEChoice.SetFlag( BLEND_MATCH_IN_TE_TRAP, 0 );
-        m_OutTEChoice.SetFlag( BLEND_MATCH_OUT_LE_TRAP, 0 );
-        m_OutTEChoice.SetFlag( BLEND_MATCH_OUT_TE_TRAP, 0 );
+        m_OutTEChoice.SetFlagByVal( BLEND_MATCH_IN_LE_TRAP, 0 );
+        m_OutTEChoice.SetFlagByVal( BLEND_MATCH_IN_TE_TRAP, 0 );
+        m_OutTEChoice.SetFlagByVal( BLEND_MATCH_OUT_LE_TRAP, 0 );
+        m_OutTEChoice.SetFlagByVal( BLEND_MATCH_OUT_TE_TRAP, 0 );
 
         if ( xs->m_InLEMode() != BLEND_ANGLES )
         {
-            m_InTEChoice.SetFlag( BLEND_MATCH_LE_ANGLES, FL_MENU_INACTIVE );
-            m_OutLEChoice.SetFlag( BLEND_MATCH_IN_ANGLES, FL_MENU_INACTIVE );
+            m_InTEChoice.SetFlagByVal( BLEND_MATCH_LE_ANGLES, FL_MENU_INACTIVE );
+            m_OutLEChoice.SetFlagByVal( BLEND_MATCH_IN_ANGLES, FL_MENU_INACTIVE );
         }
 
         if ( xs->m_InTEMode() != BLEND_ANGLES && xs->m_InTEMode() != BLEND_MATCH_LE_ANGLES )
         {
-            m_OutTEChoice.SetFlag( BLEND_MATCH_IN_ANGLES, FL_MENU_INACTIVE );
+            m_OutTEChoice.SetFlagByVal( BLEND_MATCH_IN_ANGLES, FL_MENU_INACTIVE );
         }
 
         if ( xs->m_OutLEMode() != BLEND_ANGLES && xs->m_OutLEMode() != BLEND_MATCH_IN_ANGLES )
         {
-            m_OutTEChoice.SetFlag( BLEND_MATCH_LE_ANGLES, FL_MENU_INACTIVE );
+            m_OutTEChoice.SetFlagByVal( BLEND_MATCH_LE_ANGLES, FL_MENU_INACTIVE );
         }
 
         if ( firstxs )
         {
-            m_InLEChoice.SetFlag( BLEND_MATCH_IN_LE_TRAP, FL_MENU_INACTIVE );
-            m_InLEChoice.SetFlag( BLEND_MATCH_IN_TE_TRAP, FL_MENU_INACTIVE );
+            m_InLEChoice.SetFlagByVal( BLEND_MATCH_IN_LE_TRAP, FL_MENU_INACTIVE );
+            m_InLEChoice.SetFlagByVal( BLEND_MATCH_IN_TE_TRAP, FL_MENU_INACTIVE );
 
-            m_InTEChoice.SetFlag( BLEND_MATCH_IN_LE_TRAP, FL_MENU_INACTIVE );
-            m_InTEChoice.SetFlag( BLEND_MATCH_IN_TE_TRAP, FL_MENU_INACTIVE );
+            m_InTEChoice.SetFlagByVal( BLEND_MATCH_IN_LE_TRAP, FL_MENU_INACTIVE );
+            m_InTEChoice.SetFlagByVal( BLEND_MATCH_IN_TE_TRAP, FL_MENU_INACTIVE );
 
-            m_OutLEChoice.SetFlag( BLEND_MATCH_IN_LE_TRAP, FL_MENU_INACTIVE );
-            m_OutLEChoice.SetFlag( BLEND_MATCH_IN_TE_TRAP, FL_MENU_INACTIVE );
+            m_OutLEChoice.SetFlagByVal( BLEND_MATCH_IN_LE_TRAP, FL_MENU_INACTIVE );
+            m_OutLEChoice.SetFlagByVal( BLEND_MATCH_IN_TE_TRAP, FL_MENU_INACTIVE );
 
-            m_OutTEChoice.SetFlag( BLEND_MATCH_IN_LE_TRAP, FL_MENU_INACTIVE );
-            m_OutTEChoice.SetFlag( BLEND_MATCH_IN_TE_TRAP, FL_MENU_INACTIVE );
+            m_OutTEChoice.SetFlagByVal( BLEND_MATCH_IN_LE_TRAP, FL_MENU_INACTIVE );
+            m_OutTEChoice.SetFlagByVal( BLEND_MATCH_IN_TE_TRAP, FL_MENU_INACTIVE );
         }
 
         if ( lastxs )
         {
-            m_InLEChoice.SetFlag( BLEND_MATCH_OUT_LE_TRAP, FL_MENU_INACTIVE );
-            m_InLEChoice.SetFlag( BLEND_MATCH_OUT_TE_TRAP, FL_MENU_INACTIVE );
+            m_InLEChoice.SetFlagByVal( BLEND_MATCH_OUT_LE_TRAP, FL_MENU_INACTIVE );
+            m_InLEChoice.SetFlagByVal( BLEND_MATCH_OUT_TE_TRAP, FL_MENU_INACTIVE );
 
-            m_InTEChoice.SetFlag( BLEND_MATCH_OUT_LE_TRAP, FL_MENU_INACTIVE );
-            m_InTEChoice.SetFlag( BLEND_MATCH_OUT_TE_TRAP, FL_MENU_INACTIVE );
+            m_InTEChoice.SetFlagByVal( BLEND_MATCH_OUT_LE_TRAP, FL_MENU_INACTIVE );
+            m_InTEChoice.SetFlagByVal( BLEND_MATCH_OUT_TE_TRAP, FL_MENU_INACTIVE );
 
-            m_OutLEChoice.SetFlag( BLEND_MATCH_OUT_LE_TRAP, FL_MENU_INACTIVE );
-            m_OutLEChoice.SetFlag( BLEND_MATCH_OUT_TE_TRAP, FL_MENU_INACTIVE );
+            m_OutLEChoice.SetFlagByVal( BLEND_MATCH_OUT_LE_TRAP, FL_MENU_INACTIVE );
+            m_OutLEChoice.SetFlagByVal( BLEND_MATCH_OUT_TE_TRAP, FL_MENU_INACTIVE );
 
-            m_OutTEChoice.SetFlag( BLEND_MATCH_OUT_LE_TRAP, FL_MENU_INACTIVE );
-            m_OutTEChoice.SetFlag( BLEND_MATCH_OUT_TE_TRAP, FL_MENU_INACTIVE );
+            m_OutTEChoice.SetFlagByVal( BLEND_MATCH_OUT_LE_TRAP, FL_MENU_INACTIVE );
+            m_OutTEChoice.SetFlagByVal( BLEND_MATCH_OUT_TE_TRAP, FL_MENU_INACTIVE );
         }
 
         // Update menu while keeping setting.

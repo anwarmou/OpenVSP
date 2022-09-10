@@ -450,11 +450,11 @@ ParasiteDragScreen::ParasiteDragScreen( ScreenMgr* mgr ) : TabScreen( mgr,
 
     m_ExcrescenceListLayout.SetChoiceButtonWidth( TYPICAL_INPUT_WIDTH );
     m_ExcrescenceListLayout.AddChoice( m_excresTypeChoice, "Type", 0 );
-    m_excresTypeChoice.AddItem( "Drag Counts" );
-    m_excresTypeChoice.AddItem( "CD" );
-    m_excresTypeChoice.AddItem( "% of CD_Geom" );
-    m_excresTypeChoice.AddItem( "% Margin" );
-    m_excresTypeChoice.AddItem( "Drag Area, D\\/q" );
+    m_excresTypeChoice.AddItem( "Drag Counts", vsp::EXCRESCENCE_COUNT );
+    m_excresTypeChoice.AddItem( "CD", vsp::EXCRESCENCE_CD );
+    m_excresTypeChoice.AddItem( "% of CD_Geom", vsp::EXCRESCENCE_PERCENT_GEOM );
+    m_excresTypeChoice.AddItem( "% Margin", vsp::EXCRESCENCE_MARGIN );
+    m_excresTypeChoice.AddItem( "Drag Area, D\\/q", vsp::EXCRESCENCE_DRAGAREA );
     m_excresTypeChoice.UpdateItems();
     m_ExcrescenceListLayout.AddButton( m_excresAdd, " Add Excrescence " );
 
@@ -943,15 +943,15 @@ void ParasiteDragScreen::UpdateExcresTab()
     {
         if ( excresVec[i].Type == vsp::EXCRESCENCE_MARGIN )
         {
-            m_excresTypeChoice.SetFlag( vsp::EXCRESCENCE_MARGIN, FL_MENU_INACTIVE );
+            m_excresTypeChoice.SetFlagByVal( vsp::EXCRESCENCE_MARGIN, FL_MENU_INACTIVE );
             break;
         }
-        m_excresTypeChoice.SetFlag( vsp::EXCRESCENCE_MARGIN, 0 );
+        m_excresTypeChoice.SetFlagByVal( vsp::EXCRESCENCE_MARGIN, 0 );
     }
 
     if ( excresVec.size() == 0 )
     {
-        m_excresTypeChoice.SetFlag( vsp::EXCRESCENCE_MARGIN, 0 );
+        m_excresTypeChoice.SetFlagByVal( vsp::EXCRESCENCE_MARGIN, 0 );
     }
 
     m_excresTypeChoice.UpdateItems();
@@ -1620,12 +1620,12 @@ void ParasiteDragScreen::UpdateIncorporateDropDowns()
                         if ( rowVec[i].GeomShapeType !=
                                 veh->FindGeom( veh->FindGeom( rowVec[i].GeomID )->GetAncestorID( j ) )->GetSurfType(0) )
                         {
-                            m_grouped[i].SetFlag( j, FL_MENU_INACTIVE );
+                            m_grouped[ i ].SetFlagByVal( j, FL_MENU_INACTIVE );
                         }
                     }
                     else
                     {
-                        m_grouped[i].SetFlag( j, FL_MENU_INACTIVE );
+                        m_grouped[ i ].SetFlagByVal( j, FL_MENU_INACTIVE );
                     }
                 }
                 m_grouped[i].UpdateItems();

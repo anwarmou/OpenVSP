@@ -187,6 +187,7 @@ Vehicle::Vehicle()
     m_NewWidthValue.Init( "Width", "Screenshot", this, 1.0, 0.0, 1.0e12 );
     m_NewHeightValue.Init( "Height", "Screenshot", this, 1.0, 0.0, 1.0e12 );
     m_TransparentBGFlag.Init( "TransparentBGFlag", "Screenshot", this, 1, 0, 1 );
+    m_AutoCropFlag.Init( "AutoCropFlag", "Screenshot", this, false, false, true );
 
     m_UserParmVal.Init( "Val", "UserParm", this, 0.0, -1.0e12, 1.0e12 );
     m_UserParmMin.Init( "Min", "UserParm", this, -1.0e5, -1.0e12, 1.0e12 );
@@ -400,6 +401,7 @@ void Vehicle::Init()
     m_NewWidthValue.Set( 1.0 );
     m_NewHeightValue.Set( 1.0 );
     m_TransparentBGFlag.Set( 1 );
+    m_AutoCropFlag.Set( false );
 
     m_STLMultiSolid.Set( false );
     m_STLExportPropMainSurf.Set( false );
@@ -522,18 +524,9 @@ void Vehicle::SetupPaths()
     m_LOADSCmd = string( "vsploads" );
 #endif
 
-    if( !CheckForFile( m_ExePath, m_VSPAEROCmd ) )
-    {
-        printf("VSPAERO solver not found in %s.\n", m_ExePath.c_str());
-    }
-    if( !CheckForFile( m_ExePath, m_VIEWERCmd ) )
-    {
-        printf("VSPAERO viewer not found in %s.\n", m_ExePath.c_str());
-    }
-    if ( !CheckForFile( m_ExePath, m_LOADSCmd ) )
-    {
-        printf( "VSPAERO loads not found in %s.\n", m_ExePath.c_str());
-    }
+    m_VSPAEROFound = false;
+    m_VIEWERFound = false;
+    m_LOADSFound = false;
 
     m_CustomScriptDirs.push_back( string( "./CustomScripts/" ) );
     m_CustomScriptDirs.push_back( m_HomePath + string( "/CustomScripts/" ) );
@@ -543,70 +536,44 @@ void Vehicle::SetupPaths()
 bool Vehicle::CheckForVSPAERO( const string & path )
 {
     bool ret_val = true;
-    string path_file, vspaero_exe, viewer_exe, loads_exe;
 
-#ifdef WIN32
-    vspaero_exe = string( "vspaero.exe" );
-    viewer_exe = string( "vspviewer.exe" );
-    loads_exe = string( "vsploads.exe" );
-#else
-    vspaero_exe = string( "vspaero" );
-    viewer_exe = string( "vspviewer" );
-    loads_exe = string( "vsploads" );
-#endif
-
-    path_file = path + string( "/" ) + vspaero_exe;
-
-    if( !FileExist( path_file ) )
+    if( !CheckForFile( path, m_VSPAEROCmd ) )
     {
         fprintf( stderr, "ERROR %d: VSPAERO Solver Not Found. \n"
-            "\tExpected here: %s\n"
-            "\tFile: %s \tLine: %d\n",
+            "\tExpected here: %s\n",
             vsp::VSP_FILE_DOES_NOT_EXIST,
-            path_file.c_str(),
-            __FILE__, __LINE__ );
+            ( path + string("/") + m_VSPAEROCmd ).c_str() );
         ret_val = false;
     }
     else
     {
-        // Save VSPAERO executable
-        m_VSPAEROCmd = vspaero_exe;
+        m_VSPAEROFound = true;
     }
 
-    path_file = path + string( "/" ) + viewer_exe;
-
-    if( !FileExist( path_file ) )
+    if( !CheckForFile( path, m_VIEWERCmd ) )
     {
         fprintf( stderr, "ERROR %d: VSPAERO Viewer Not Found. \n"
-            "\tExpected here: %s\n"
-            "\tFile: %s \tLine: %d\n",
+            "\tExpected here: %s\n",
             vsp::VSP_FILE_DOES_NOT_EXIST,
-            path_file.c_str(),
-            __FILE__, __LINE__ );
+            ( path + string("/") + m_VIEWERCmd ).c_str() );
         ret_val = false;
     }
     else
     {
-        // Save Viewer executable
-        m_VIEWERCmd = viewer_exe;
+        m_VIEWERFound = true;
     }
 
-    path_file = path + string( "/" ) + loads_exe;
-
-    if( !FileExist( path_file ) )
+    if( !CheckForFile( path, m_LOADSCmd ) )
     {
         fprintf( stderr, "ERROR %d: VSPAERO Loads Not Found. \n"
-            "\tExpected here: %s\n"
-            "\tFile: %s \tLine: %d\n",
+            "\tExpected here: %s\n",
             vsp::VSP_FILE_DOES_NOT_EXIST,
-            path_file.c_str(),
-            __FILE__, __LINE__ );
+            ( path + string("/") + m_LOADSCmd ).c_str() );
         ret_val = false;
     }
     else
     {
-        // Save Slicer executable
-        m_LOADSCmd = loads_exe;
+        m_LOADSFound = true;
     }
 
     return ret_val;
@@ -3592,17 +3559,12 @@ void Vehicle::WriteAirfoilFile( const string &file_name, int write_set )
     if ( last_index > 0 && last_index != std::string::npos )
     {
         m_AFFileDir = file_name.substr( 0, ( last_index + 1 ) );
-        fprintf( meta_fid, "Airfoil File Directory, %s\n\n", m_AFFileDir.c_str() );
-    }
-    else if ( m_ExePath.find_last_of( "/\\" ) > 0 && m_ExePath.find_last_of( "/\\" ) != std::string::npos )
-    {
-        m_AFFileDir = m_ExePath.substr( 0, ( m_ExePath.find_last_of( "/\\" ) + 1 ) ); // place all airfoil files in executable directory
-        fprintf( meta_fid, "Airfoil File Directory, %s\n\n", m_AFFileDir.c_str() );
     }
     else
     {
-        m_AFFileDir = string();
+        m_AFFileDir = PathToCWD();
     }
+    fprintf( meta_fid, "Airfoil File Directory, %s\n\n", m_AFFileDir.c_str() );
 
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
 
@@ -4410,7 +4372,7 @@ void Vehicle::UpdateBBox()
         new_box.Update( geom_vec[i]->GetBndBox() );
     }
 
-    if( ngeom > 0 )
+    if( ngeom > 0 && ( new_box != m_BBox ) )
     {
         m_BbXLen = new_box.GetMax( 0 ) - new_box.GetMin( 0 );
         m_BbYLen = new_box.GetMax( 1 ) - new_box.GetMin( 1 );
@@ -4624,6 +4586,11 @@ string Vehicle::CompGeom( int set, int degenset, int halfFlag, int intSubsFlag, 
 
     if ( halfFlag )
     {
+        // This check is to ensure any triangles remaining from the positive bodies on the symmetry plane are removed.
+        // Absolute tolerance here, would be perhaps better as a fraction of the triangle's edge lengths.  Comparison
+        // based on triangle center location, so it should be reliable.
+        mesh_ptr->IgnoreYLessThan( 1e-5 );
+
         mesh_ptr->GetMeshByID( "NEGATIVE_HALF" )->m_DeleteMeFlag = true;
         mesh_ptr->DeleteMarkedMeshes();
     }

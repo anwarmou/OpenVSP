@@ -104,8 +104,8 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     //    wake parameters
     m_FixedWakeFlag.Init( "FixedWakeFlag", groupname, this, false, false, true );
     m_FixedWakeFlag.SetDescript( "Flag to enable a fixed wake." );
-    m_WakeNumIter.Init( "WakeNumIter", groupname, this, 5, 3, 255 );
-    m_WakeNumIter.SetDescript( "Number of wake iterations to execute, Default = 5" );
+    m_WakeNumIter.Init( "WakeNumIter", groupname, this, 3, 3, 255 );
+    m_WakeNumIter.SetDescript( "Number of wake iterations to execute" );
     m_NumWakeNodes.SetPowShift( 2, 0 ); // Must come before Init
     m_NumWakeNodes.Init( "RootWakeNodes", groupname, this, 64, 0, 10e12 );
     m_NumWakeNodes.SetDescript( "Number of Wake Nodes (f(n^2))" );
@@ -262,6 +262,11 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
 
     m_Verbose = false;
     m_iCase = 0;
+
+    CpSlice* slice = AddCpSlice();
+    slice->SetName( "Y = 0" );
+    slice->m_CutType.Set( vsp::Y_DIR );
+    slice->m_CutPosition.Set( 0.0 );
 }
 
 void VSPAEROMgrSingleton::ParmChanged( Parm* parm_ptr, int type )
@@ -303,6 +308,11 @@ void VSPAEROMgrSingleton::Renew()
     m_RotorDiskVec.clear();
 
     ClearCpSliceVec();
+    CpSlice* slice = AddCpSlice();
+    slice->SetName( "Y = 0" );
+    slice->m_CutType.Set( vsp::Y_DIR );
+    slice->m_CutPosition.Set( 0.0 );
+
     ClearUnsteadyGroupVec();
 
     m_DegenGeomVec.clear();
@@ -1643,7 +1653,7 @@ string VSPAEROMgrSingleton::LoadExistingVSPAEROResults()
     {
         if ( FileExist( m_PolarFile ) )
         {
-            ReadPolarFile( m_HistoryFile, res_id_vec, m_ReCrefStart() );
+            ReadPolarFile( m_PolarFile, res_id_vec, m_ReCrefStart() );
         }
         else
         {
@@ -3998,7 +4008,7 @@ string VSPAEROMgrSingleton::ExecuteCpSlicer( FILE * logFile )
     args.push_back( m_ModelNameBase );
 
     //====== Execute VSPAERO Slicer ======//
-    m_SlicerThread.ForkCmd( veh->GetExePath(), veh->GetLOADSCmd(), args );
+    m_SlicerThread.ForkCmd( veh->GetVSPAEROPath(), veh->GetLOADSCmd(), args );
 
     // ==== MonitorSolverProcess ==== //
     MonitorSolver( logFile );

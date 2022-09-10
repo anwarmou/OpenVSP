@@ -91,6 +91,24 @@ int VspSurf::GetNumSectU() const
     return m_Surface.number_u_patches();
 }
 
+double VspSurf::GetRootCluster( const int &index ) const
+{
+    if ( index >= 0 && index < m_RootCluster.size() )
+    {
+        return m_RootCluster[ index ];
+    }
+    return 1.0;
+}
+
+double VspSurf::GetTipCluster( const int &index ) const
+{
+    if ( index >= 0 && index < m_TipCluster.size() )
+    {
+        return m_TipCluster[ index ];
+    }
+    return 1.0;
+}
+
 int VspSurf::GetNumSectW() const
 {
     return m_Surface.number_v_patches();
@@ -589,6 +607,7 @@ void VspSurf::SkinRibs( const vector<rib_data_type> &ribs, const vector < int > 
     if ( !setcond )
     {
         printf( "Failure in SkinRibs set_conditions\n" );
+        return;
     }
 
     // set the delta u for each surface segment
@@ -604,6 +623,7 @@ void VspSurf::SkinRibs( const vector<rib_data_type> &ribs, const vector < int > 
     if ( !creat )
     {
         printf( "Failure in SkinRibs create\n" );
+        return;
     }
 
     ResetFlipNormal();
@@ -1234,7 +1254,7 @@ void VspSurf::MakeUTess( const vector<int> &num_u, vector<double> &u, const std:
             {
                 for ( int isecttess = 0; isecttess < num_u[i] - 1; ++isecttess )
                 {
-                    u[iu] = ustart + du * Cluster(static_cast<double>( isecttess ) / (num_u[i] - 1), m_RootCluster[i], m_TipCluster[i]);
+                    u[iu] = ustart + du * Cluster(static_cast<double>( isecttess ) / (num_u[i] - 1), GetRootCluster( i ), GetTipCluster( i ) );
                     iu++;
                 }
             }
@@ -1285,7 +1305,7 @@ void VspSurf::MakeUTess( const vector<int> &num_u, vector<double> &u, const std:
             {
                 for ( int isecttess = 0; isecttess < num_u[iusect] - 1; ++isecttess )
                 {
-                    u[iu] = uumin + du * Cluster( static_cast<double>( isecttess ) / ( num_u[iusect] - 1 ), m_RootCluster[iusect], m_TipCluster[iusect] );
+                    u[iu] = uumin + du * Cluster( static_cast<double>( isecttess ) / ( num_u[iusect] - 1 ), GetRootCluster( iusect ), GetTipCluster( iusect ) );
                     iu++;
                 }
             }
@@ -1691,10 +1711,8 @@ void VspSurf::SplitTesselate( const vector<double> &usplit, const vector<double>
     }
 }
 
-void VspSurf::TessUFeatureLine( int iu, std::vector< vec3d > & pnts, double tol ) const
+void VspSurf::TessULine( double u, std::vector< vec3d > & pnts, double tol ) const
 {
-    double u = m_UFeature[ iu ];
-
     double vmin, vmax;
     vec3d pmin, pmax;
 
@@ -1715,6 +1733,13 @@ void VspSurf::TessUFeatureLine( int iu, std::vector< vec3d > & pnts, double tol 
         pmin = pmax;
     }
     pnts.push_back( pmax );
+}
+
+void VspSurf::TessUFeatureLine( int iu, std::vector< vec3d > & pnts, double tol ) const
+{
+    double u = m_UFeature[ iu ];
+
+    TessULine( u, pnts, tol );
 }
 
 void VspSurf::TessWFeatureLine( int iw, std::vector< vec3d > & pnts, double tol ) const
@@ -1864,7 +1889,7 @@ void VspSurf::BuildFeatureLines( bool force_xsec_flag)
     }
 }
 
-bool VspSurf::CapUMin(int CapType, double len, double str, double offset, bool swflag)
+bool VspSurf::CapUMin(int CapType, double len, double str, double offset, const vec3d &pt, bool swflag)
 {
     if (CapType == vsp::NO_END_CAP)
     {
@@ -1889,9 +1914,15 @@ bool VspSurf::CapUMin(int CapType, double len, double str, double offset, bool s
       case vsp::SHARP_END_CAP:
         captype = multicap_creator_type::SHARP;
         break;
+      case vsp::POINT_END_CAP:
+        captype = multicap_creator_type::POINT;
+        break;
     }
 
-    rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, multicap_creator_type::CAP_UMIN, len, offset, str, swflag );
+    surface_point_type p;
+    p << pt.x(), pt.y(), pt.z();
+
+    rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, multicap_creator_type::CAP_UMIN, len, offset, str, p, swflag );
 
     if (!rtn_flag)
     {
@@ -1912,7 +1943,7 @@ bool VspSurf::CapUMin(int CapType, double len, double str, double offset, bool s
     return true;
 }
 
-bool VspSurf::CapUMax(int CapType, double len, double str, double offset, bool swflag)
+bool VspSurf::CapUMax(int CapType, double len, double str, double offset, const vec3d &pt, bool swflag)
 {
     if (CapType == vsp::NO_END_CAP)
     {
@@ -1937,9 +1968,15 @@ bool VspSurf::CapUMax(int CapType, double len, double str, double offset, bool s
       case vsp::SHARP_END_CAP:
         captype = multicap_creator_type::SHARP;
         break;
+      case vsp::POINT_END_CAP:
+        captype = multicap_creator_type::POINT;
+        break;
     }
 
-    rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, multicap_creator_type::CAP_UMAX, len, offset, str, swflag );
+    surface_point_type p;
+    p << pt.x(), pt.y(), pt.z();
+
+    rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, multicap_creator_type::CAP_UMAX, len, offset, str, p, swflag );
 
     if (!rtn_flag)
     {
@@ -1974,6 +2011,32 @@ bool VspSurf::CapWMax(int CapType)
 
     std::cout << "Am Capping WMax on this one!" << std::endl;
     return false;
+}
+
+int VspSurf::SplitU( const double &u )
+{
+    m_Surface.split_u( u );
+    vector < double > pmap;
+    m_Surface.get_pmap_u( pmap );
+    return vector_find_val( pmap, u );
+}
+
+int VspSurf::SplitW( const double &w )
+{
+    m_Surface.split_v( w );
+    vector < double > pmap;
+    m_Surface.get_pmap_v( pmap );
+    return vector_find_val( pmap, w );
+}
+
+void VspSurf::JoinU( const VspSurf & sa, const VspSurf & sb )
+{
+    m_Surface.join_u( sa.m_Surface, sb.m_Surface );
+}
+
+void VspSurf::JoinW( const VspSurf & sa, const VspSurf & sb )
+{
+    m_Surface.join_v( sa.m_Surface, sb.m_Surface );
 }
 
 void VspSurf::SplitSurfs( vector< piecewise_surface_type > &surfvec, const vector < double > &usuppress, const vector < double > &wsuppress ) const
@@ -2057,6 +2120,40 @@ void SplitSurfsW( vector< piecewise_surface_type > &surfvec, const vector < doub
             }
         }
         surfvec = splitsurfvec;
+    }
+}
+
+void VspSurf::TrimU( double u, bool before )
+{
+    piecewise_surface_type s1, s2;
+
+    m_Surface.split_u( s1, s2, u );
+
+    if ( before )
+    {
+        m_Surface = s1;
+    }
+    else
+    {
+        s2.set_u0( 0.0 );
+        m_Surface = s2;
+    }
+}
+
+void VspSurf::TrimV( double v, bool before )
+{
+    piecewise_surface_type s1, s2;
+
+    m_Surface.split_v( s1, s2, v );
+
+    if ( before )
+    {
+        m_Surface = s1;
+    }
+    else
+    {
+        s2.set_v0( 0.0 );
+        m_Surface = s2;
     }
 }
 
