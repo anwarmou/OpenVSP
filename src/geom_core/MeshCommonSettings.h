@@ -23,51 +23,6 @@ public:
 
     virtual void InitCommonParms();
 
-    virtual void SetIntersectSubSurfs( bool f )
-    {
-        m_IntersectSubSurfs = f;
-    }
-    virtual bool GetIntersectSubSurfs()
-    {
-        return m_IntersectSubSurfs();
-    }
-
-    virtual bool GetFarMeshFlag()
-    {
-        return m_FarMeshFlag.Get();
-    }
-    virtual void SetFarMeshFlag( bool f )
-    {
-        m_FarMeshFlag = f;
-    }
-    virtual bool GetFarCompFlag()
-    {
-        return m_FarCompFlag.Get();
-    }
-    virtual void SetFarCompFlag( bool f )
-    {
-        m_FarCompFlag = f;
-    }
-
-    virtual bool GetHalfMeshFlag()
-    {
-        return m_HalfMeshFlag.Get();
-    }
-    virtual void SetHalfMeshFlag( bool f )
-    {
-        m_HalfMeshFlag = f;
-    }
-
-    //Symmetry Plane Item Quad BoolParm
-    virtual bool GetSymSplittingOnFlag()
-    {
-        return m_SymSplittingOnFlag.Get();
-    }
-    virtual void SetSymSplittingOnFlag( bool f )
-    {
-        m_SymSplittingOnFlag = f;
-    }
-
     //Symmetry Plane Boolean Items
     BoolParm m_SymSplittingOnFlag;
 
@@ -123,7 +78,6 @@ public:
 
     string GetExportFileName( int type );
     void SetExportFileName( const string &fn, int type );
-    void ResetExportFileNames();
     void ResetExportFileNames( const string& basename );
 
     BoolParm* GetExportFileFlag( int type );
@@ -142,7 +96,7 @@ protected:
     // the file name is set (save/save as/open).  There is no way to have good
     // default behavior based on the main file name -- and to use the user-set
     // file names.
-    string m_ExportFileNames[ vsp::INTERSECT_NUM_FILE_NAMES ];
+    vector < string > m_ExportFileNames;
 
 };
 
@@ -166,26 +120,9 @@ public:
     {
         m_FarGeomID = gid;
     }
-    virtual bool GetFarManLocFlag()
-    {
-        return m_FarManLocFlag.Get();
-    }
-    virtual void SetFarManLocFlag( bool f )
-    {
-        m_FarManLocFlag = f;
-    }
-    virtual bool GetFarAbsSizeFlag()
-    {
-        return m_FarAbsSizeFlag.Get();
-    }
-    virtual void SetFarAbsSizeFlag( bool f )
-    {
-        m_FarAbsSizeFlag = f;
-    }
 
     string GetExportFileName( int type );
     void SetExportFileName( const string &fn, int type );
-    void ResetExportFileNames();
     void ResetExportFileNames( const string& basename );
     vector < string > GetExportFileNames();
 
@@ -227,7 +164,7 @@ protected:
     // the file name is set (save/save as/open).  There is no way to have good
     // default behavior based on the main file name -- and to use the user-set
     // file names.
-    string m_ExportFileNames[vsp::CFD_NUM_FILE_NAMES];
+    vector < string > m_ExportFileNames;
 
 };
 
@@ -243,7 +180,6 @@ public:
 
     string GetExportFileName( int type );
     void SetExportFileName( const string &fn, int type );
-    void ResetExportFileNames();
     void ResetExportFileNames( const string& basename );
 
     BoolParm* GetExportFileFlag( int type );
@@ -256,6 +192,7 @@ public:
     Parm m_MultiSliceSpacing;
     IntParm m_MultSliceIncludedElements;
     BoolParm m_DrawNodesFlag;
+    BoolParm m_DrawBCNodesFlag;
     BoolParm m_DrawElementOrientVecFlag;
     BoolParm m_XYZIntCurveFlag;
 
@@ -268,7 +205,45 @@ protected:
     // the file name is set (save/save as/open).  There is no way to have good
     // default behavior based on the main file name -- and to use the user-set
     // file names.
-    string m_ExportFileNames[vsp::FEA_NUM_FILE_NAMES];
+    vector < string > m_ExportFileNames;
+
+};
+
+//////////////////////////////////////////////////////////////////////
+class AssemblySettings : public ParmContainer
+{
+public:
+    AssemblySettings();
+    virtual ~AssemblySettings();
+
+    virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
+    virtual xmlNodePtr DecodeXml( xmlNodePtr & node );
+
+    string GetExportFileName( int type );
+    void SetExportFileName( const string &fn, int type );
+    void ResetExportFileNames( const string& basename );
+
+    BoolParm* GetExportFileFlag( int type );
+    void SetAllFileExportFlags( bool flag );
+    void SetFileExportFlag( int type, bool flag );
+    vector < string > GetExportFileNames();
+
+    BoolParm m_DrawAsMeshFlag;
+    BoolParm m_DrawMeshFlag;
+    BoolParm m_ColorTagsFlag;
+
+    BoolParm m_ExportFileFlags[vsp::FEA_NUM_FILE_NAMES];
+    BoolParm m_DrawNodesFlag;
+    BoolParm m_DrawBCNodesFlag;
+    BoolParm m_DrawElementOrientVecFlag;
+
+protected:
+
+    // These file names do not get written to file.  They are reset each time
+    // the file name is set (save/save as/open).  There is no way to have good
+    // default behavior based on the main file name -- and to use the user-set
+    // file names.
+    vector < string > m_ExportFileNames;
 
 };
 

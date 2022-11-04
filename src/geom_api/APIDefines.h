@@ -95,11 +95,8 @@ enum CFD_MESH_EXPORT_TYPE { CFD_STL_FILE_NAME,
                             CFD_DAT_FILE_NAME,
                             CFD_KEY_FILE_NAME,
                             CFD_GMSH_FILE_NAME,
-                            CFD_SRF_FILE_NAME,
                             CFD_TKEY_FILE_NAME,
                             CFD_FACET_FILE_NAME,
-                            CFD_CURV_FILE_NAME,
-                            CFD_PLOT3D_FILE_NAME,
                             CFD_VSPGEOM_FILE_NAME,
                             CFD_NUM_FILE_NAMES,
                           };
@@ -157,30 +154,30 @@ enum COLLISION_ERRORS { COLLISION_OK,
 
 enum COMPUTATION_FILE_TYPE  {   NO_FILE_TYPE        = 0,
                                 COMP_GEOM_TXT_TYPE  = 1,
-                                COMP_GEOM_CSV_TYPE  = 2,
-                                DRAG_BUILD_TSV_TYPE_DEPRECATED = 4,
-                                SLICE_TXT_TYPE      = 8,
-                                MASS_PROP_TXT_TYPE  = 16,
-                                DEGEN_GEOM_CSV_TYPE = 32,
-                                DEGEN_GEOM_M_TYPE   = 64,
-                                CFD_STL_TYPE        = 128,
-                                CFD_POLY_TYPE       = 256,
-                                CFD_TRI_TYPE        = 512,
-                                CFD_OBJ_TYPE        = 1024,
-                                CFD_DAT_TYPE        = 2048,
-                                CFD_KEY_TYPE        = 4096,
-                                CFD_GMSH_TYPE       = 8192,
-                                CFD_SRF_TYPE        = 16384,
-                                CFD_TKEY_TYPE       = 32768,
-                                PROJ_AREA_CSV_TYPE  = 65536,
-                                WAVE_DRAG_TXT_TYPE  = 131072,
-                                VSPAERO_PANEL_TRI_TYPE = 262144,
-                                DRAG_BUILD_CSV_TYPE = 524288,
-                                CFD_FACET_TYPE      = 1048576,
-                                CFD_CURV_TYPE       = 2097152,
-                                CFD_PLOT3D_TYPE     = 4194304,
-                                CFD_VSPGEOM_TYPE    = 8388608,
-                                VSPAERO_VSPGEOM_TYPE = 16777216,
+                                COMP_GEOM_CSV_TYPE  = 1<<1,
+                                DRAG_BUILD_TSV_TYPE_DEPRECATED = 1<<2,
+                                SLICE_TXT_TYPE      = 1<<3,
+                                MASS_PROP_TXT_TYPE  = 1<<4,
+                                DEGEN_GEOM_CSV_TYPE = 1<<5,
+                                DEGEN_GEOM_M_TYPE   = 1<<6,
+                                CFD_STL_TYPE        = 1<<7,
+                                CFD_POLY_TYPE       = 1<<8,
+                                CFD_TRI_TYPE        = 1<<9,
+                                CFD_OBJ_TYPE        = 1<<10,
+                                CFD_DAT_TYPE        = 1<<11,
+                                CFD_KEY_TYPE        = 1<<12,
+                                CFD_GMSH_TYPE       = 1<<13,
+                                CFD_SRF_TYPE_DEPRECATED        = 1<<14,
+                                CFD_TKEY_TYPE       = 1<<15,
+                                PROJ_AREA_CSV_TYPE  = 1<<16,
+                                WAVE_DRAG_TXT_TYPE  = 1<<17,
+                                VSPAERO_PANEL_TRI_TYPE = 1<<18,
+                                DRAG_BUILD_CSV_TYPE = 1<<19,
+                                CFD_FACET_TYPE      = 1<<20,
+                                CFD_CURV_TYPE_DEPRECATED       = 1<<21,
+                                CFD_PLOT3D_TYPE_DEPRECATED     = 1<<22,
+                                CFD_VSPGEOM_TYPE    = 1<<23,
+                                VSPAERO_VSPGEOM_TYPE = 1<<24,
                             };
 
 enum DELIM_TYPE { DELIM_COMMA,
@@ -237,7 +234,8 @@ enum ERROR_CODE {   VSP_OK,
                     VSP_INVALID_INPUT_VAL,
                     VSP_INVALID_CF_EQN,
                     VSP_INVALID_DRIVERS,
-                    VSP_ADV_LINK_BUILD_FAIL
+                    VSP_ADV_LINK_BUILD_FAIL,
+                    VSP_DEPRECATED
                 };
 
 enum EXCRES_TYPE { EXCRESCENCE_COUNT = 0,
@@ -273,6 +271,20 @@ enum EXPORT_TYPE {  EXPORT_FELISA,
                     EXPORT_IGES_STRUCTURE,
                     EXPORT_STEP_STRUCTURE
                  };
+
+enum FEA_BC_TYPE { FEA_BC_STRUCTURE,
+                   FEA_BC_PART,
+                   FEA_BC_SUBSURF,
+                   FEA_NUM_BC_TYPES
+                 };
+
+enum FEA_BC_MODE { FEA_BCM_USER,
+                   FEA_BCM_ALL,
+                   FEA_BCM_PIN,
+                   FEA_BCM_SYMM,
+                   FEA_BCM_ASYMM,
+                   FEA_NUM_BCM_MODES
+                  };
 
 enum FEA_CROSS_SECT_TYPE { FEA_XSEC_GENERAL = 0,
                            FEA_XSEC_CIRC,
@@ -641,14 +653,14 @@ enum VSPAERO_PRECONDITION { PRECON_MATRIX = 0,
                             PRECON_SSOR,
                           };
 
-enum VSPAERO_STABILITY_TYPE { STABILITY_OFF,
-                              STABILITY_DEFAULT,
-                              STABILITY_P_ANALYSIS,
-                              STABILITY_Q_ANALYSIS,
-                              STABILITY_R_ANALYSIS,
-                              STABILITY_UNSTEADY, // TODO: Implement with later VSPAERO version
-                              STABILITY_HEAVE, // TODO: Implement with later VSPAERO version
-                              STABILITY_IMPULSE // TODO: Implement with later VSPAERO version
+// Values need to match VSPAERO StabControlRun_
+enum VSPAERO_STABILITY_TYPE { STABILITY_OFF = 0,
+                              STABILITY_DEFAULT = 1,
+                              STABILITY_P_ANALYSIS = 2,
+                              STABILITY_Q_ANALYSIS = 3,
+                              STABILITY_R_ANALYSIS = 4,
+                              STABILITY_PITCH = 5,
+                              STABILITY_NUM_TYPES = 6
                             };
 
 enum VSPAERO_CLMAX_TYPE { CLMAX_OFF,

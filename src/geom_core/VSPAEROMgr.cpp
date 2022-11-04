@@ -18,6 +18,7 @@
 #include "WingGeom.h"
 #include "PropGeom.h"
 #include "FileUtil.h"
+#include "SubSurfaceMgr.h"
 
 //==== Constructor ====//
 VspAeroControlSurf::VspAeroControlSurf()
@@ -109,10 +110,6 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     m_NumWakeNodes.SetPowShift( 2, 0 ); // Must come before Init
     m_NumWakeNodes.Init( "RootWakeNodes", groupname, this, 64, 0, 10e12 );
     m_NumWakeNodes.SetDescript( "Number of Wake Nodes (f(n^2))" );
-
-    m_BatchModeFlag.Init( "BatchModeFlag", groupname, this, true, false, true );
-    m_BatchModeFlag.SetDescript( "Flag to calculate in batch mode" );
-    m_BatchModeFlag = true;
 
     // This sets all the filename members to the appropriate value (for example: empty strings if there is no vehicle)
     UpdateFilenames();
@@ -217,7 +214,7 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     m_RotateBladesFlag.Init( "RotateBladesFlag", groupname, this, false, false, true );
     m_RotateBladesFlag.SetDescript( "Flag for VSPAERO to Analyze Unsteady Rotating Propellers (Propeller tab)" );
 
-    m_StabilityType.Init( "UnsteadyType", groupname, this, vsp::STABILITY_OFF, vsp::STABILITY_OFF, vsp::STABILITY_IMPULSE );
+    m_StabilityType.Init( "UnsteadyType", groupname, this, vsp::STABILITY_OFF, vsp::STABILITY_OFF, vsp::STABILITY_NUM_TYPES - 1 );
     m_StabilityType.SetDescript( "Unsteady Calculation Type" );
 
     // Unsteady
@@ -261,12 +258,32 @@ VSPAEROMgrSingleton::VSPAEROMgrSingleton() : ParmContainer()
     m_CurrentUnsteadyGroupIndex = 0;
 
     m_Verbose = false;
-    m_iCase = 0;
 
     CpSlice* slice = AddCpSlice();
     slice->SetName( "Y = 0" );
     slice->m_CutType.Set( vsp::Y_DIR );
     slice->m_CutPosition.Set( 0.0 );
+}
+
+VSPAEROMgrSingleton::~VSPAEROMgrSingleton()
+{
+    for ( int i = 0; i < m_CpSliceVec.size(); i++ )
+    {
+        delete m_CpSliceVec[i];
+    }
+    m_CpSliceVec.clear();
+
+    for ( int i = 0; i < m_ControlSurfaceGroupVec.size(); i++ )
+    {
+        delete m_ControlSurfaceGroupVec[i];
+    }
+    m_ControlSurfaceGroupVec.clear();
+
+    for ( int i = 0; i < m_UnsteadyGroupVec.size(); i++ )
+    {
+        delete m_UnsteadyGroupVec[i];
+    }
+    m_UnsteadyGroupVec.clear();
 }
 
 void VSPAEROMgrSingleton::ParmChanged( Parm* parm_ptr, int type )
@@ -338,7 +355,6 @@ void VSPAEROMgrSingleton::Renew()
     m_BetaStart.Set( 0.0 ); m_BetaEnd.Set( 0.0 ); m_BetaNpts.Set( 1 );
     m_MachStart.Set( 0.0 ); m_MachEnd.Set( 0.0 ); m_MachNpts.Set( 1 );
 
-    m_BatchModeFlag.Set( true );
     m_Precondition.Set( vsp::PRECON_MATRIX );
     m_KTCorrection.Set( false );
     m_Symmetry.Set( false );
@@ -431,6 +447,9 @@ xmlNodePtr VSPAEROMgrSingleton::DecodeXml( xmlNodePtr & node )
             }
         }
 
+        // One slice added automatically -- remove before adding more.  This prevents
+        // adding more Y=0 slices every time a file is load/saved.
+        ClearCpSliceVec();
         // Decode CpSlices using Internal Decode Method
         int num_slice = XmlUtil::FindInt( VSPAEROsetnode, "CpSliceCount", 0 );
         for ( size_t i = 0; i < num_slice; ++i )
@@ -656,6 +675,10 @@ void VSPAEROMgrSingleton::UpdateFilenames()    //A.K.A. SetupDegenFile()
             {
                 m_StabFile = m_ModelNameBase + string( ".rstab" );
             }
+            else if ( m_StabilityType() == vsp::STABILITY_PITCH )
+            {
+                m_StabFile = m_ModelNameBase + string( ".aerocenter.stab" );
+            }
             else
             {
                 m_StabFile = m_ModelNameBase + string( ".stab" );
@@ -722,6 +745,10 @@ void VSPAEROMgrSingleton::UpdateFilenames()    //A.K.A. SetupDegenFile()
             else if ( m_StabilityType() == vsp::STABILITY_R_ANALYSIS )
             {
                 m_StabFile = m_ModelNameBase + string( ".rstab" );
+            }
+            else if ( m_StabilityType() == vsp::STABILITY_PITCH )
+            {
+                m_StabFile = m_ModelNameBase + string( ".aerocenter.stab" );
             }
             else
             {
@@ -1352,20 +1379,6 @@ string VSPAEROMgrSingleton::CreateSetupFile()
     vector<double> recrefVec;
     GetSweepVectors( alphaVec, betaVec, machVec, recrefVec );
 
-    if ( !m_BatchModeFlag.Get() )
-    {
-        // Identify the current VSPAERO flow condition case
-        double recref = recrefVec[(int)( ( m_iCase ) % m_ReCrefNpts.Get() )];
-        double mach = machVec[(int)( ( (int)floor( ( m_iCase ) / m_ReCrefNpts.Get() ) ) % m_MachNpts.Get() )];
-        double beta = betaVec[(int)( ( (int)floor( ( m_iCase ) / ( m_ReCrefNpts.Get() * m_MachNpts.Get() ) ) ) % m_BetaNpts.Get() )];
-        double alpha = alphaVec[(int)floor( ( m_iCase ) / ( m_ReCrefNpts.Get() * m_MachNpts.Get() * m_BetaNpts.Get() ) )];
-
-        machVec = { mach };
-        alphaVec = { alpha };
-        betaVec = { beta };
-        recrefVec = { recref };
-    }
-
     unsigned int i;
     // Mach vector
     fprintf( case_file, "Mach = " );
@@ -1884,300 +1897,7 @@ string VSPAEROMgrSingleton::ComputeSolver( FILE * logFile )
         MessageMgr::getInstance().SendAll( errMsgData );
     }
 
-    if ( m_BatchModeFlag.Get() )
-    {
-        return ComputeSolverBatch( logFile );
-    }
-    else
-    {
-        return ComputeSolverSingle( logFile );
-    }
-
-    return string();
-}
-
-/* ComputeSolverSingle(FILE * logFile)
-*/
-string VSPAEROMgrSingleton::ComputeSolverSingle( FILE * logFile )
-{
-    std::vector <string> res_id_vector;
-
-    Vehicle *veh = VehicleMgr.GetVehicle();
-
-    if ( veh )
-    {
-
-        string adbFileName = m_AdbFile;
-        string historyFileName = m_HistoryFile;
-        string polarFileName = m_PolarFile;
-        string loadFileName = m_LoadFile;
-        string stabFileName = m_StabFile;
-        string modelNameBase = m_ModelNameBase;
-        vector < string > group_res_vec = m_GroupResFiles;
-        vector < string > rotor_res_vec = m_RotorResFiles;
-        vector < string > unsteady_group_name_vec = m_UnsteadyGroupResNames;
-
-        bool unsteady_flag = m_RotateBladesFlag.Get();
-        vsp::VSPAERO_ANALYSIS_METHOD analysisMethod = ( vsp::VSPAERO_ANALYSIS_METHOD )m_AnalysisMethod.Get();
-        vsp::VSPAERO_STABILITY_TYPE stabilityType = ( vsp::VSPAERO_STABILITY_TYPE )m_StabilityType.Get();
-        bool noise_flag = m_NoiseCalcFlag.Get();
-        int noise_type = m_NoiseCalcType.Get();
-        int noise_unit = m_NoiseUnits.Get();
-        
-        double recref = m_ReCrefStart.Get();
-
-        // Save analysis type for Cp Slicer
-        m_CpSliceAnalysisType = analysisMethod;
-
-        int ncpu = m_NCPU.Get();
-        m_iCase = 0;
-
-        //====== Modify/Update the groups file for unsteady analysis ======//
-        if ( m_RotateBladesFlag() )
-        {
-            CreateGroupsFile();
-        }
-
-        //====== Loop over flight conditions and solve ======//
-        int alphaNpts = m_AlphaNpts.Get();
-        int betaNpts = m_BetaNpts.Get();
-        int machNpts = m_MachNpts.Get();
-        int recrefNpts = m_ReCrefNpts.Get();
-
-        for ( int iAlpha = 0; iAlpha < alphaNpts; iAlpha++ )
-        {
-            for ( int iBeta = 0; iBeta < betaNpts; iBeta++ )
-            {
-                for ( int iMach = 0; iMach < machNpts; iMach++ )
-                {
-                    for ( int iReCref = 0; iReCref < recrefNpts; iReCref++ )
-                    {
-                        //====== Modify/Update the setup file ======//
-                        CreateSetupFile();
-
-                        //====== Clear VSPAERO output files ======//
-                        if ( FileExist( adbFileName ) )
-                        {
-                            remove( adbFileName.c_str() );
-                        }
-                        if ( FileExist( historyFileName ) )
-                        {
-                            remove( historyFileName.c_str() );
-                        }
-                        if ( FileExist( polarFileName ) )
-                        {
-                            remove( polarFileName.c_str() );
-                        }
-                        if ( FileExist( loadFileName ) )
-                        {
-                            remove( loadFileName.c_str() );
-                        }
-                        if ( FileExist( stabFileName ) )
-                        {
-                            remove( stabFileName.c_str() );
-                        }
-
-                        for ( size_t j = 0; j < group_res_vec.size(); j++ )
-                        {
-                            if ( FileExist( group_res_vec[j] ) )
-                            {
-                                remove( group_res_vec[j].c_str() );
-                            }
-                        }
-
-                        for ( size_t j = 0; j < rotor_res_vec.size(); j++ )
-                        {
-                            if ( FileExist( rotor_res_vec[j] ) )
-                            {
-                                remove( rotor_res_vec[j].c_str() );
-                            }
-                        }
-
-                        //====== Send command to be executed by the system at the command prompt ======//
-                        vector<string> args;
-
-                        // Set number of openmp threads
-                        args.push_back( "-omp" );
-                        args.push_back( StringUtil::int_to_string( m_NCPU.Get(), "%d" ) );
-                        // Set stability run arguments
-                        if ( stabilityType != vsp::STABILITY_OFF )
-                        {
-                            switch ( stabilityType )
-                            {
-                            case vsp::STABILITY_DEFAULT:
-                                args.push_back( "-stab" );
-                                break;
-
-                            case vsp::STABILITY_P_ANALYSIS:
-                                args.push_back( "-pstab" );
-                                break;
-
-                            case vsp::STABILITY_Q_ANALYSIS:
-                                args.push_back( "-qstab" );
-                                break;
-
-                            case vsp::STABILITY_R_ANALYSIS:
-                                args.push_back( "-rstab" );
-                                break;
-
-                                // === To Be Implemented ===
-                                //case vsp::STABILITY_HEAVE:
-                                //    AnalysisType = "HEAVE";
-                                //    break;
-
-                                //case vsp::STABILITY_IMPULSE:
-                                //    AnalysisType = "IMPULSE";
-                                //    break;
-
-                                //case vsp::STABILITY_UNSTEADY:
-                                //    args.push_back( "-unsteady" );
-                                //    break;
-                            }
-                        }
-
-                        if ( m_FromSteadyState() )
-                        {
-                            args.push_back( "-fromsteadystate" );
-                        }
-
-                        if ( m_GroundEffectToggle() )
-                        {
-                            args.push_back( "-groundheight" );
-                            args.push_back( StringUtil::double_to_string( m_GroundEffect(), "%f" ) );
-                        }
-
-                        if ( m_Write2DFEMFlag() )
-                        {
-                            args.push_back( "-write2dfem" );
-                        }
-
-                        if ( m_Precondition() == vsp::PRECON_JACOBI )
-                        {
-                            args.push_back( "-jacobi" );
-                        }
-                        else if ( m_Precondition() == vsp::PRECON_SSOR )
-                        {
-                            args.push_back( "-ssor" );
-                        }
-
-                        if ( m_KTCorrection() )
-                        {
-                            args.push_back( "-dokt" );
-                        }
-
-                        if ( m_RotateBladesFlag() )
-                        {
-                            args.push_back( "-unsteady" );
-
-                            if ( m_HoverRampFlag() )
-                            {
-                                args.push_back( "-hoverramp" );
-                                args.push_back( StringUtil::double_to_string( m_HoverRamp(), "%f" ) );
-                            }
-                        }
-
-                        // Add model file name
-                        args.push_back( modelNameBase );
-
-                        //Print out execute command
-                        string cmdStr = m_SolverProcess.PrettyCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
-                        if ( logFile )
-                        {
-                            fprintf( logFile, "%s", cmdStr.c_str() );
-                        }
-                        else
-                        {
-                            MessageData data;
-                            data.m_String = "VSPAEROSolverMessage";
-                            data.m_StringVec.push_back( cmdStr );
-                            MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
-                        }
-
-                        // Execute VSPAero
-                        m_SolverProcess.ForkCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
-
-                        // ==== MonitorSolverProcess ==== //
-                        MonitorSolver( logFile );
-
-                        // Check if the kill solver flag has been raised, if so clean up and return
-                        //  note: we could have exited the IsRunning loop if the process was killed
-                        if ( m_SolverProcessKill )
-                        {
-                            m_SolverProcessKill = false;    //reset kill flag
-
-                            return string();    //return empty result ID vector
-                        }
-
-                        //====== Read in all of the results ======//
-                        // read the files if there is new data that has not successfully been read in yet
-                        ReadHistoryFile( historyFileName, res_id_vector, analysisMethod, recref );
-
-                        if ( stabilityType == vsp::STABILITY_OFF )
-                        {
-                            ReadPolarFile( polarFileName, res_id_vector, recref ); // Must be after *.history file is read to generate results for multiple ReCref values
-                        }
-
-                        ReadLoadFile( loadFileName, res_id_vector, analysisMethod );
-
-                        if ( stabilityType != vsp::STABILITY_OFF )
-                        {
-                            ReadStabFile( stabFileName, res_id_vector, analysisMethod, stabilityType );      //*.STAB stability coeff file
-                        }
-
-                        // CpSlice Latest *.adb File if slices are defined
-                        if ( m_CpSliceFlag() && m_CpSliceVec.size() > 0 )
-                        {
-                            ComputeCpSlices();
-                        }
-
-                        if ( unsteady_flag )
-                        {
-                            for ( size_t j = 0; j < group_res_vec.size(); j++ )
-                            {
-                                ReadGroupResFile( group_res_vec[j], res_id_vector, unsteady_group_name_vec[j] );
-                            }
-
-                            int offset = group_res_vec.size() - rotor_res_vec.size();
-
-                            for ( size_t j = 0; j < rotor_res_vec.size(); j++ )
-                            {
-                                ReadGroupResFile( rotor_res_vec[j], res_id_vector, unsteady_group_name_vec[j + offset] );
-                            }
-
-                            if ( noise_flag )
-                            {
-                                ExecuteNoiseAnalysis( logFile, noise_type, noise_unit );
-                            }
-                        }
-
-                        // Send the message to update the screens
-                        MessageData data;
-                        data.m_String = "UpdateAllScreens";
-                        MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
-
-                        m_iCase++; // Increment VSPAERO case index
-
-                    } //ReCref sweep loop
-
-                }    //Mach sweep loop
-
-            }    //beta sweep loop
-
-        }    //alpha sweep loop
-
-    }
-
-    // Create "wrapper" result to contain a vector of result IDs (this maintains compatibility to return a single result after computation)
-    Results *res = ResultsMgr.CreateResults( "VSPAERO_Wrapper" );
-    if( !res )
-    {
-        return string();
-    }
-    else
-    {
-        res->Add( NameValData( "ResultsVec", res_id_vector ) );
-        return res->GetID();
-    }
+    return ComputeSolverBatch( logFile );
 }
 
 /* ComputeSolverBatch(FILE * logFile)
@@ -2306,6 +2026,10 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
                 //case vsp::STABILITY_UNSTEADY:
                 //    args.push_back( "-unsteady" );
                 //    break;
+
+                case vsp::STABILITY_PITCH:
+                    args.push_back( "-acstab" );
+                    break;
             }
         }
 
@@ -2371,7 +2095,7 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
         m_SolverProcess.ForkCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
 
         // ==== MonitorSolverProcess ==== //
-        MonitorSolver( logFile );
+        MonitorProcess( logFile, &m_SolverProcess, "VSPAEROSolverMessage" );
 
         // Check if the kill solver flag has been raised, if so clean up and return
         //  note: we could have exited the IsRunning loop if the process was killed
@@ -2441,52 +2165,6 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
         res->Add( NameValData( "ResultsVec", res_id_vector ) );
         return res->GetID();
     }
-}
-
-void VSPAEROMgrSingleton::MonitorSolver( FILE * logFile )
-{
-    // ==== MonitorSolverProcess ==== //
-    int bufsize = 1000;
-    char *buf;
-    buf = ( char* ) malloc( sizeof( char ) * ( bufsize + 1 ) );
-    BUF_READ_TYPE nread = 1;
-    bool runflag = m_SolverProcess.IsRunning();
-    while ( runflag || nread > 0 )
-    {
-        m_SolverProcess.ReadStdoutPipe( buf, bufsize, &nread );
-        if( nread > 0 )
-        {
-            if ( buf )
-            {
-                buf[nread] = 0;
-                StringUtil::change_from_to( buf, '\r', '\n' );
-                if( logFile )
-                {
-                    fprintf( logFile, "%s", buf );
-                }
-                else
-                {
-                    MessageData data;
-                    data.m_String = "VSPAEROSolverMessage";
-                    data.m_StringVec.push_back( string( buf ) );
-                    MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
-                }
-            }
-        }
-
-        SleepForMilliseconds( 100 );
-        runflag = m_SolverProcess.IsRunning();
-    }
-
-#ifdef WIN32
-    CloseHandle( m_SolverProcess.m_StdoutPipe[0] );
-    m_SolverProcess.m_StdoutPipe[0] = NULL;
-#else
-    close( m_SolverProcess.m_StdoutPipe[0] );
-    m_SolverProcess.m_StdoutPipe[0] = -1;
-#endif
-
-    free( buf );
 }
 
 void VSPAEROMgrSingleton::AddResultHeader( string res_id, double mach, double alpha, double beta, vsp::VSPAERO_ANALYSIS_METHOD analysisMethod )
@@ -3231,7 +2909,7 @@ void VSPAEROMgrSingleton::ReadStabFile( string filename, vector <string> &res_id
     std::vector<string> data_string_array;
 
     // Read in all of the data into the results manager
-    char seps[] = " :,\t\n";
+    char seps[] = " :,\t\n()";
     while ( !feof( fp ) )
     {
         data_string_array = ReadDelimLine( fp, seps ); //this is also done in some of the embedded loops below
@@ -3246,6 +2924,7 @@ void VSPAEROMgrSingleton::ReadStabFile( string filename, vector <string> &res_id
             {
                 // Failed to read the case header
                 fprintf( stderr, "ERROR %d: Could not read case header in VSPAERO file: %s\n\tFile: %s \tLine:%d\n", vsp::VSP_FILE_READ_FAILURE, m_StabFile.c_str(), __FILE__, __LINE__ );
+                std::fclose ( fp );
                 return;
             }
         }
@@ -3280,6 +2959,7 @@ void VSPAEROMgrSingleton::ReadStabFile( string filename, vector <string> &res_id
                 if ( stabilityType != vsp::STABILITY_DEFAULT )
                 {
                     // Support file format for P, Q, or R uinsteady analysis types
+                    // Also works for pitch stability run.
                     string name = data_string_array[0];
 
                     for ( unsigned int i_field = 1; i_field < data_string_array.size(); i_field++ )
@@ -4011,7 +3691,7 @@ string VSPAEROMgrSingleton::ExecuteCpSlicer( FILE * logFile )
     m_SlicerThread.ForkCmd( veh->GetVSPAEROPath(), veh->GetLOADSCmd(), args );
 
     // ==== MonitorSolverProcess ==== //
-    MonitorSolver( logFile );
+    MonitorProcess( logFile, &m_SlicerThread, "VSPAEROSolverMessage" );
 
     // Write out new results
     Results* res = ResultsMgr.CreateResults( "CpSlice_Wrapper" );
@@ -4067,7 +3747,8 @@ void VSPAEROMgrSingleton::ExecuteQuadTreeSlicer( FILE * logFile )
     // Add model file name
     args.push_back( "-interrogate" );
 
-    if ( m_RotateBladesFlag() || m_StabilityType.Get() > vsp::STABILITY_DEFAULT )
+    if ( m_RotateBladesFlag() ||
+       ( m_StabilityType.Get() > vsp::STABILITY_DEFAULT && m_StabilityType.Get() < vsp::STABILITY_PITCH ) )
     {
         args.push_back( "-unsteady" );
     }
@@ -4078,7 +3759,7 @@ void VSPAEROMgrSingleton::ExecuteQuadTreeSlicer( FILE * logFile )
     m_SolverProcess.ForkCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
 
     // ==== MonitorSolverProcess ==== //
-    MonitorSolver( logFile );
+    MonitorProcess( logFile, &m_SolverProcess, "VSPAEROSolverMessage" );
 }
 
 void VSPAEROMgrSingleton::ClearCpSliceResults()
@@ -4336,18 +4017,22 @@ bool VSPAEROMgrSingleton::ValidUnsteadyGroupInd( int index )
     }
 }
 
-void VSPAEROMgrSingleton::DeleteUnsteadyGroup( int index )
+void VSPAEROMgrSingleton::DeleteUnsteadyGroup( vector <int> ind_vec )
 {
-    if ( ValidUnsteadyGroupInd( index ) )
-    {
-        delete m_UnsteadyGroupVec[index];
-        m_UnsteadyGroupVec.erase( m_UnsteadyGroupVec.begin() + index );
+    vector < UnsteadyGroup* > tempvec;
 
-        if ( ValidUnsteadyGroupInd( index - 1 ) )
+    for ( int i = 0; i < m_UnsteadyGroupVec.size(); i++ )
+    {
+        if ( vector_contains_val( ind_vec, i ) )
         {
-            m_CurrentUnsteadyGroupIndex -= 1;
+            delete m_UnsteadyGroupVec[i];
+        }
+        else
+        {
+            tempvec.push_back( m_UnsteadyGroupVec[i] );
         }
     }
+    m_UnsteadyGroupVec = tempvec;
 }
 
 UnsteadyGroup* VSPAEROMgrSingleton::AddUnsteadyGroup()
@@ -4462,8 +4147,9 @@ map < pair < string, int >, vector < int > > VSPAEROMgrSingleton::GetVSPAEROGeom
             continue;
         }
 
-        if ( geom->GetType().m_Type == BLANK_GEOM_TYPE || geom->GetType().m_Type == HINGE_GEOM_TYPE ||
-             geom->GetType().m_Type == PT_CLOUD_GEOM_TYPE ) // TODO: Check if point cloud works in panel method?
+        if ( geom->GetType().m_Type == BLANK_GEOM_TYPE ||
+             geom->GetType().m_Type == HINGE_GEOM_TYPE ||
+             geom->GetType().m_Type == PT_CLOUD_GEOM_TYPE ) // Skip these types.
         {
             continue;
         }
@@ -4753,7 +4439,7 @@ void VSPAEROMgrSingleton::UpdateUnsteadyGroups()
             }
         }
 
-        if ( m_UnsteadyGroupVec[i]->m_GeomPropertyType() != m_UnsteadyGroupVec[i]->GEOM_ROTOR )
+        if ( m_UnsteadyGroupVec[i]->m_GeomPropertyType() != UnsteadyGroup::GEOM_ROTOR )
         {
             for ( size_t j = 0; j < ungrouped_comps.size(); j++ )
             {
@@ -4773,22 +4459,8 @@ void VSPAEROMgrSingleton::UpdateUnsteadyGroups()
         m_UnsteadyGroupVec[i]->Update();
     }
 
-    // Delete empty groups
-    while ( del_vec.size() > 0 )
-    {
-        int del_ind = del_vec.back();
-        DeleteUnsteadyGroup( del_ind );
 
-        for ( size_t i = 1; i < del_vec.size(); i++ )
-        {
-            if ( del_ind < del_vec[i] )
-            {
-                del_vec[i] -= 1;
-            }
-        }
-
-        del_vec.pop_back();
-    }
+    DeleteUnsteadyGroup( del_vec );
 
     // Create a fixed component group with all ungrouped components
     if ( ungrouped_comps.size() > 0 )
@@ -4818,6 +4490,27 @@ void VSPAEROMgrSingleton::UpdateUnsteadyGroups()
         group->m_GeomPropertyType.Set( group->GEOM_ROTOR );
         group->AddComp( ungrouped_props[i].first, ungrouped_props[i].second );
         group->Update();
+    }
+
+    for ( size_t i = 0; i < m_UnsteadyGroupVec.size(); ++i )
+    {
+        vector < pair < string, int > > cspv = m_UnsteadyGroupVec[i]->GetCompSurfPairVec();
+        // A vector of <geomid, s> pairs -- where s is the symmetry copy number.
+        // We want to find the unique Geom's from this.
+
+        vector < string > gidv( cspv.size() );
+        for ( size_t j = 0; j < cspv.size(); j++ )
+        {
+            // Find index (position in vector) corresponding to GeomID.
+            gidv[j] = cspv[j].first;
+        }
+
+        // Make vector unique.
+        std::vector<string>::iterator it;
+        it = std::unique( gidv.begin(), gidv.end() );
+        gidv.resize( std::distance( gidv.begin(), it ) );
+
+        m_UnsteadyGroupVec[i]->SetGeomIDsInGroup( gidv );
     }
 
     // Make sure the fixed compomnet group is always first
@@ -4952,7 +4645,7 @@ int VSPAEROMgrSingleton::CreateGroupsFile()
 
     for ( size_t i = 0; i < numgroups; i++ )
     {
-        m_UnsteadyGroupVec[i]->WriteGroup( group_file );
+        m_UnsteadyGroupVec[ i ]->WriteGroup( group_file, m_AnalysisMethod(), m_AlternateInputFormatFlag() );
     }
 
     //Finish up by closing the file and making sure that it appears in the file system
@@ -5041,7 +4734,7 @@ string VSPAEROMgrSingleton::ExecuteNoiseAnalysis( FILE* logFile, int noise_type,
     m_SolverProcess.ForkCmd( veh->GetVSPAEROPath(), veh->GetVSPAEROCmd(), args );
 
     // ==== MonitorSolverProcess ==== //
-    MonitorSolver( logFile );
+    MonitorProcess( logFile, &m_SolverProcess, "VSPAEROSolverMessage" );
 
     // Check if the kill solver flag has been raised, if so clean up and return
     //  note: we could have exited the IsRunning loop if the process was killed
@@ -6017,7 +5710,6 @@ UnsteadyGroup::UnsteadyGroup( void ) : ParmContainer()
     m_Iyz.Init( "Iyz", m_GroupName, this, 0, 0, 1e12 );
     m_Iyz.SetDescript( "Iyz of unsteady group" );
 
-    m_SelectedCompIndex = -1;
     m_ReverseFlag = false;
 }
 
@@ -6164,7 +5856,7 @@ void UnsteadyGroup::Update()
     m_Rz.Set( r_vec.z() );
 }
 
-int UnsteadyGroup::WriteGroup( FILE* group_file )
+int UnsteadyGroup::WriteGroup( FILE *group_file, int method, bool alternatefile )
 {
     if ( !group_file )
     {
@@ -6179,11 +5871,30 @@ int UnsteadyGroup::WriteGroup( FILE* group_file )
     name.erase( remove_if( name.begin(), name.end(), ::isspace ), name.end() );
 
     fprintf( group_file, "GroupName = %s\n", name.c_str() );
-    fprintf( group_file, "NumberOfComponents = %d\n", m_ComponentVSPAEROIndexVec.size() );
 
-    for ( size_t i = 0; i < m_ComponentVSPAEROIndexVec.size(); i++ )
+    bool oldway = true;
+
+    if ( method == vsp::PANEL && !alternatefile )
     {
-        fprintf( group_file, "%d\n", m_ComponentVSPAEROIndexVec[i] );
+        oldway = false;
+    }
+
+    if ( oldway )
+    {
+        fprintf( group_file, "NumberOfComponents = %d\n", m_ComponentVSPAEROIndexVec.size() );
+        for ( size_t i = 0; i < m_ComponentVSPAEROIndexVec.size(); i++ )
+        {
+            fprintf( group_file, "%d\n", m_ComponentVSPAEROIndexVec[i] );
+        }
+    }
+    else
+    {
+        fprintf( group_file, "NumberOfComponents = %d\n", m_GeomIDsInGroup.size() );
+        for ( size_t i = 0; i < m_GeomIDsInGroup.size(); i++ )
+        {
+            int gnum = SubSurfaceMgr.FindGNum( m_GeomIDsInGroup[i] );
+            fprintf( group_file, "%d\n", gnum + 1 );
+        }
     }
 
     bool geom_fixed = false;
@@ -6227,18 +5938,4 @@ int UnsteadyGroup::WriteGroup( FILE* group_file )
     fprintf( group_file, "Iyz = %lf\n", m_Iyz() );
 
     return vsp::VSP_OK;
-}
-
-void UnsteadyGroup::SetSelectedCompIndex( int index )
-{
-    index = Clamp<int>( index, 0, m_ComponentSurfPairVec.size() - 1 );
-    m_SelectedCompIndex = index;
-}
-
-void UnsteadyGroup::RemoveComp( int index )
-{
-    if ( index >= 0 && index < m_ComponentSurfPairVec.size() )
-    {
-        m_ComponentSurfPairVec.erase( m_ComponentSurfPairVec.begin() + index );
-    }
 }

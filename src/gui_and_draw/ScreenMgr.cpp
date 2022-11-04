@@ -8,6 +8,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "AdvLinkScreen.h"
+#include "AeroStructScreen.h"
 #include "AirfoilExportScreen.h"
 #include "BEMOptionsScreen.h"
 #include "CfdMeshScreen.h"
@@ -45,6 +46,7 @@
 #include "STEPStructureOptionsScreen.h"
 #include "STLOptionsScreen.h"
 #include "StructScreen.h"
+#include "StructAssemblyScreen.h"
 #include "SurfaceIntersectionScreen.h"
 #include "SVGOptionsScreen.h"
 #include "CustomGeomExportScreen.h"
@@ -138,6 +140,15 @@ void ScreenMgr::MessageCallback( const MessageBase* from, const MessageData& dat
                 scr->AddOutputText( scr->GetDisplay( VSPAERO_SOLVER ), data.m_StringVec[i] );
             }
         }
+        // Also dump to aero-structure console.
+        AeroStructScreen* asscr = ( AeroStructScreen* ) m_ScreenVec[VSP_AERO_STRUCT_SCREEN];
+        if ( asscr )
+        {
+            for ( int i = 0; i < (int)data.m_StringVec.size(); i++ )
+            {
+                asscr->AddOutputText( data.m_StringVec[i] );
+            }
+        }
     }
     else if ( data.m_String == string( "FEAMessage" ) )
     {
@@ -147,6 +158,35 @@ void ScreenMgr::MessageCallback( const MessageBase* from, const MessageData& dat
             for ( int i = 0; i < (int)data.m_StringVec.size(); i++ )
             {
                 scr->AddOutputText( data.m_StringVec[i] );
+            }
+        }
+        // Also dump to aero-structure console.
+        AeroStructScreen* asscr = ( AeroStructScreen* ) m_ScreenVec[VSP_AERO_STRUCT_SCREEN];
+        if ( asscr )
+        {
+            for ( int i = 0; i < (int)data.m_StringVec.size(); i++ )
+            {
+                asscr->AddOutputText( data.m_StringVec[i] );
+            }
+        }
+        // And to structures assembly console.
+        StructAssemblyScreen* assyscr = ( StructAssemblyScreen* ) m_ScreenVec[VSP_STRUCT_ASSEMBLY_SCREEN];
+        if ( assyscr )
+        {
+            for ( int i = 0; i < (int)data.m_StringVec.size(); i++ )
+            {
+                assyscr->AddOutputText( data.m_StringVec[i] );
+            }
+        }
+    }
+    else if ( data.m_String == string( "AeroStructMessage" ) )
+    {
+        AeroStructScreen* asscr = ( AeroStructScreen* ) m_ScreenVec[VSP_AERO_STRUCT_SCREEN];
+        if ( asscr )
+        {
+            for ( int i = 0; i < (int)data.m_StringVec.size(); i++ )
+            {
+                asscr->AddOutputText( data.m_StringVec[i] );
             }
         }
     }
@@ -196,6 +236,7 @@ void ScreenMgr::Init()
     //==== Build All Screens ====//
     m_ScreenVec.resize( VSP_NUM_SCREENS );
     m_ScreenVec[VSP_ADV_LINK_SCREEN] = new AdvLinkScreen( this );
+    m_ScreenVec[VSP_AERO_STRUCT_SCREEN] = new AeroStructScreen( this );
     m_ScreenVec[VSP_AIRFOIL_CURVES_EXPORT_SCREEN] = new BezierAirfoilExportScreen( this );
     m_ScreenVec[VSP_AIRFOIL_POINTS_EXPORT_SCREEN] = new SeligAirfoilExportScreen( this );
     m_ScreenVec[VSP_BACKGROUND_SCREEN] = new ManageBackgroundScreen( this );
@@ -238,6 +279,7 @@ void ScreenMgr::Init()
     m_ScreenVec[VSP_STEP_STRUCTURE_OPTIONS_SCREEN] = new STEPStructureOptionsScreen( this );
     m_ScreenVec[VSP_STL_OPTIONS_SCREEN] = new STLOptionsScreen( this );
     m_ScreenVec[VSP_STRUCT_SCREEN] = new StructScreen( this );
+    m_ScreenVec[VSP_STRUCT_ASSEMBLY_SCREEN] = new StructAssemblyScreen( this );
     m_ScreenVec[VSP_SURFACE_INTERSECTION_SCREEN] = new SurfaceIntersectionScreen( this );
     m_ScreenVec[VSP_SVG_OPTIONS_SCREEN] = new SVGOptionsScreen( this );
     m_ScreenVec[VSP_USER_PARM_SCREEN] = new UserParmScreen( this );

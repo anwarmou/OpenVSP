@@ -608,27 +608,25 @@ VSPAEROPlotScreen::~VSPAEROPlotScreen()
 
 void VSPAEROPlotScreen::SetDefaultView()
 {
-    string resultName = "VSPAERO_History";
-    Results* res = ResultsMgr.FindResults( resultName, 0 );
+    Results* res = ResultsMgr.FindResults( "VSPAERO_History", 0 );
     int analysis_type = -1;
     if ( res )
     {
         analysis_type = res->FindPtr( "AnalysisMethod" )->GetInt( 0 );
     }
 
-    resultName = "VSPAERO_Stab";
-    res = ResultsMgr.FindResults( resultName, 0 );
+    res = ResultsMgr.FindResults( "VSPAERO_Stab", 0 );
     int stab_type = -1;
     if ( res )
     {
         stab_type = res->FindPtr( "StabilityType" )->GetInt( 0 );
     }
 
-    resultName = "VSPAERO_Group";
-    int num_group = ResultsMgr.GetNumResults( resultName );
+    int num_group = ResultsMgr.GetNumResults( "VSPAERO_Group" );
 
     // TODO: Identify default view from results, not parms
-    if ( num_group > 0 || stab_type >= vsp::STABILITY_P_ANALYSIS )
+    if ( num_group > 0 ||
+       ( stab_type >= vsp::STABILITY_P_ANALYSIS && stab_type <= vsp::STABILITY_R_ANALYSIS ) )
     {
         m_UnsteadyTab->show();
 
@@ -651,8 +649,7 @@ void VSPAEROPlotScreen::SetDefaultView()
 
 bool VSPAEROPlotScreen::Update()
 {
-    string resultName = "VSPAERO_Stab";
-    Results* res = ResultsMgr.FindResults( resultName, 0 );
+    Results* res = ResultsMgr.FindResults( "VSPAERO_Stab", 0 );
     bool stabFlag = false;
     int stabType = -1;
     if ( res )
@@ -661,18 +658,18 @@ bool VSPAEROPlotScreen::Update()
         stabType = res->FindPtr( "StabilityType" )->GetInt( 0 );
     }
 
-    resultName = "VSPAERO_Group";
-    int num_group = ResultsMgr.GetNumResults( resultName );
+    int num_group = ResultsMgr.GetNumResults( "VSPAERO_Group" );
 
-    resultName = "VSPAERO_Rotor";
-    int num_rotor = ResultsMgr.GetNumResults( resultName );
+    int num_rotor = ResultsMgr.GetNumResults( "VSPAERO_Rotor" );
 
     if ( num_group > 0 || num_rotor > 0 )
     {
         stabFlag = true;
     }
 
-    if ( !stabFlag || ( stabFlag && stabType == vsp::STABILITY_DEFAULT ) )
+    if ( !stabFlag ||
+          stabFlag && stabType == vsp::STABILITY_DEFAULT ||
+          stabFlag && stabType == vsp::STABILITY_PITCH )
     {
         m_UnsteadyTab->deactivate();
         m_ConvergenceTab->activate();
@@ -722,8 +719,7 @@ bool VSPAEROPlotScreen::Update()
     // Update load distribution
     // Let's check to see what analysis method was used on the first result found
     // note that only VSPAEROMgr clear all VSPAERO_* results from the results manager each time it's run all analyses in the results 'should' have the same analysis method
-    resultName = "VSPAERO_Load";
-    res = ResultsMgr.FindResults( resultName, 0 );
+    res = ResultsMgr.FindResults( "VSPAERO_Load", 0 );
     if ( res )
     {
         m_LoadDistTab->activate();
@@ -761,8 +757,7 @@ bool VSPAEROPlotScreen::Update()
     RedrawSweepPlot();
     UpdateSweepAutoManualAxisLimits();
 
-    resultName = "CpSlice_Wrapper";
-    res = ResultsMgr.FindResults( resultName, 0 );
+    res = ResultsMgr.FindResults( "CpSlice_Wrapper", 0 );
     if ( res )
     {
         m_CpSliceTab->activate();

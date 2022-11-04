@@ -13,7 +13,7 @@
 
 #include "FeaStructure.h"
 
-class StructureMgrSingleton
+class StructureMgrSingleton : public ParmContainer
 {
 protected:
     StructureMgrSingleton();
@@ -38,6 +38,7 @@ public:
 
     //==== FeaStructure Management ====//
     static vector < FeaStructure* > GetAllFeaStructs();
+    void ResetAllExportFileNames();
     FeaStructure* GetFeaStruct( int total_struct_ind );
     FeaStructure* GetFeaStruct( const string & struct_id );
     string GetFeaStructParentID( const string & struct_id );
@@ -46,12 +47,11 @@ public:
     int GetTotFeaStructIndex( FeaStructure* fea_struct );
     int GetGeomFeaStructIndex( const string & struct_id );
     FeaPart* GetFeaPart( const string & feapart_id );
-    int GetFeaPartIndex( const string & feapart_id );
+    SubSurface* GetFeaSubSurf( const string & feasubsurf_id );
     int GetFeaSubSurfIndex( const string & ss_id );
     string GetFeaPartName( const string & id );
     int GetFeaPropertyIndex( const string & FeaPartID );
     int GetFeaMaterialIndex( const string & FeaPartID );
-    void ResetExportFileNames( const string & VSP3FileName );
     void ShowAllParts();
 
     void UpdateStructUnit( int new_unit );
@@ -96,13 +96,23 @@ public:
         return m_FeaMaterialVec.size();
     }
 
-    void SetCurrStructIndex( int ind )
+    FeaAssembly* GetFeaAssembly( const string & assyid );
+    void AddFeaAssembly( FeaAssembly* fea_assy )
     {
-        m_CurrStructIndex = ind;
+        m_FeaAssemblyVec.push_back( fea_assy );
     }
-    int GetCurrStructIndex()
+    FeaAssembly* AddFeaAssembly( );
+    void DeleteFeaAssembly( int index );
+    bool ValidFeaAssemblyInd( int index );
+    FeaAssembly* GetFeaAssembly( int index );
+
+    vector < FeaAssembly* > GetFeaAssemblyVec()
     {
-        return m_CurrStructIndex;
+        return m_FeaAssemblyVec;
+    }
+    int NumFeaAssembly()
+    {
+        return m_FeaAssemblyVec.size();
     }
 
     void SetCurrPartIndex( int ind )
@@ -112,6 +122,15 @@ public:
     int GetCurrPartIndex()
     {
         return m_CurrPartIndex;
+    }
+
+    void SetCurrAssemblyIndex( int ind )
+    {
+        m_CurrFeaAssemblyIndex = ind;
+    }
+    int GetCurrAssemblyIndex()
+    {
+        return m_CurrFeaAssemblyIndex;
     }
 
     void SetCurrMaterialIndex( int ind )
@@ -132,6 +151,15 @@ public:
         return m_CurrFeaPropertyIndex;
     }
 
+    void SetCurrBCIndex( int ind )
+    {
+        m_CurrFeaBCIndex = ind;
+    }
+    int GetCurrBCIndex()
+    {
+        return m_CurrFeaBCIndex;
+    }
+
     void SetFeaSliceOrientIndex( int ind )
     {
         m_FeaSliceOrientationIndex = ind;
@@ -141,7 +169,12 @@ public:
         return m_FeaSliceOrientationIndex;
     }
 
+    IntParm m_CurrStructIndex;
+
 protected:
+
+    vector < FeaAssembly* > m_FeaAssemblyVec;
+    int m_FeaAssemblyCount;
 
     vector < FeaProperty* > m_FeaPropertyVec;
     int m_FeaPropertyCount;
@@ -149,10 +182,11 @@ protected:
     vector < FeaMaterial* > m_FeaMaterialVec;
     int m_FeaMatCount;
 
-    int m_CurrStructIndex;
     int m_CurrPartIndex;
+    int m_CurrFeaAssemblyIndex;
     int m_CurrFeaMaterialIndex;
     int m_CurrFeaPropertyIndex;
+    int m_CurrFeaBCIndex;
     int m_FeaSliceOrientationIndex; // Identifies the default orientation for FeaSlices; 0: XY_PLANE, 1: YZ_PLANE, 2: XZ_PLANE
 };
 

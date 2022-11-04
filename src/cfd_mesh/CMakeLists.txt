@@ -23,6 +23,7 @@ BezierCurve.cpp
 CfdMeshMgr.cpp
 Face.cpp
 FeaElement.cpp
+FeaMesh.cpp
 FeaMeshMgr.cpp
 ICurve.cpp
 IntersectPatch.cpp
@@ -31,6 +32,7 @@ Mesh.cpp
 MeshAnalysis.cpp
 NURBS.cpp
 SCurve.cpp
+SimpleBC.cpp
 SimpleMeshSettings.cpp
 SimpleSubSurface.cpp
 Surf.cpp
@@ -41,6 +43,7 @@ BezierCurve.h
 CfdMeshMgr.h
 Face.h
 FeaElement.h
+FeaMesh.h
 FeaMeshMgr.h
 ICurve.h
 IntersectPatch.h
@@ -50,6 +53,7 @@ Mesh.h
 MeshAnalysis.h
 NURBS.h
 SCurve.h
+SimpleBC.h
 SimpleMeshSettings.h
 SimpleSubSurface.h
 Surf.h

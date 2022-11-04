@@ -17,10 +17,12 @@ StructureMgrSingleton::StructureMgrSingleton()
     InitFeaMaterials();
     InitFeaProperties();
 
+    m_FeaAssemblyCount = 0;
     m_FeaPropertyCount = 0;
     m_FeaMatCount = 0;
 
-    m_CurrStructIndex = -1;
+    m_CurrStructIndex.Init( "CurrStructIndex", "Struct", this, -1, -1, 1e12 ); // -1 for none selected.
+
     m_CurrPartIndex = -1;
     m_CurrFeaMaterialIndex = -1;
     m_CurrFeaPropertyIndex = -1;
@@ -37,6 +39,8 @@ xmlNodePtr StructureMgrSingleton::EncodeXml( xmlNodePtr & node )
 {
     xmlNodePtr structmgr_node = xmlNewChild( node, NULL, BAD_CAST"StructureMgr", NULL );
 
+    ParmContainer::EncodeXml( structmgr_node );
+
     for ( int i = 0; i < (int)m_FeaPropertyVec.size(); i++ )
     {
         m_FeaPropertyVec[i]->EncodeXml( structmgr_node );
@@ -50,7 +54,10 @@ xmlNodePtr StructureMgrSingleton::EncodeXml( xmlNodePtr & node )
         }
     }
 
-    XmlUtil::AddIntNode( structmgr_node, "CurrStructIndex", m_CurrStructIndex );
+    for ( int i = 0; i < (int)m_FeaAssemblyVec.size(); i++ )
+    {
+        m_FeaAssemblyVec[i]->EncodeXml( structmgr_node );
+    }
 
     return structmgr_node;
 }
@@ -61,7 +68,7 @@ xmlNodePtr StructureMgrSingleton::DecodeXml( xmlNodePtr & node )
 
     if ( structmgr_node )
     {
-        m_CurrStructIndex = XmlUtil::FindInt( structmgr_node, "CurrStructIndex", 0 );
+        ParmContainer::DecodeXml( structmgr_node );
 
         int num_prop = XmlUtil::GetNumNames( structmgr_node, "FeaPropertyInfo" );
 
@@ -101,6 +108,27 @@ xmlNodePtr StructureMgrSingleton::DecodeXml( xmlNodePtr & node )
                 }
             }
         }
+
+        int num_assy = XmlUtil::GetNumNames( structmgr_node, "FeaAssembly" );
+
+        for ( unsigned int i = 0; i < num_assy; i++ )
+        {
+            xmlNodePtr assy = XmlUtil::GetNode( structmgr_node, "FeaAssembly", i );
+
+            if ( num_assy )
+            {
+                FeaAssembly* fea_assy = new FeaAssembly();
+
+                if ( fea_assy )
+                {
+                    fea_assy->DecodeXml( assy );
+
+                    AddFeaAssembly( fea_assy );
+                }
+            }
+        }
+
+
     }
 
     InitFeaProperties();
@@ -116,6 +144,13 @@ void StructureMgrSingleton::Renew()
 
 void StructureMgrSingleton::Wype()
 {
+    // Delete FeaAssemblies
+    for ( int i = 0; i < (int)m_FeaAssemblyVec.size(); i++ )
+    {
+        delete m_FeaAssemblyVec[i];
+    }
+    m_FeaAssemblyVec.clear();
+
     // Delete FeaProperties
     for ( int i = 0; i < (int)m_FeaPropertyVec.size(); i++ )
     {
@@ -164,6 +199,21 @@ vector < FeaStructure* > StructureMgrSingleton::GetAllFeaStructs()
     }
 
     return feastructvec;
+}
+
+void StructureMgrSingleton::ResetAllExportFileNames()
+{
+    vector < FeaStructure* > structs = GetAllFeaStructs();
+
+    for ( unsigned int i = 0; i < structs.size(); i++ )
+    {
+        structs[i]->ResetExportFileNames();
+    }
+
+    for ( unsigned int i = 0; i < m_FeaAssemblyVec.size(); i++ )
+    {
+        m_FeaAssemblyVec[i]->ResetExportFileNames();
+    }
 }
 
 //==== Get FeaStructure from Total Structure Index ====//
@@ -278,25 +328,29 @@ FeaPart* StructureMgrSingleton::GetFeaPart( const string & feapart_id )
     return ret_ptr;
 }
 
-//==== Get FeaPart index from FeaPart ID ====//
-int StructureMgrSingleton::GetFeaPartIndex( const string & feapart_id )
+//==== Get FeaPart pointer from FeaPart ID ====//
+SubSurface* StructureMgrSingleton::GetFeaSubSurf( const string & feasubsurf_id )
 {
+    SubSurface* ret_ptr = NULL;
+
     vector < FeaStructure* > fea_struct_vec = GetAllFeaStructs();
 
     for ( unsigned int i = 0; i < fea_struct_vec.size(); i++ )
     {
-        vector < FeaPart* > fea_part_vec = fea_struct_vec[i]->GetFeaPartVec();
+        vector < SubSurface* > fea_subsurf_vec = fea_struct_vec[i]->GetFeaSubSurfVec();
 
-        for ( unsigned int j = 0; j < fea_part_vec.size(); j++ )
+        for ( unsigned int j = 0; j < fea_subsurf_vec.size(); j++ )
         {
-            if ( fea_part_vec[j]->GetID() == feapart_id )
+            if ( fea_subsurf_vec[j]->GetID() == feasubsurf_id )
             {
-                return j;
+                return fea_subsurf_vec[j];
             }
         }
     }
-    return -1; // indicates an error
+
+    return ret_ptr;
 }
+
 
 //==== Get FeaSubSurf index from SubSurf ID ====//
 int StructureMgrSingleton::GetFeaSubSurfIndex( const string & ss_id )
@@ -330,19 +384,9 @@ string StructureMgrSingleton::GetFeaPartName( const string & id )
     return name;
 }
 
-void StructureMgrSingleton::ResetExportFileNames( const string & VSP3FileName )
-{
-    vector < FeaStructure* > struct_vec = GetAllFeaStructs();
-
-    for ( size_t i = 0; i < struct_vec.size(); i++ )
-    {
-        struct_vec[i]->GetStructSettingsPtr()->ResetExportFileNames( VSP3FileName );
-    }
-}
-
 void StructureMgrSingleton::ShowAllParts()
 {
-    FeaStructure* fea_struct = GetFeaStruct( m_CurrStructIndex );
+    FeaStructure* fea_struct = GetFeaStruct( m_CurrStructIndex() );
     Vehicle* veh = VehicleMgr.GetVehicle();
 
     if ( fea_struct && veh )
@@ -880,4 +924,68 @@ void StructureMgrSingleton::InitFeaMaterials()
         mat->Update();
         AddFeaMaterial( mat );
     }
+}
+
+//==== Get FeaAssembly =====//
+FeaAssembly* StructureMgrSingleton::GetFeaAssembly( const string & assyid )
+{
+    for ( unsigned int i = 0; i < m_FeaAssemblyVec.size(); i++ )
+    {
+        FeaAssembly* assy_ptr = m_FeaAssemblyVec[i];
+        if ( assy_ptr )
+        {
+            if ( assy_ptr->GetID() == assyid )
+            {
+                return assy_ptr;
+            }
+        }
+    }
+    return NULL;
+}
+
+//==== Add FeaProperty =====//
+FeaAssembly* StructureMgrSingleton::AddFeaAssembly( )
+{
+    FeaAssembly* feaassy = new FeaAssembly();
+
+    if ( feaassy )
+    {
+        feaassy->SetName( string( "ASSEMBLY_" + std::to_string( m_FeaAssemblyCount ) ) );
+
+        feaassy->ResetExportFileNames();
+
+        m_FeaAssemblyVec.push_back( feaassy );
+        m_FeaAssemblyCount++;
+    }
+
+    return feaassy;
+}
+
+//==== Delete FeaProperty =====//
+void StructureMgrSingleton::DeleteFeaAssembly( int index )
+{
+    if ( !ValidFeaAssemblyInd( index ) )
+        return;
+
+    delete m_FeaAssemblyVec[index];
+    m_FeaAssemblyVec.erase( m_FeaAssemblyVec.begin() + index );
+}
+
+//==== Validate FeaProperty Index ====//
+bool StructureMgrSingleton::ValidFeaAssemblyInd( int index )
+{
+    if ( (int)m_FeaAssemblyVec.size() > 0 && index >= 0 && index < (int)m_FeaAssemblyVec.size() )
+    {
+        return true;
+    }
+    return false;
+}
+
+FeaAssembly* StructureMgrSingleton::GetFeaAssembly( int index )
+{
+    if ( ValidFeaAssemblyInd( index ) )
+    {
+        return m_FeaAssemblyVec[index];
+    }
+    return NULL;
 }

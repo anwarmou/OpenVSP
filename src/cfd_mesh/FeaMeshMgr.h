@@ -15,12 +15,30 @@
 #include "FeaStructure.h"
 #include "FeaElement.h"
 #include "AnalysisMgr.h"
+#include "FeaMesh.h"
+
+#include "StructureMgr.h"
+
+#include <unordered_map>
 
 using namespace std;
 
 enum
 {
     SURFACE_FIX_POINT, BORDER_FIX_POINT, INTERSECT_FIX_POINT
+};
+
+typedef unordered_map < string, FeaMesh* > meshmaptype;
+
+class FeaCount
+{
+public:
+    FeaCount();
+    unsigned int m_NumNodes;
+    unsigned int m_NumEls;
+    unsigned int m_NumTris;
+    unsigned int m_NumQuads;
+    unsigned int m_NumBeams;
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -41,34 +59,57 @@ public:
 
     virtual ~FeaMeshMgrSingleton();
     virtual void CleanUp();
+    virtual void CleanMeshMap();
 
     virtual SimpleGridDensity* GetGridDensityPtr()
     {
-        return &m_FeaGridDensity;
-    }
-
-    virtual SimpleFeaMeshSettings* GetStructSettingsPtr()
-    {
-        return &m_StructSettings;
+        if ( m_ActiveMesh )
+        {
+            return m_ActiveMesh->GetGridDensityPtr();
+        }
+        return NULL;
     }
 
     virtual SimpleMeshCommonSettings* GetSettingsPtr()
     {
-        return (SimpleMeshCommonSettings* ) &m_StructSettings;
+        if ( m_ActiveMesh )
+        {
+            return (SimpleMeshCommonSettings* ) m_ActiveMesh->GetStructSettingsPtr();
+        }
+        return NULL;
     }
+
+    virtual SimpleAssemblySettings* GetAssemblySettingsPtr()
+    {
+        return &m_AssemblySettings;
+    }
+
+    virtual void SetActiveMesh( string struct_id );
+
+    virtual FeaMesh* GetMeshPtr()
+    {
+        return m_ActiveMesh;
+    }
+
+    virtual FeaMesh* GetMeshPtr( string struct_id );
 
     virtual bool LoadSurfaces();
     virtual void LoadSkins();
     virtual void GenerateFeaMesh();
-    virtual void ExportFeaMesh();
+    virtual void ExportFeaMesh( string structID );
+    virtual void ExportCADFiles();
     virtual void TransferMeshSettings();
     virtual void IdentifyCompIDNames();
     virtual void TransferFeaData();
+    virtual void TransferPropMatData();
     virtual void TransferSubSurfData();
+    virtual void TransferBCData();
     virtual void MergeCoplanarParts();
     virtual void AddStructureSurfParts();
     virtual void AddStructureFixPoints();
+    virtual void ForceSurfaceFixPoints( int surf_indx, vector < vec2d > &adduw );
     virtual void AddStructureTrimPlanes();
+    virtual void BuildMeshOrientationLookup();
     virtual bool CullPtByTrimGroup( const vec3d &pt, const vector < vec3d > & pplane, const vector < vec3d > & nplane );
     virtual void RemoveTrimTris();
     virtual void SetFixPointSurfaceNodes();
@@ -86,25 +127,31 @@ public:
         return m_SurfVec.size();
     }
 
-    virtual void WriteCalculix( );
-    virtual void WriteNASTRAN( const string &base_filename );
-    virtual void WriteGmsh();
-
-    virtual void ComputeWriteMass();
-
-    virtual double GetTotalMass()
+    virtual void SetFeaMeshStructID( string struct_id )
     {
-        return m_TotalMass;
+        m_FeaStructID = struct_id;
+        SetActiveMesh( struct_id );
+
+        if ( struct_id != m_IntersectStructID )
+        {
+            CleanUp(); // Cleans intersection information, not FeaMesh
+            m_IntersectStructID = struct_id;
+        }
     }
 
-    virtual void SetFeaMeshStructIndex( int index )
+    virtual string GetFeaMeshStructID()
     {
-        m_FeaMeshStructIndex = index;
+        return m_FeaStructID;
     }
 
-    virtual int GetFeaMeshStructIndex()
+    virtual string GetIntersectStructID()
     {
-        return m_FeaMeshStructIndex;
+        return m_IntersectStructID;
+    }
+
+    virtual bool GetIntersectComplete()
+    {
+        return m_IntersectComplete;
     }
 
     virtual bool GetFeaMeshInProgress()
@@ -122,126 +169,85 @@ public:
     }
 
     virtual void TransferDrawObjData();
-    virtual bool FeaDataAvailable();
-    virtual void SetAllDisplayFlags( bool flag );
+
     virtual void UpdateDrawObjs();
     virtual void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec );
 
     virtual void UpdateDisplaySettings();
+    virtual void UpdateAssemblyDisplaySettings( const string &assembly_id );
 
-    virtual vector < string > GetDrawBrowserNameVec()
-    {
-        return m_DrawBrowserNameVec;
-    }
-
-    virtual vector < int > GetDrawBrowserIndexVec()
-    {
-        return m_DrawBrowserPartIndexVec;
-    }
-
-    virtual vector < bool > GetDrawElementFlagVec()
-    {
-        return m_DrawElementFlagVec;
-    }
-
-    virtual void SetDrawElementFlag( int index, bool flag );
-
-    virtual vector < bool > GetDrawCapFlagVec()
-    {
-        return m_DrawCapFlagVec;
-    }
-
-    virtual void SetDrawCapFlag( int index, bool flag );
-
-    virtual vector < SimpleFeaProperty > GetSimplePropertyVec()
+    virtual const vector < SimpleFeaProperty >& GetSimplePropertyVec()
     {
         return m_SimplePropertyVec;
     }
 
-    virtual vector < SimpleFeaMaterial > GetSimpleMaterialVec()
+    virtual const vector < SimpleFeaMaterial >& GetSimpleMaterialVec()
     {
         return m_SimpleMaterialVec;
+    }
+
+    virtual void ResetPropMatUse()
+    {
+        for ( int i = 0; i < m_SimplePropertyVec.size(); i++ )
+        {
+            m_SimplePropertyVec[ i ].m_Used = false;
+        }
+        for ( int i = 0; i < m_SimpleMaterialVec.size(); i++ )
+        {
+            m_SimpleMaterialVec[ i ].m_Used = false;
+        }
+    }
+
+    virtual void MarkPropMatUsed( int indx )
+    {
+        m_SimplePropertyVec[ indx ].m_Used = true;
+        m_SimpleMaterialVec[ m_SimplePropertyVec[ indx ].GetSimpFeaMatIndex() ].m_Used = true;
     }
 
     virtual void RegisterAnalysis();
 
     virtual Surf* GetFeaSurf( int FeaPartID, int surf_num );
 
+    virtual void MeshUnMeshed( const vector < string > & idvec );
+    virtual void CleanupMeshes( const vector < string > & idvec );
+    virtual void ExportAssemblyMesh( const string &assembly_id );
+
+    virtual void WriteAssemblyCalculix( const string &assembly_id, const FeaCount &feacount );
+    virtual void WriteAssemblyCalculix( FILE* fp, const string &assembly_id, const FeaCount &feacount );
+    virtual void WriteConnectionCalculix( FILE* fp, FeaConnection* conn );
+    virtual void WriteCalculixMaterials( FILE* fp );
+
+    virtual void WriteAssemblyNASTRAN( const string &assembly_id, const FeaCount &feacount, int connoffset );
+    virtual void WriteAssemblyNASTRAN( FILE* fp, FILE* temp, FILE* nkey_fp, const string &assembly_id, const FeaCount &feacount, int connoffset );
+    virtual void WriteConnectionNASTRAN( FILE* fp, FeaConnection* conn, int &connid );
+    virtual void WriteNASTRANProperties( FILE* temp );
+    virtual void WriteNASTRANMaterials( FILE* temp );
+
+    virtual void DetermineConnectionNodes( FeaConnection* conn, int &startnod, int &endnod );
+
+    virtual void ModifyConnDO( FeaConnection* conn, vector < DrawObj* > connDO );
+
 protected:
 
     virtual void GetMassUnit();
 
-    virtual void WriteNASTRANSet( FILE* Nastran_fid, FILE* NKey_fid, int & set_num, vector < int > set_ids, const string &set_name, const int &offset );
-
-    bool m_FeaMeshInProgress;
-    bool m_CADOnlyFlag; // Indicates that ne meshing should be performed, but the surfaces are still exported
-
-    double m_TotalMass;
-    string m_MassUnit;
-
-    string m_StructName;
-    int m_FeaMeshStructIndex;
-
-    unsigned int m_NumFeaParts;
-    unsigned int m_NumFeaSubSurfs;
-    unsigned int m_NumFeaFixPoints;
-    unsigned int m_NumEls;
-    unsigned int m_NumTris;
-    unsigned int m_NumQuads;
-    unsigned int m_NumBeams;
-
-    vector < string > m_FeaPartNameVec;
-    vector < int > m_FeaPartTypeVec;
-    vector < int > m_FeaPartNumSurfVec;
-    vector < int > m_FeaPartIncludedElementsVec;
-    vector < int > m_FeaPartPropertyIndexVec;
-    vector < int > m_FeaPartCapPropertyIndexVec;
-
-    // The following vectors are mapped to FeaFixPoint count index
-    map < int, vector < vec3d > > m_FixPntMap; // Vector 3D coordinates for FeaFixPoints 
-    map < int, vector < vec2d > > m_FixUWMap; // Vector UW coordinates for FeaFixPoints
-    map < int, vector < int > > m_FixPntFeaPartIndexMap; // Vector of FixPoint FeaPart indexes
-    map < int, vector < int > > m_FixPntBorderFlagMap; // Indicates if the FixPoint lies on a surface, border, or intersection
-    map < int, vector < vector < int > > > m_FixPntSurfIndMap; // Vector of FeaFixPoint parent surface index, corresponding to index in m_SurfVec (Note: not the surf ID)
-    map < int, vector < bool > > m_FixPointMassFlagMap;
-    map < int, vector < double > > m_FixPointMassMap;
-
-    // Groups of trimming planes.
-    vector < vector < vec3d > > m_TrimPt;
-    vector < vector < vec3d > > m_TrimNorm;
-
-    vector < string > m_DrawBrowserNameVec;
-    vector < int > m_DrawBrowserPartIndexVec;
-    vector < bool > m_DrawElementFlagVec;
-    vector < bool > m_FixPointFeaPartFlagVec;
-    vector < bool > m_DrawCapFlagVec;
-
-    vector< FeaElement* > m_FeaElementVec;
     vector < SimpleFeaProperty > m_SimplePropertyVec;
     vector < SimpleFeaMaterial > m_SimpleMaterialVec;
 
-    vector< FeaNode* > m_FeaNodeVec;
-    vector< vec3d* > m_AllPntVec;
-    map< int, vector< int > > m_IndMap;
-    vector< int > m_PntShift;
+    bool m_FeaMeshInProgress;
+    bool m_CADOnlyFlag; // Indicates that only meshing should be performed, but the surfaces are still exported
 
-    SimpleFeaMeshSettings m_StructSettings;
-    SimpleGridDensity m_FeaGridDensity;
+    string m_FeaStructID;
 
-private:
+    string m_IntersectStructID;
+    bool m_IntersectComplete;
 
-    vector< DrawObj > m_FeaTriElementDO;
-    vector< DrawObj > m_FeaQuadElementDO;
-    vector< DrawObj > m_CapFeaElementDO;
-    vector< DrawObj > m_FeaNodeDO;
-    vector< DrawObj > m_ElOrientationDO;
-    vector< DrawObj > m_CapNormDO;
-    vector< DrawObj > m_SSTriElementDO;
-    vector< DrawObj > m_SSQuadElementDO;
-    vector< DrawObj > m_SSCapFeaElementDO;
-    vector< DrawObj > m_SSFeaNodeDO;
-    vector< DrawObj > m_SSElOrientationDO;
-    vector< DrawObj > m_SSCapNormDO;
+    meshmaptype m_MeshPtrMap;
+
+    FeaMesh* m_ActiveMesh;
+
+
+    SimpleAssemblySettings m_AssemblySettings;
 };
 
 #define FeaMeshMgr FeaMeshMgrSingleton::getInstance()

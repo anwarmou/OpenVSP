@@ -15,6 +15,7 @@
 #include "Display.h"
 #include "Camera.h"
 #include "ParmMgr.h"
+#include "StlHelper.h"
 
 using namespace vsp;
 
@@ -26,7 +27,7 @@ using namespace vsp;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 430, 650 + 30, "FEA Mesh", 155 )
+StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 430, 720, "FEA Structure", 196 )
 {
     m_FLTK_Window->callback( staticCloseCB, this );
 
@@ -40,49 +41,59 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 430, 650 + 30, "F
     Fl_Group* matTabGroup = AddSubGroup( matTab, border );
     Fl_Group* propTab = AddTab( "Property" );
     Fl_Group* propTabGroup = AddSubGroup( propTab, border );
+    Fl_Group* bcTab = AddTab( "BCs" );
+    Fl_Group* bcTabGroup = AddSubGroup( bcTab, border );
     Fl_Group* meshTab = AddTab( "Mesh" );
     Fl_Group* meshTabGroup = AddSubGroup( meshTab, border );
-    Fl_Group* outputTab = AddTab( "Output" );
-    Fl_Group* outputTabGroup = AddSubGroup( outputTab, border );
-    Fl_Group* displayTab = AddTab( "Display" );
-    Fl_Group* displayTabGroup = AddSubGroup( displayTab, border );
+    Fl_Group* femTab = AddTab( "FEM" );
+    Fl_Group* femTabGroup = AddSubGroup( femTab, border );
+    Fl_Group* cadTab = AddTab( "CAD" );
+    Fl_Group* cadTabGroup = AddSubGroup( cadTab, border );
 
     //=== Create Console Area ===//
     m_ConsoleLayout.SetGroupAndScreen( m_FLTK_Window, this );
 
-    m_ConsoleLayout.AddY( m_ConsoleLayout.GetRemainY()
-                        - 7 * m_ConsoleLayout.GetStdHeight()
-                        - 2 * m_ConsoleLayout.GetGapHeight()
-                        - 5 );
+    int textheight = 100;
 
-    m_ConsoleLayout.AddYGap();
+    m_ConsoleLayout.AddY( m_ConsoleLayout.GetRemainY()
+                        - textheight                            // 100
+                        - 4 * m_ConsoleLayout.GetStdHeight()    // 4 * 20
+                        - m_ConsoleLayout.GetGapHeight()        // 6
+                        - border );                             // 5
+
+    // 196 passed to TabScreen constructor above is this sum plus an additional border.
+    // textheight + 3 * m_ConsoleLayout.GetStdHeight() + m_ConsoleLayout.GetGapHeight() + 2 * border
+    // This is for the contents of m_BorderConsoleLayout.
+
     m_ConsoleLayout.AddX( border );
 
     m_ConsoleLayout.AddSubGroupLayout( m_BorderConsoleLayout, m_ConsoleLayout.GetRemainX() - border,
                                        m_ConsoleLayout.GetRemainY() - border );
 
-    m_ConsoleDisplay = m_BorderConsoleLayout.AddFlTextDisplay( 100 );
+    m_ConsoleDisplay = m_BorderConsoleLayout.AddFlTextDisplay( textheight );
     m_ConsoleBuffer = new Fl_Text_Buffer;
     m_ConsoleDisplay->buffer( m_ConsoleBuffer );
     m_FLTK_Window->resizable( m_ConsoleDisplay );
 
     m_BorderConsoleLayout.AddYGap();
 
+    m_BorderConsoleLayout.SetFitWidthFlag( true );
+    m_BorderConsoleLayout.SetSameLineFlag( false );
+    m_BorderConsoleLayout.AddChoice( m_CurrFeaMeshChoice, "Structure" );
+    m_BorderConsoleLayout.AddButton( m_ResetPartDisplayButton, "Reset Part Display" );
+
     m_BorderConsoleLayout.SetSameLineFlag( true );
     m_BorderConsoleLayout.SetFitWidthFlag( false );
 
-    m_BorderConsoleLayout.SetButtonWidth( m_BorderConsoleLayout.GetW() / 3 );
-    m_BorderConsoleLayout.SetInputWidth( m_BorderConsoleLayout.GetW() / 3 );
-
-    m_BorderConsoleLayout.AddOutput( m_CurrStructOutput, "Current Structure" );
-    m_BorderConsoleLayout.AddButton( m_ResetDisplayButton, "Reset Display" );
-
-    m_BorderConsoleLayout.ForceNewLine();
     m_BorderConsoleLayout.SetButtonWidth( m_BorderConsoleLayout.GetW() / 2 );
     m_BorderConsoleLayout.SetInputWidth( m_BorderConsoleLayout.GetW() / 2 );
 
-    m_BorderConsoleLayout.AddButton( m_CADExportButton, "Export CAD" );
-    m_BorderConsoleLayout.AddButton( m_FeaMeshExportButton, "Mesh and Export" );
+    m_BorderConsoleLayout.AddButton( m_IntersectOnlyButton, "Intersect Only" );
+    m_BorderConsoleLayout.AddButton( m_ExportCADButton, "Export CAD" );
+    m_BorderConsoleLayout.ForceNewLine();
+
+    m_BorderConsoleLayout.AddButton( m_FeaIntersectMeshButton, "Intersect and Mesh" );
+    m_BorderConsoleLayout.AddButton( m_FeaExportFEMButton, "Export FEM" );
 
     //=== Structures Tab ===//
     structTab->show();
@@ -725,6 +736,137 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 430, 650 + 30, "F
     m_BoxDim4Unit.GetFlButton()->box( FL_THIN_UP_BOX );
     m_BoxDim4Unit.GetFlButton()->labelcolor( FL_BLACK );
 
+    //=== Boundary Condition Tab ===//
+    m_BCTabLayout.SetGroupAndScreen( bcTabGroup, this );
+
+    m_BCTabLayout.AddDividerBox( "Boundary Condition Selection" );
+
+    m_BCTabLayout.AddSubGroupLayout( m_BCEditGroup, m_BCTabLayout.GetW(), m_BCTabLayout.GetRemainY() );
+
+    // Pointer for the widths of each column in the browser to support resizing
+    // Last column width must be 0
+    static int bc_col_widths[] = { 20, 20, 20, 20, 20, 20, 430-6*20, 0 }; // widths for each column
+
+    m_FeaBCSelectBrowser = m_BCEditGroup.AddColResizeBrowser( bc_col_widths, 7, browser_h - 20 );
+    m_FeaBCSelectBrowser->callback( staticScreenCB, this );
+
+
+    m_BCEditGroup.SetSameLineFlag( true );
+    m_BCEditGroup.SetFitWidthFlag( false );
+
+    m_BCEditGroup.SetButtonWidth( m_BCEditGroup.GetRemainX() / 2 );
+
+    m_BCEditGroup.AddButton( m_AddFeaBCButton, "Add BC" );
+    m_BCEditGroup.AddButton( m_DelFeaBCButton, "Delete BC" );
+    m_BCEditGroup.ForceNewLine();
+
+    m_BCEditGroup.AddSubGroupLayout( m_FeaBCCommonGroup, m_BCEditGroup.GetRemainX(), m_BCEditGroup.GetRemainY() );
+
+    m_FeaBCCommonGroup.AddYGap();
+
+    m_FeaBCCommonGroup.AddDividerBox( "BC Properties" );
+
+    m_FeaBCCommonGroup.AddChoice( m_FeaBCTypeChoice, "Type" );
+    m_FeaBCTypeChoice.AddItem( "Structure", vsp::FEA_BC_STRUCTURE );
+    m_FeaBCTypeChoice.AddItem( "Part", vsp::FEA_BC_PART );
+    m_FeaBCTypeChoice.AddItem( "Sub Surface", vsp::FEA_BC_SUBSURF );
+    m_FeaBCTypeChoice.UpdateItems();
+
+    m_FeaBCCommonGroup.AddYGap();
+
+    m_FeaBCCommonGroup.AddChoice( m_FeaBCPartChoice, "Part" );
+    m_FeaBCCommonGroup.AddChoice( m_FeaBCSubSurfChoice, "Sub Surface" );
+
+    m_FeaBCCommonGroup.AddYGap();
+
+    m_FeaBCCommonGroup.AddDividerBox( "Degrees of Freedom" );
+
+    m_FeaBCCommonGroup.AddChoice( m_FeaBCModeChoice, "Mode" );
+    m_FeaBCModeChoice.AddItem( "User", vsp::FEA_BCM_USER );
+    m_FeaBCModeChoice.AddItem( "All", vsp::FEA_BCM_ALL );
+    m_FeaBCModeChoice.AddItem( "Pin", vsp::FEA_BCM_PIN );
+    m_FeaBCModeChoice.AddItem( "Symmetric", vsp::FEA_BCM_SYMM );
+    m_FeaBCModeChoice.AddItem( "Antisymmetric", vsp::FEA_BCM_ASYMM );
+    m_FeaBCModeChoice.UpdateItems();
+
+    m_FeaBCCommonGroup.SetSameLineFlag( true );
+    m_FeaBCCommonGroup.SetFitWidthFlag( false );
+
+    m_FeaBCCommonGroup.SetButtonWidth( m_FeaBCCommonGroup.GetW() / 4 );
+
+    m_FeaBCCommonGroup.AddLabel( "Translation:", m_FeaBCCommonGroup.GetButtonWidth() );
+
+    m_FeaBCCommonGroup.AddButton( m_TxButton, "X", 1 << 0 );
+    m_FeaBCCommonGroup.AddButton( m_TyButton, "Y", 1 << 1 );
+    m_FeaBCCommonGroup.AddButton( m_TzButton, "Z", 1 << 2 );
+
+    m_FeaBCCommonGroup.ForceNewLine();
+
+    m_FeaBCCommonGroup.AddLabel( "Rotation:", m_FeaBCCommonGroup.GetButtonWidth() );
+    m_FeaBCCommonGroup.AddButton( m_RxButton, "X", 1 << 3 );
+    m_FeaBCCommonGroup.AddButton( m_RyButton, "Y", 1 << 4 );
+    m_FeaBCCommonGroup.AddButton( m_RzButton, "Z", 1 << 5 );
+
+    m_FeaBCCommonGroup.ForceNewLine();
+
+    m_FeaBCCommonGroup.SetSameLineFlag( false );
+    m_FeaBCCommonGroup.SetFitWidthFlag( true );
+
+    m_FeaBCCommonGroup.AddYGap();
+    m_FeaBCCommonGroup.AddDividerBox( "Region" );
+
+    int bw = 50; // [X <=]  Slider button width
+    int tw = 15; // Toggle button width
+    int gap = 5; // Gap width
+
+    m_FeaBCCommonGroup.SetSameLineFlag( true );
+
+    m_FeaBCCommonGroup.SetFitWidthFlag( false );
+    m_FeaBCCommonGroup.SetButtonWidth( tw );
+    m_FeaBCCommonGroup.AddButton( m_XGTFlagButton, "" );
+    m_FeaBCCommonGroup.SetFitWidthFlag( true );
+    m_FeaBCCommonGroup.SetButtonWidth( bw - tw );
+    m_FeaBCCommonGroup.AddSlider( m_XGTValSlider, "X >=", 10, "%7.5f", m_FeaBCCommonGroup.GetW() * 0.5 + gap );
+    m_FeaBCCommonGroup.AddX( gap );
+    m_FeaBCCommonGroup.SetFitWidthFlag( false );
+    m_FeaBCCommonGroup.SetButtonWidth( tw );
+    m_FeaBCCommonGroup.AddButton( m_XLTFlagButton, "" );
+    m_FeaBCCommonGroup.SetFitWidthFlag( true );
+    m_FeaBCCommonGroup.SetButtonWidth( bw - tw );
+    m_FeaBCCommonGroup.AddSlider( m_XLTValSlider, "X <=", 10, "%7.5f" );
+    m_FeaBCCommonGroup.ForceNewLine();
+
+    m_FeaBCCommonGroup.SetFitWidthFlag( false );
+    m_FeaBCCommonGroup.SetButtonWidth( tw );
+    m_FeaBCCommonGroup.AddButton( m_YGTFlagButton, "" );
+    m_FeaBCCommonGroup.SetFitWidthFlag( true );
+    m_FeaBCCommonGroup.SetButtonWidth( bw - tw );
+    m_FeaBCCommonGroup.AddSlider( m_YGTValSlider, "Y >=", 10, "%7.5f", m_FeaBCCommonGroup.GetW() * 0.5 + gap );
+    m_FeaBCCommonGroup.AddX( gap );
+    m_FeaBCCommonGroup.SetFitWidthFlag( false );
+    m_FeaBCCommonGroup.SetButtonWidth( tw );
+    m_FeaBCCommonGroup.AddButton( m_YLTFlagButton, "" );
+    m_FeaBCCommonGroup.SetFitWidthFlag( true );
+    m_FeaBCCommonGroup.SetButtonWidth( bw - tw );
+    m_FeaBCCommonGroup.AddSlider( m_YLTValSlider, "Y <=", 10, "%7.5f" );
+    m_FeaBCCommonGroup.ForceNewLine();
+
+    m_FeaBCCommonGroup.SetFitWidthFlag( false );
+    m_FeaBCCommonGroup.SetButtonWidth( tw );
+    m_FeaBCCommonGroup.AddButton( m_ZGTFlagButton, "" );
+    m_FeaBCCommonGroup.SetFitWidthFlag( true );
+    m_FeaBCCommonGroup.SetButtonWidth( bw - tw );
+    m_FeaBCCommonGroup.AddSlider( m_ZGTValSlider, "Z >=", 10, "%7.5f", m_FeaBCCommonGroup.GetW() * 0.5 + gap );
+    m_FeaBCCommonGroup.AddX( gap );
+    m_FeaBCCommonGroup.SetFitWidthFlag( false );
+    m_FeaBCCommonGroup.SetButtonWidth( tw );
+    m_FeaBCCommonGroup.AddButton( m_ZLTFlagButton, "" );
+    m_FeaBCCommonGroup.SetFitWidthFlag( true );
+    m_FeaBCCommonGroup.SetButtonWidth( bw - tw );
+    m_FeaBCCommonGroup.AddSlider( m_ZLTValSlider, "Z <=", 10, "%7.5f" );
+    m_FeaBCCommonGroup.ForceNewLine();
+
+
     //=== MESH TAB ===//
     m_MeshTabLayout.SetGroupAndScreen( meshTabGroup, this );
 
@@ -766,132 +908,178 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 430, 650 + 30, "F
     m_MeshTabLayout.AddSlider( m_NodeOffset, "Node Offset", 1e5, " %5.0f" );
     m_MeshTabLayout.AddSlider( m_ElementOffset, "Element Offset", 1e5, " %5.0f" );
 
-    m_OutputTabLayout.SetGroupAndScreen( outputTabGroup, this );
-    // TODO: Add more CFD Mesh Export file options?
+    //=== FEM Tab ===//
+    m_FemTabLayout.SetGroupAndScreen( femTabGroup, this );
 
-    m_OutputTabLayout.AddDividerBox( "File Export" );
+    m_FemTabLayout.AddDividerBox( "FEM Export" );
 
-    m_OutputTabLayout.SetFitWidthFlag( false );
-    m_OutputTabLayout.SetSameLineFlag( true );
+    m_FemTabLayout.SetFitWidthFlag( false );
+    m_FemTabLayout.SetSameLineFlag( true );
 
-    m_OutputTabLayout.SetInputWidth( m_OutputTabLayout.GetW() - 75 - 55 );
+    m_FemTabLayout.SetInputWidth( m_FemTabLayout.GetW() - 75 - 55 );
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_StlFile, ".stl" );
-    m_OutputTabLayout.AddOutput( m_StlOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectStlFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.SetButtonWidth( 75 );
+    m_FemTabLayout.AddButton( m_StlFile, ".stl" );
+    m_FemTabLayout.AddOutput( m_StlOutput );
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetRemainX() );
+    m_FemTabLayout.AddButton( m_SelectStlFile, "..." );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_GmshFile, ".msh" );
-    m_OutputTabLayout.AddOutput( m_GmshOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectGmshFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.SetButtonWidth( 75 );
+    m_FemTabLayout.AddButton( m_GmshFile, ".msh" );
+    m_FemTabLayout.AddOutput( m_GmshOutput );
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetRemainX() );
+    m_FemTabLayout.AddButton( m_SelectGmshFile, "..." );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.AddYGap();
+    m_FemTabLayout.AddYGap();
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_MassFile, "Mass" );
-    m_OutputTabLayout.AddOutput( m_MassOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectMassFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.SetButtonWidth( 75 );
+    m_FemTabLayout.AddButton( m_MassFile, "Mass" );
+    m_FemTabLayout.AddOutput( m_MassOutput );
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetRemainX() );
+    m_FemTabLayout.AddButton( m_SelectMassFile, "..." );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.AddYGap();
+    m_FemTabLayout.AddYGap();
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_NastFile, "Nastran" );
-    m_OutputTabLayout.AddOutput( m_NastOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectNastFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.SetButtonWidth( 75 );
+    m_FemTabLayout.AddButton( m_NastFile, "Nastran" );
+    m_FemTabLayout.AddOutput( m_NastOutput );
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetRemainX() );
+    m_FemTabLayout.AddButton( m_SelectNastFile, "..." );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_NkeyFile, "Nkey" );
-    m_OutputTabLayout.AddOutput( m_NkeyOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectNkeyFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.SetButtonWidth( 75 );
+    m_FemTabLayout.AddButton( m_NkeyFile, "Nkey" );
+    m_FemTabLayout.AddOutput( m_NkeyOutput );
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetRemainX() );
+    m_FemTabLayout.AddButton( m_SelectNkeyFile, "..." );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.AddYGap();
+    m_FemTabLayout.AddYGap();
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_CalcFile, "Calculix" );
-    m_OutputTabLayout.AddOutput( m_CalcOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectCalcFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.SetButtonWidth( 75 );
+    m_FemTabLayout.AddButton( m_CalcFile, "Calculix" );
+    m_FemTabLayout.AddOutput( m_CalcOutput );
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetRemainX() );
+    m_FemTabLayout.AddButton( m_SelectCalcFile, "..." );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.AddYGap();
+    m_FemTabLayout.AddYGap();
 
-    m_OutputTabLayout.SetFitWidthFlag( true );
-    m_OutputTabLayout.SetSameLineFlag( false );
-    m_OutputTabLayout.InitWidthHeightVals();
+    m_FemTabLayout.SetFitWidthFlag( true );
+    m_FemTabLayout.SetSameLineFlag( false );
 
-    m_OutputTabLayout.AddDividerBox("Surfaces and Intersection Curves");
+    m_FemTabLayout.AddDividerBox( "FEM Display" );
 
-    m_OutputTabLayout.AddButton( m_ExportRaw, "Export Raw Points" );
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetW() / 2 );
 
-    m_OutputTabLayout.InitWidthHeightVals();
-    m_OutputTabLayout.SetInputWidth( m_OutputTabLayout.GetW() - 75 - 55 );
-    m_OutputTabLayout.SetFitWidthFlag( false );
-    m_OutputTabLayout.SetSameLineFlag( true );
+    m_FemTabLayout.SetFitWidthFlag( false );
+    m_FemTabLayout.SetSameLineFlag( true );
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton(m_CurvFile, ".curv");
-    m_OutputTabLayout.AddOutput(m_CurvOutput);
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton(m_SelectCurvFile, "...");
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.AddButton( m_DrawMeshButton, "Draw Mesh" );
+    m_FemTabLayout.AddButton( m_ColorElementsButton, "Color Elements" );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton(m_Plot3DFile, ".p3d");
-    m_OutputTabLayout.AddOutput(m_Plot3DOutput);
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton(m_SelectPlot3DFile, "...");
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.AddButton( m_DrawNodesToggle, "Draw Nodes" );
+    m_FemTabLayout.AddButton( m_DrawElementOrientVecToggle, "Draw Element Orientation" );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.AddYGap();
+    m_FemTabLayout.AddButton( m_DrawBCNodesToggle, "Draw BCs" );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_SrfFile, ".srf" );
-    m_OutputTabLayout.AddOutput( m_SrfOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectSrfFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
+    m_FemTabLayout.SetFitWidthFlag( true );
+    m_FemTabLayout.SetSameLineFlag( false );
+    m_FemTabLayout.AddYGap();
 
-    m_OutputTabLayout.SetSameLineFlag( false );
-    m_OutputTabLayout.SetFitWidthFlag( true );
-    m_OutputTabLayout.AddButton( m_XYZIntCurves, "Include X,Y,Z Intersection Curves" );
+    m_FemTabLayout.AddDividerBox( "Element Sets" );
 
-    m_OutputTabLayout.AddYGap();
-    m_OutputTabLayout.SetFitWidthFlag( true );
-    m_OutputTabLayout.SetSameLineFlag( false );
+    m_DrawPartSelectBrowser = m_FemTabLayout.AddCheckBrowser( browser_h );
+    m_DrawPartSelectBrowser->callback( staticScreenCB, this );
 
-    m_OutputTabLayout.AddDividerBox( "Trimmed CAD Options" );
+    m_FemTabLayout.AddY( 125 );
+    m_FemTabLayout.AddYGap();
 
-    m_OutputTabLayout.InitWidthHeightVals();
-    m_OutputTabLayout.SetFitWidthFlag( false );
-    m_OutputTabLayout.SetSameLineFlag( true );
+    m_FemTabLayout.SetSameLineFlag( true );
+    m_FemTabLayout.SetFitWidthFlag( false );
 
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() / 4 );
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetW() / 2 );
 
-    m_OutputTabLayout.AddButton( m_LabelIDToggle, "Geom ID" );
-    m_OutputTabLayout.AddButton( m_LabelNameToggle, "Geom Name" );
-    m_OutputTabLayout.AddButton( m_LabelSurfNoToggle, "Surf Number" );
-    m_OutputTabLayout.AddButton( m_LabelSplitNoToggle, "Split Number" );
+    m_FemTabLayout.AddButton( m_DrawAllButton, "Draw All Elements" );
+    m_FemTabLayout.AddButton( m_HideAllButton, "Hide All Elements" );
+    m_FemTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetSliderWidth( m_OutputTabLayout.GetRemainX() / 4 );
-    m_OutputTabLayout.SetChoiceButtonWidth( m_OutputTabLayout.GetRemainX() / 4 );
+    //=== CAD TAB ===//
+    m_CadTabLayout.SetGroupAndScreen( cadTabGroup, this );
+
+
+    m_CadTabLayout.SetFitWidthFlag( true );
+    m_CadTabLayout.SetSameLineFlag( false );
+    m_CadTabLayout.InitWidthHeightVals();
+
+    m_CadTabLayout.AddDividerBox("Surface and Curve Export");
+
+    m_CadTabLayout.AddButton( m_ExportRaw, "Export Raw Points" );
+
+    m_CadTabLayout.InitWidthHeightVals();
+    m_CadTabLayout.SetInputWidth( m_CadTabLayout.GetW() - 75 - 55 );
+    m_CadTabLayout.SetFitWidthFlag( false );
+    m_CadTabLayout.SetSameLineFlag( true );
+
+    m_CadTabLayout.SetButtonWidth( 75 );
+    m_CadTabLayout.AddButton(m_CurvFile, ".curv");
+    m_CadTabLayout.AddOutput(m_CurvOutput);
+    m_CadTabLayout.SetButtonWidth( m_CadTabLayout.GetRemainX() );
+    m_CadTabLayout.AddButton(m_SelectCurvFile, "...");
+    m_CadTabLayout.ForceNewLine();
+
+    m_CadTabLayout.SetButtonWidth( 75 );
+    m_CadTabLayout.AddButton(m_Plot3DFile, ".p3d");
+    m_CadTabLayout.AddOutput(m_Plot3DOutput);
+    m_CadTabLayout.SetButtonWidth( m_CadTabLayout.GetRemainX() );
+    m_CadTabLayout.AddButton(m_SelectPlot3DFile, "...");
+    m_CadTabLayout.ForceNewLine();
+
+    m_CadTabLayout.AddYGap();
+
+    m_CadTabLayout.SetButtonWidth( 75 );
+    m_CadTabLayout.AddButton( m_SrfFile, ".srf" );
+    m_CadTabLayout.AddOutput( m_SrfOutput );
+    m_CadTabLayout.SetButtonWidth( m_CadTabLayout.GetRemainX() );
+    m_CadTabLayout.AddButton( m_SelectSrfFile, "..." );
+    m_CadTabLayout.ForceNewLine();
+
+    m_CadTabLayout.SetSameLineFlag( false );
+    m_CadTabLayout.SetFitWidthFlag( true );
+    m_CadTabLayout.AddButton( m_XYZIntCurves, "Include X,Y,Z Intersection Curves" );
+
+    m_CadTabLayout.AddYGap();
+    m_CadTabLayout.SetFitWidthFlag( true );
+    m_CadTabLayout.SetSameLineFlag( false );
+
+    m_CadTabLayout.AddDividerBox( "Trimmed CAD Export" );
+
+    m_CadTabLayout.InitWidthHeightVals();
+    m_CadTabLayout.SetFitWidthFlag( false );
+    m_CadTabLayout.SetSameLineFlag( true );
+
+    m_CadTabLayout.SetButtonWidth( m_CadTabLayout.GetRemainX() / 4 );
+
+    m_CadTabLayout.AddButton( m_LabelIDToggle, "Geom ID" );
+    m_CadTabLayout.AddButton( m_LabelNameToggle, "Geom Name" );
+    m_CadTabLayout.AddButton( m_LabelSurfNoToggle, "Surf Number" );
+    m_CadTabLayout.AddButton( m_LabelSplitNoToggle, "Split Number" );
+
+    m_CadTabLayout.ForceNewLine();
+    m_CadTabLayout.SetSliderWidth( m_CadTabLayout.GetRemainX() / 4 );
+    m_CadTabLayout.SetChoiceButtonWidth( m_CadTabLayout.GetRemainX() / 4 );
 
     m_LabelDelimChoice.AddItem( "Comma" );
     m_LabelDelimChoice.AddItem( "Underscore" );
     m_LabelDelimChoice.AddItem( "Space" );
     m_LabelDelimChoice.AddItem( "None" );
-    m_OutputTabLayout.AddChoice( m_LabelDelimChoice, "Delimiter" );
+    m_CadTabLayout.AddChoice( m_LabelDelimChoice, "Delimiter" );
 
     m_LenUnitChoice.AddItem( "MM" );
     m_LenUnitChoice.AddItem( "CM" );
@@ -899,112 +1087,83 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 430, 650 + 30, "F
     m_LenUnitChoice.AddItem( "IN" );
     m_LenUnitChoice.AddItem( "FT" );
     m_LenUnitChoice.AddItem( "YD" );
-    m_OutputTabLayout.AddChoice( m_LenUnitChoice, "Length Unit" );
-    m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.AddYGap();
+    m_CadTabLayout.AddChoice( m_LenUnitChoice, "Length Unit" );
+    m_CadTabLayout.ForceNewLine();
+    m_CadTabLayout.AddYGap();
 
-    m_OutputTabLayout.SetInputWidth( m_OutputTabLayout.GetW() - 75 - 55 );
+    m_CadTabLayout.SetInputWidth( m_CadTabLayout.GetW() - 75 - 55 );
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_IGESFile, ".igs" );
-    m_OutputTabLayout.AddOutput( m_IGESOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectIGESFile, "..." );
+    m_CadTabLayout.SetButtonWidth( 75 );
+    m_CadTabLayout.AddButton( m_IGESFile, ".igs" );
+    m_CadTabLayout.AddOutput( m_IGESOutput );
+    m_CadTabLayout.SetButtonWidth( m_CadTabLayout.GetRemainX() );
+    m_CadTabLayout.AddButton( m_SelectIGESFile, "..." );
 
-    m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.AddYGap();
+    m_CadTabLayout.ForceNewLine();
+    m_CadTabLayout.AddYGap();
 
-    m_OutputTabLayout.SetButtonWidth( 75 );
-    m_OutputTabLayout.AddButton( m_STEPFile, ".stp" );
-    m_OutputTabLayout.AddOutput( m_STEPOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectSTEPFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
+    m_CadTabLayout.SetButtonWidth( 75 );
+    m_CadTabLayout.AddButton( m_STEPFile, ".stp" );
+    m_CadTabLayout.AddOutput( m_STEPOutput );
+    m_CadTabLayout.SetButtonWidth( m_CadTabLayout.GetRemainX() );
+    m_CadTabLayout.AddButton( m_SelectSTEPFile, "..." );
+    m_CadTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.SetFitWidthFlag( true );
-    m_OutputTabLayout.SetSameLineFlag( false );
+    m_CadTabLayout.SetFitWidthFlag( true );
+    m_CadTabLayout.SetSameLineFlag( false );
 
-    m_OutputTabLayout.InitWidthHeightVals();
-    m_OutputTabLayout.SetButtonWidth( 175 );
+    m_CadTabLayout.InitWidthHeightVals();
+    m_CadTabLayout.SetButtonWidth( 175 );
 
-    //m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() / 3 );
-    //m_OutputTabLayout.AddButton( m_STEPMergePointsToggle, "Merge Points" );
-    //m_OutputTabLayout.SetFitWidthFlag( true );
-    m_OutputTabLayout.AddSlider( m_STEPTolSlider, "STEP Tolerance", 10, "%5.4g", 0, true );
-    //m_OutputTabLayout.SetFitWidthFlag( false );
-    //m_OutputTabLayout.ForceNewLine();
+    //m_CadTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() / 3 );
+    //m_CadTabLayout.AddButton( m_STEPMergePointsToggle, "Merge Points" );
+    //m_CadTabLayout.SetFitWidthFlag( true );
+    m_CadTabLayout.AddSlider( m_STEPTolSlider, "STEP Tolerance", 10, "%5.4g", 0, true );
+    //m_CadTabLayout.SetFitWidthFlag( false );
+    //m_CadTabLayout.ForceNewLine();
 
-    m_OutputTabLayout.SetFitWidthFlag( false );
-    m_OutputTabLayout.SetSameLineFlag( true );
+    m_CadTabLayout.SetFitWidthFlag( false );
+    m_CadTabLayout.SetSameLineFlag( true );
 
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() / 2 );
-    m_OutputTabLayout.AddButton( m_STEPShell, "Shell Representation" );
-    m_OutputTabLayout.AddButton( m_STEPBREP, "BREP Solid Representation" );
-    m_OutputTabLayout.ForceNewLine();
+    m_CadTabLayout.SetButtonWidth( m_CadTabLayout.GetRemainX() / 2 );
+    m_CadTabLayout.AddButton( m_STEPShell, "Shell Representation" );
+    m_CadTabLayout.AddButton( m_STEPBREP, "BREP Solid Representation" );
+    m_CadTabLayout.ForceNewLine();
 
     m_STEPRepGroup.Init( this );
     m_STEPRepGroup.AddButton( m_STEPShell.GetFlButton() );
     m_STEPRepGroup.AddButton( m_STEPBREP.GetFlButton() );
 
-    //=== Display Tab ===//
-    m_DisplayTabLayout.SetGroupAndScreen( displayTabGroup, this );
+    m_CadTabLayout.AddYGap();
 
-    m_DisplayTabLayout.AddDividerBox( "Display" );
+    m_CadTabLayout.SetFitWidthFlag( true );
+    m_CadTabLayout.SetSameLineFlag( false );
 
-    m_DisplayTabLayout.AddYGap();
-    m_DisplayTabLayout.AddButton( m_DrawMeshButton, "Draw Mesh" );
-    m_DisplayTabLayout.AddButton( m_ColorElementsButton, "Color Elements" );
-    m_DisplayTabLayout.AddButton( m_DrawNodesToggle, "Draw Nodes" );
-    m_DisplayTabLayout.AddButton( m_DrawElementOrientVecToggle, "Draw Element Orientation Vectors" );
+    m_CadTabLayout.AddDividerBox( "Intersection Curve Display" );
 
-    m_DisplayTabLayout.AddYGap();
+    m_CadTabLayout.SetFitWidthFlag( false );
+    m_CadTabLayout.SetSameLineFlag( true );
 
-    m_DisplayTabLayout.AddDividerBox( "Intersection Curve Display" );
+    m_CadTabLayout.SetButtonWidth( m_CadTabLayout.GetW() / 2 );
 
-    m_DisplayTabLayout.SetFitWidthFlag( false );
-    m_DisplayTabLayout.SetSameLineFlag( true );
+    m_CadTabLayout.AddButton( m_DrawIsect, "Show Intersection Curves");
+    m_CadTabLayout.AddButton( m_DrawBorder, "Show Border Curves");
+    m_CadTabLayout.ForceNewLine();
 
-    m_DisplayTabLayout.SetButtonWidth( m_DisplayTabLayout.GetW() / 2 );
+    m_CadTabLayout.AddButton( m_ShowCurve, "Show Curves");
+    m_CadTabLayout.AddButton( m_ShowPts, "Show Points");
+    m_CadTabLayout.ForceNewLine();
 
-    m_DisplayTabLayout.AddYGap();
-    m_DisplayTabLayout.AddButton( m_DrawIsect, "Show Intersection Curves");
-    m_DisplayTabLayout.AddButton( m_DrawBorder, "Show Border Curves");
-    m_DisplayTabLayout.ForceNewLine();
-    m_DisplayTabLayout.AddYGap();
-    m_DisplayTabLayout.AddButton( m_ShowCurve, "Show Curves");
-    m_DisplayTabLayout.AddButton( m_ShowPts, "Show Points");
-    m_DisplayTabLayout.ForceNewLine();
-    m_DisplayTabLayout.AddYGap();
-    m_DisplayTabLayout.AddButton( m_ShowRaw, "Show Raw Curve");
-    m_DisplayTabLayout.AddButton( m_ShowBinAdapt, "Show Binary Adapted");
-    m_DisplayTabLayout.ForceNewLine();
-
-    m_DisplayTabLayout.SetFitWidthFlag( true );
-    m_DisplayTabLayout.SetSameLineFlag( false );
-    m_DisplayTabLayout.AddYGap();
-
-    m_DisplayTabLayout.AddDividerBox( "Display Element Sets" );
-
-    m_DrawPartSelectBrowser = m_DisplayTabLayout.AddCheckBrowser( browser_h );
-    m_DrawPartSelectBrowser->callback( staticScreenCB, this );
-
-    m_DisplayTabLayout.AddY( 125 );
-    m_DisplayTabLayout.AddYGap();
-
-    m_DisplayTabLayout.SetSameLineFlag( true );
-    m_DisplayTabLayout.SetFitWidthFlag( false );
-
-    m_DisplayTabLayout.SetButtonWidth( m_DisplayTabLayout.GetW() / 2 );
-
-    m_DisplayTabLayout.AddButton( m_DrawAllButton, "Draw All Elements" );
-    m_DisplayTabLayout.AddButton( m_HideAllButton, "Hide All Elements" );
-    m_DisplayTabLayout.ForceNewLine();
+    m_CadTabLayout.AddButton( m_ShowRaw, "Show Raw Curve");
+    m_CadTabLayout.AddButton( m_ShowBinAdapt, "Show Binary Adapted");
+    m_CadTabLayout.ForceNewLine();
 
     // Set initial values
     m_FeaCurrMainSurfIndx = 0;
     m_SelectedFeaPartChoice = 0;
     m_CurrDispGroup = NULL;
-
+    m_SelectedBCPartChoice = 0;
+    m_SelectedBCSubSurfChoice = 0;
 }
 
 StructScreen::~StructScreen()
@@ -1068,6 +1227,8 @@ void StructScreen::UpdateStructBrowser()
     int scroll_pos = m_StructureSelectBrowser->position();
     int h_pos = m_StructureSelectBrowser->hposition();
     m_StructureSelectBrowser->clear();
+    m_CurrFeaMeshChoice.ClearItems();
+    m_StructIDs.clear();
 
     Vehicle* veh = m_ScreenMgr->GetVehiclePtr();
     if ( !veh )
@@ -1101,11 +1262,16 @@ void StructScreen::UpdateStructBrowser()
 
             sprintf( str, "%s:%s:Surf_%d", struct_name.c_str(), parent_geom_name.c_str(), struct_surf_ind );
             m_StructureSelectBrowser->add( str );
-        }
+            m_CurrFeaMeshChoice.AddItem( struct_name, i );
 
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+            m_StructIDs.push_back( structVec[i]->GetID() );
+        }
+        m_CurrFeaMeshChoice.UpdateItems();
+
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
-            m_StructureSelectBrowser->select( StructureMgr.GetCurrStructIndex() + 2 );
+            m_StructureSelectBrowser->select( StructureMgr.m_CurrStructIndex() + 2 );
+            m_CurrFeaMeshChoice.Update( StructureMgr.m_CurrStructIndex.GetID() );
         }
     }
 
@@ -1128,10 +1294,10 @@ void StructScreen::UpdateFeaPartBrowser()
 
     string fea_name, fea_type, shell, shell_prop, cap, cap_prop;
 
-    if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+    if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
     {
         vector< FeaStructure* > structVec = StructureMgr.GetAllFeaStructs();
-        vector<FeaPart*> feaprt_vec = structVec[StructureMgr.GetCurrStructIndex()]->GetFeaPartVec();
+        vector<FeaPart*> feaprt_vec = structVec[StructureMgr.m_CurrStructIndex()]->GetFeaPartVec();
 
         for ( int i = 0; i < (int)feaprt_vec.size(); i++ )
         {
@@ -1193,7 +1359,7 @@ void StructScreen::UpdateFeaPartBrowser()
             m_FeaPartSelectBrowser->add( str );
         }
 
-        vector<SubSurface*> subsurf_vec = structVec[StructureMgr.GetCurrStructIndex()]->GetFeaSubSurfVec();
+        vector<SubSurface*> subsurf_vec = structVec[StructureMgr.m_CurrStructIndex()]->GetFeaSubSurfVec();
 
         for ( int i = 0; i < (int)subsurf_vec.size(); i++ )
         {
@@ -1238,8 +1404,8 @@ void StructScreen::UpdateFeaPartBrowser()
 
         for ( size_t i = 0; i < m_SelectedPartIndexVec.size(); i++ )
         {
-            if ( structVec[StructureMgr.GetCurrStructIndex()]->ValidFeaPartInd( m_SelectedPartIndexVec[i] ) ||
-                 structVec[StructureMgr.GetCurrStructIndex()]->ValidFeaSubSurfInd( m_SelectedPartIndexVec[i] - structVec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() ) )
+            if ( structVec[StructureMgr.m_CurrStructIndex()]->ValidFeaPartInd( m_SelectedPartIndexVec[i] ) ||
+                 structVec[StructureMgr.m_CurrStructIndex()]->ValidFeaSubSurfInd( m_SelectedPartIndexVec[i] - structVec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() ) )
             {
                 m_FeaPartSelectBrowser->select( m_SelectedPartIndexVec[i] + 2 );
             }
@@ -1252,14 +1418,19 @@ void StructScreen::UpdateFeaPartBrowser()
 
 void StructScreen::UpdateDrawPartBrowser()
 {
+    if ( !FeaMeshMgr.GetMeshPtr() )
+    {
+        return;
+    }
+
     //==== Draw Part Browser ====//
     int scroll_pos = m_DrawPartSelectBrowser->position();
     m_DrawPartSelectBrowser->clear();
 
-    vector < int > draw_browser_index_vec = FeaMeshMgr.GetDrawBrowserIndexVec();
-    vector < string > draw_browser_name_vec = FeaMeshMgr.GetDrawBrowserNameVec();
-    vector < bool > draw_element_flag_vec = FeaMeshMgr.GetDrawElementFlagVec();
-    vector < bool > draw_cap_flag_vec = FeaMeshMgr.GetDrawCapFlagVec();
+    vector < int > draw_browser_index_vec = FeaMeshMgr.GetMeshPtr()->GetDrawBrowserIndexVec();
+    vector < string > draw_browser_name_vec = FeaMeshMgr.GetMeshPtr()->GetDrawBrowserNameVec();
+    vector < bool > draw_element_flag_vec = FeaMeshMgr.GetMeshPtr()->GetDrawElementFlagVec();
+    vector < bool > draw_cap_flag_vec = FeaMeshMgr.GetMeshPtr()->GetDrawCapFlagVec();
 
     for ( unsigned int i = 0; i < draw_browser_name_vec.size(); i++ )
     {
@@ -1314,9 +1485,9 @@ void StructScreen::UpdateFeaPartChoice()
 
     if ( veh )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
-            FeaStructure* curr_struct = StructureMgr.GetAllFeaStructs()[StructureMgr.GetCurrStructIndex()];
+            FeaStructure* curr_struct = StructureMgr.GetAllFeaStructs()[StructureMgr.m_CurrStructIndex()];
 
             if ( curr_struct )
             {
@@ -1501,6 +1672,96 @@ void StructScreen::UpdateFeaMaterialChoice()
     }
 }
 
+void StructScreen::UpdateFeaBCBrowser()
+{
+    //==== FeaPart Browser ====//
+    int scroll_pos = m_FeaBCSelectBrowser->position();
+    int h_pos = m_FeaBCSelectBrowser->hposition();
+    m_FeaBCSelectBrowser->clear();
+
+    m_FeaBCSelectBrowser->column_char( ':' );
+
+    if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
+    {
+        FeaStructure *curr_struct = StructureMgr.GetAllFeaStructs()[ StructureMgr.m_CurrStructIndex() ];
+
+        if ( curr_struct )
+        {
+            vector< FeaBC* > bc_vec = curr_struct->GetFeaBCVec();
+
+            for ( int i = 0; i < (int)bc_vec.size(); i++ )
+            {
+                string label = bc_vec[i]->GetDescription();
+
+                m_FeaBCSelectBrowser->add( label.c_str() );
+            }
+
+            if ( curr_struct->ValidFeaBCInd( StructureMgr.GetCurrBCIndex() ) )
+            {
+                m_FeaBCCommonGroup.Show();
+                m_FeaBCSelectBrowser->select( StructureMgr.GetCurrBCIndex() + 1 );
+            }
+            else
+            {
+                m_FeaBCCommonGroup.Hide();
+            }
+
+            m_FeaBCSelectBrowser->position( scroll_pos );
+            m_FeaBCSelectBrowser->hposition( h_pos );
+        }
+    }
+}
+
+void StructScreen::UpdateBCPartChoice()
+{
+    //==== FixPoint Parent Surf Choice ====//
+    m_FeaBCPartChoice.ClearItems();
+    m_FeaBCPartChoiceIDVec.clear();
+
+    int istruct = StructureMgr.m_CurrStructIndex();
+
+    if ( StructureMgr.ValidTotalFeaStructInd( istruct ) )
+    {
+        vector < FeaStructure * > structVec = StructureMgr.GetAllFeaStructs();
+        FeaStructure * fea_struct = structVec[ istruct ];
+        vector < FeaPart * > feaprt_vec = fea_struct->GetFeaPartVec(); // Does not include subsurfaces
+
+        // Loop over all parts in current structure
+        for ( size_t i = 0; i < feaprt_vec.size(); i++ )
+        {
+            m_FeaBCPartChoice.AddItem( string( feaprt_vec[ i ]->GetName() ) );
+            m_FeaBCPartChoiceIDVec.push_back( feaprt_vec[ i ]->GetID() );
+        }
+
+        m_FeaBCPartChoice.UpdateItems();
+    }
+}
+
+void StructScreen::UpdateBCSubSurfChoice()
+{
+    //==== FixPoint Parent Surf Choice ====//
+    m_FeaBCSubSurfChoice.ClearItems();
+    m_FeaBCSubSurfChoiceIDVec.clear();
+
+    int istruct = StructureMgr.m_CurrStructIndex();
+
+    if ( StructureMgr.ValidTotalFeaStructInd( istruct ) )
+    {
+        vector < FeaStructure * > structVec = StructureMgr.GetAllFeaStructs();
+        FeaStructure * fea_struct = structVec[ istruct ];
+        vector < SubSurface * > subsurf_vec = fea_struct->GetFeaSubSurfVec(); // Does not include subsurfaces
+
+        // Loop over all parts in current structure
+        for ( size_t i = 0; i < subsurf_vec.size(); i++ )
+        {
+            m_FeaBCSubSurfChoice.AddItem( string( subsurf_vec[ i ]->GetName() ) );
+            m_FeaBCSubSurfChoiceIDVec.push_back( subsurf_vec[ i ]->GetID() );
+        }
+
+        m_FeaBCSubSurfChoice.UpdateItems();
+    }
+}
+
 void StructScreen::BeamXSecDispGroup( GroupLayout* group )
 {
     if ( m_CurBeamXSecDispGroup == group && group )
@@ -1570,11 +1831,11 @@ void StructScreen::FeaStructDispGroup( GroupLayout* group )
     m_StructGeneralGroup.Hide();
     m_StructWingGroup.Hide();
 
-    if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+    if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
     {
         m_StructGroup.Show();
 
-        FeaStructure* curr_struct = StructureMgr.GetAllFeaStructs()[StructureMgr.GetCurrStructIndex()];
+        FeaStructure* curr_struct = StructureMgr.GetAllFeaStructs()[StructureMgr.m_CurrStructIndex()];
 
         Vehicle*  veh = m_ScreenMgr->GetVehiclePtr();
 
@@ -1902,12 +2163,48 @@ bool StructScreen::Update()
             }
         }
 
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+
+        FeaStructure* isect_struct = StructureMgr.GetFeaStruct( FeaMeshMgr.GetIntersectStructID() );
+        if ( isect_struct )
+        {
+            if ( FeaMeshMgr.GetIntersectComplete() )
+            {
+                m_ExportCADButton.Activate();
+            }
+            else
+            {
+                m_ExportCADButton.Deactivate();
+            }
+        }
+        else
+        {
+            m_ExportCADButton.Deactivate();
+        }
+
+
+        FeaMesh* mesh = FeaMeshMgr.GetMeshPtr();
+        if ( mesh )
+        {
+            if ( mesh->m_MeshReady )
+            {
+                m_FeaExportFEMButton.Activate();
+            }
+            else
+            {
+                m_FeaExportFEMButton.Deactivate();
+            }
+        }
+        else
+        {
+            m_FeaExportFEMButton.Deactivate();
+        }
+
+
+
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector< FeaStructure* > structVec = StructureMgr.GetAllFeaStructs();
-            FeaStructure* curr_struct = structVec[StructureMgr.GetCurrStructIndex()];
-
-            m_CurrStructOutput.Update( curr_struct->GetName() );
+            FeaStructure* curr_struct = structVec[StructureMgr.m_CurrStructIndex()];
 
             //==== Default Elem Size ====//
             m_MaxEdgeLen.Update( curr_struct->GetFeaGridDensityPtr()->m_BaseLen.GetID() );
@@ -1944,6 +2241,7 @@ bool StructScreen::Update()
             m_DrawMeshButton.Update( curr_struct->GetStructSettingsPtr()->m_DrawMeshFlag.GetID() );
             m_ColorElementsButton.Update( curr_struct->GetStructSettingsPtr()->m_ColorTagsFlag.GetID() );
             m_DrawNodesToggle.Update( curr_struct->GetStructSettingsPtr()->m_DrawNodesFlag.GetID() );
+            m_DrawBCNodesToggle.Update( curr_struct->GetStructSettingsPtr()->m_DrawBCNodesFlag.GetID() );
             m_DrawElementOrientVecToggle.Update( curr_struct->GetStructSettingsPtr()->m_DrawElementOrientVecFlag.GetID() );
 
             m_DrawIsect.Update( curr_struct->GetStructSettingsPtr()->m_DrawIsectFlag.GetID() );
@@ -1955,10 +2253,9 @@ bool StructScreen::Update()
             m_ShowCurve.Update( curr_struct->GetStructSettingsPtr()->m_DrawCurveFlag.GetID() );
             m_ShowPts.Update( curr_struct->GetStructSettingsPtr()->m_DrawPntsFlag.GetID() );
 
-            if ( FeaMeshMgr.GetStructSettingsPtr() )
-            {
-                FeaMeshMgr.UpdateDisplaySettings();
-            }
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            FeaMeshMgr.UpdateDisplaySettings();
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
             string massname = curr_struct->GetStructSettingsPtr()->GetExportFileName( vsp::FEA_MASS_FILE_NAME );
             m_MassOutput.Update( StringUtil::truncateFileName( massname, 40 ).c_str() );
@@ -2130,40 +2427,122 @@ bool StructScreen::Update()
             }
 
         }
-        else
+
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
-            m_CurrStructOutput.Update( "" );
+            vector < FeaStructure * > structVec = StructureMgr.GetAllFeaStructs();
+            FeaStructure *curr_struct = structVec[ StructureMgr.m_CurrStructIndex() ];
+
+            UpdateBCPartChoice();
+            UpdateBCSubSurfChoice();
+            UpdateFeaBCBrowser();
+
+            if ( curr_struct->ValidFeaBCInd( StructureMgr.GetCurrBCIndex() ) )
+            {
+                FeaBC *curr_bc = curr_struct->GetFeaBC( StructureMgr.GetCurrBCIndex() );
+
+                m_FeaBCTypeChoice.Update( curr_bc->m_FeaBCType.GetID() );
+
+                m_FeaBCModeChoice.Update( curr_bc->m_ConMode.GetID() );
+
+                m_TxButton.Update( curr_bc->m_Constraints.GetID() );
+                m_TyButton.Update( curr_bc->m_Constraints.GetID() );
+                m_TzButton.Update( curr_bc->m_Constraints.GetID() );
+                m_RxButton.Update( curr_bc->m_Constraints.GetID() );
+                m_RyButton.Update( curr_bc->m_Constraints.GetID() );
+                m_RzButton.Update( curr_bc->m_Constraints.GetID() );
+
+                m_FeaBCPartChoice.Deactivate();
+                m_FeaBCSubSurfChoice.Deactivate();
+
+                if ( curr_bc->m_FeaBCType() == vsp::FEA_BC_PART )
+                {
+                    m_FeaBCPartChoice.Activate();
+                    m_SelectedBCPartChoice = vector_find_val( m_FeaBCPartChoiceIDVec, curr_bc->GetPartID() );
+                    m_SelectedBCSubSurfChoice = -1;
+                }
+                else if ( curr_bc->m_FeaBCType() == vsp::FEA_BC_SUBSURF )
+                {
+                    m_FeaBCSubSurfChoice.Activate();
+                    m_SelectedBCPartChoice = -1;
+                    m_SelectedBCSubSurfChoice = vector_find_val( m_FeaBCSubSurfChoiceIDVec, curr_bc->GetSubSurfID() );
+                }
+                else
+                {
+                    m_SelectedBCPartChoice = -1;
+                    m_SelectedBCSubSurfChoice = -1;
+                }
+                m_FeaBCPartChoice.SetVal( m_SelectedBCPartChoice );
+                m_FeaBCSubSurfChoice.SetVal( m_SelectedBCSubSurfChoice );
+
+
+                m_XLTFlagButton.Update( curr_bc->m_XLTFlag.GetID() );
+                m_XGTFlagButton.Update( curr_bc->m_XGTFlag.GetID() );
+
+                m_YLTFlagButton.Update( curr_bc->m_YLTFlag.GetID() );
+                m_YGTFlagButton.Update( curr_bc->m_YGTFlag.GetID() );
+
+                m_ZLTFlagButton.Update( curr_bc->m_ZLTFlag.GetID() );
+                m_ZGTFlagButton.Update( curr_bc->m_ZGTFlag.GetID() );
+
+                m_XLTValSlider.Update( curr_bc->m_XLTVal.GetID() );
+                m_XGTValSlider.Update( curr_bc->m_XGTVal.GetID() );
+
+                m_YLTValSlider.Update( curr_bc->m_YLTVal.GetID() );
+                m_YGTValSlider.Update( curr_bc->m_YGTVal.GetID() );
+
+                m_ZLTValSlider.Update( curr_bc->m_ZLTVal.GetID() );
+                m_ZGTValSlider.Update( curr_bc->m_ZGTVal.GetID() );
+
+                m_XLTValSlider.Deactivate();
+                m_XGTValSlider.Deactivate();
+                m_YLTValSlider.Deactivate();
+                m_YGTValSlider.Deactivate();
+                m_ZLTValSlider.Deactivate();
+                m_ZGTValSlider.Deactivate();
+
+                if ( curr_bc->m_XLTFlag() )
+                {
+                    m_XLTValSlider.Activate();
+                }
+                if ( curr_bc->m_XGTFlag() )
+                {
+                    m_XGTValSlider.Activate();
+                }
+
+                if ( curr_bc->m_YLTFlag() )
+                {
+                    m_YLTValSlider.Activate();
+                }
+                if ( curr_bc->m_YGTFlag() )
+                {
+                    m_YGTValSlider.Activate();
+                }
+
+                if ( curr_bc->m_ZLTFlag() )
+                {
+                    m_ZLTValSlider.Activate();
+                }
+                if ( curr_bc->m_ZGTFlag() )
+                {
+                    m_ZGTValSlider.Activate();
+                }
+
+            }
         }
 
-        if ( FeaMeshMgr.GetFeaMeshInProgress() )
-        {
-            m_FeaMeshExportButton.Deactivate();
-        }
-        else
-        {
-            m_FeaMeshExportButton.Activate();
-        }
-
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) && FeaMeshMgr.FeaDataAvailable() )
-        {
-            m_ResetDisplayButton.Activate();
-        }
-        else
-        {
-            m_ResetDisplayButton.Deactivate();
-        }
     }
 
     //If size is > 1 then a Structure has been added to Browser, and we activate export buttons
     if ( ( int )( m_FeaPartSelectBrowser->size() > 1 ) )
     {
-        m_CADExportButton.Activate();
-        m_FeaMeshExportButton.Activate();
+        m_IntersectOnlyButton.Activate();
+        m_FeaIntersectMeshButton.Activate();
     }
     else
     {
-        m_CADExportButton.Deactivate();
-        m_FeaMeshExportButton.Deactivate();
+        m_IntersectOnlyButton.Deactivate();
+        m_FeaIntersectMeshButton.Deactivate();
     }
 
     return true;
@@ -2188,7 +2567,7 @@ void StructScreen::CallBack( Fl_Widget* w )
     {
         if ( w == m_FeaPartSelectBrowser )
         {
-            if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+            if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
             {
                 vector< FeaStructure* > structVec = StructureMgr.GetAllFeaStructs();
 
@@ -2206,9 +2585,9 @@ void StructScreen::CallBack( Fl_Widget* w )
                 {
                     StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
 
-                    if ( m_SelectedPartIndexVec[0] < structVec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+                    if ( m_SelectedPartIndexVec[0] < structVec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
                     {
-                        FeaPart* feaprt = structVec[StructureMgr.GetCurrStructIndex()]->GetFeaPart( m_SelectedPartIndexVec[0] );
+                        FeaPart* feaprt = structVec[StructureMgr.m_CurrStructIndex()]->GetFeaPart( m_SelectedPartIndexVec[0] );
 
                         if ( feaprt )
                         {
@@ -2222,9 +2601,9 @@ void StructScreen::CallBack( Fl_Widget* w )
                             }
                         }
                     }
-                    else if ( m_SelectedPartIndexVec[0] >= structVec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+                    else if ( m_SelectedPartIndexVec[0] >= structVec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
                     {
-                        SubSurface* subsurf = structVec[StructureMgr.GetCurrStructIndex()]->GetFeaSubSurf( m_SelectedPartIndexVec[0] - structVec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() );
+                        SubSurface* subsurf = structVec[StructureMgr.m_CurrStructIndex()]->GetFeaSubSurf( m_SelectedPartIndexVec[0] - structVec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() );
 
                         if ( subsurf )
                         {
@@ -2249,53 +2628,41 @@ void StructScreen::CallBack( Fl_Widget* w )
         }
         else if ( w == m_StructureSelectBrowser )
         {
-            for ( unsigned int iCase = 1; iCase <= m_StructureSelectBrowser->size(); iCase++ )
-            {
-                if ( m_StructureSelectBrowser->selected( iCase ) )
-                {
-                    StructureMgr.SetCurrStructIndex( iCase - 2 );
-                    break;
-                }
-            }
+            StructureMgr.m_CurrStructIndex.Set( m_StructureSelectBrowser->value() - 2 );
+            FeaMeshMgr.SetFeaMeshStructID( m_StructIDs[ StructureMgr.m_CurrStructIndex() ] );
         }
         else if ( w == m_DrawPartSelectBrowser )
         {
             int selected_index = m_DrawPartSelectBrowser->value();
             bool flag = !!m_DrawPartSelectBrowser->checked( selected_index );
+            selected_index--;
 
-            vector < string > draw_browser_name_vec = FeaMeshMgr.GetDrawBrowserNameVec();
-            vector < int > draw_browser_index_vec = FeaMeshMgr.GetDrawBrowserIndexVec();
+            vector < string > draw_browser_name_vec = FeaMeshMgr.GetMeshPtr()->GetDrawBrowserNameVec();
+            vector < int > draw_browser_index_vec = FeaMeshMgr.GetMeshPtr()->GetDrawBrowserIndexVec();
 
-            if ( draw_browser_name_vec[selected_index - 1].find( "CAP" ) != std::string::npos )
+            if ( selected_index < draw_browser_name_vec.size() )
             {
-                FeaMeshMgr.SetDrawCapFlag( draw_browser_index_vec[selected_index - 1], flag );
-            }
-            else
-            {
-                FeaMeshMgr.SetDrawElementFlag( draw_browser_index_vec[selected_index - 1], flag );
+                if ( draw_browser_name_vec[ selected_index ].find( "CAP" ) != std::string::npos )
+                {
+                    FeaMeshMgr.GetMeshPtr()->SetDrawCapFlag( draw_browser_index_vec[ selected_index ], flag );
+                }
+                else
+                {
+                    FeaMeshMgr.GetMeshPtr()->SetDrawElementFlag( draw_browser_index_vec[ selected_index ], flag );
+                }
             }
         }
         else if ( w == m_FeaPropertySelectBrowser )
         {
-            for ( unsigned int iCase = 1; iCase <= m_FeaPropertySelectBrowser->size(); iCase++ )
-            {
-                if ( m_FeaPropertySelectBrowser->selected( iCase ) )
-                {
-                    StructureMgr.SetCurrPropertyIndex( iCase - 2 );
-                    break;
-                }
-            }
+            StructureMgr.SetCurrPropertyIndex( m_FeaPropertySelectBrowser->value() - 2 );
         }
         else if ( w == m_FeaMaterialSelectBrowser )
         {
-            for ( unsigned int iCase = 1; iCase <= m_FeaMaterialSelectBrowser->size(); iCase++ )
-            {
-                if ( m_FeaMaterialSelectBrowser->selected( iCase ) )
-                {
-                    StructureMgr.SetCurrMaterialIndex( iCase - 1 );
-                    break;
-                }
-            }
+            StructureMgr.SetCurrMaterialIndex( m_FeaMaterialSelectBrowser->value() - 1 );
+        }
+        else if ( w == m_FeaBCSelectBrowser )
+        {
+            StructureMgr.SetCurrBCIndex( m_FeaBCSelectBrowser->value() - 1 );
         }
     }
 
@@ -2310,13 +2677,26 @@ void * feamesh_thread_fun( void *data )
 {
     FeaMeshMgr.GenerateFeaMesh();
 
-    StructScreen *cs = (StructScreen *)data;
-    if ( cs )
-    {
-        cs->GetScreenMgr()->SetUpdateFlag( true ); // FeaParts will not be updated when mesh is in progress
-    }
-
     return 0;
+}
+
+void StructScreen::LaunchFEAMesh()
+{
+    // Set m_FeaMeshInProgress to ensure m_MonitorProcess does not terminate prematurely
+    FeaMeshMgr.SetFeaMeshInProgress( true );
+
+    // Identify which structure to mesh
+    FeaMeshMgr.SetFeaMeshStructID( m_StructIDs[ StructureMgr.m_CurrStructIndex() ] );
+
+    m_FeaMeshProcess.StartThread( feamesh_thread_fun, NULL );
+
+    if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
+    {
+        vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
+
+        structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->m_DrawMeshFlag = true;
+        structvec[StructureMgr.m_CurrStructIndex()]->SetDrawFlag( false );
+    }
 }
 
 void StructScreen::GuiDeviceCallBack( GuiDevice* device )
@@ -2330,30 +2710,38 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
         return;
     }
 
-    if ( device == &m_FeaMeshExportButton )
+    if ( device == &m_FeaIntersectMeshButton )
+    {
+        LaunchFEAMesh();
+    }
+    else if ( device == &m_FeaExportFEMButton )
+    {
+        FeaMeshMgr.addOutputText( "Exporting Mesh Files\n" );
+        FeaMeshMgr.ExportFeaMesh( m_StructIDs[ StructureMgr.m_CurrStructIndex() ] );
+    }
+    else if ( device == &m_IntersectOnlyButton )
     {
         // Set m_FeaMeshInProgress to ensure m_MonitorProcess does not terminate prematurely
         FeaMeshMgr.SetFeaMeshInProgress( true );
+        FeaMeshMgr.SetCADOnlyFlag( true );
 
         // Identify which structure to mesh
-        FeaMeshMgr.SetFeaMeshStructIndex( StructureMgr.GetCurrStructIndex() );
+        FeaMeshMgr.SetFeaMeshStructID( m_StructIDs[ StructureMgr.m_CurrStructIndex() ] );
 
-        m_FeaMeshProcess.StartThread( feamesh_thread_fun, ( void* ) this );
-
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
-        {
-            vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
-
-            structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->m_DrawMeshFlag = true;
-            structvec[StructureMgr.GetCurrStructIndex()]->SetDrawFlag( false );
-        }
+        m_FeaMeshProcess.StartThread( feamesh_thread_fun, NULL );
     }
-    else if ( device == &m_ResetDisplayButton )
+    else if ( device == &m_ExportCADButton )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) && FeaMeshMgr.FeaDataAvailable() )
+        FeaMeshMgr.addOutputText( "Exporting CAD Files\n" );
+        FeaMeshMgr.ExportCADFiles();
+    }
+    else if ( device == &m_ResetPartDisplayButton )
+    {
+        StructureMgr.ShowAllParts();
+
+        if ( FeaMeshMgr.GetMeshPtr() )
         {
-            StructureMgr.ShowAllParts();
-            FeaMeshMgr.SetAllDisplayFlags( false );
+            FeaMeshMgr.GetMeshPtr()->SetAllDisplayFlags( false );
         }
     }
     else if ( device == &m_WikiLinkButton )
@@ -2390,7 +2778,7 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
             {
                 StructureMgr.InitFeaProperties(); // Add default FeaProperties if none available
 
-                StructureMgr.SetCurrStructIndex( StructureMgr.GetTotFeaStructIndex( newstruct ) );
+                StructureMgr.m_CurrStructIndex.Set( StructureMgr.GetTotFeaStructIndex( newstruct ) );
             }
         }
     }
@@ -2398,9 +2786,9 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
     {
         vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
-            FeaStructure* delstruct = structvec[StructureMgr.GetCurrStructIndex()];
+            FeaStructure* delstruct = structvec[StructureMgr.m_CurrStructIndex()];
 
             if ( delstruct )
             {
@@ -2421,20 +2809,20 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
             }
         }
 
-        StructureMgr.SetCurrStructIndex( StructureMgr.GetCurrStructIndex() - 1 );
+        StructureMgr.m_CurrStructIndex.Set( StructureMgr.m_CurrStructIndex() - 1 );
 
-        if ( !StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( !StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
-            StructureMgr.SetCurrStructIndex( -1 );
+            StructureMgr.m_CurrStructIndex.Set( -1 );
         }
     }
     else if ( device == &m_FeaStructNameInput )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
-            FeaStructure* feastruct = structvec[StructureMgr.GetCurrStructIndex()];
+            FeaStructure* feastruct = structvec[StructureMgr.m_CurrStructIndex()];
 
             if ( feastruct )
             {
@@ -2442,7 +2830,7 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
 
                 if ( feastruct->GetStructSettingsPtr() )
                 {
-                    feastruct->GetStructSettingsPtr()->ResetExportFileNames( m_FeaStructNameInput.GetString() );
+                    feastruct->ResetExportFileNames();
                 }
             }
         }
@@ -2469,18 +2857,18 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
 
         if ( m_SelectedPartIndexVec.size() == 1 )
         {
-            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                FeaPart* feaprt = structvec[StructureMgr.GetCurrStructIndex()]->GetFeaPart( m_SelectedPartIndexVec[0] );
+                FeaPart* feaprt = structvec[StructureMgr.m_CurrStructIndex()]->GetFeaPart( m_SelectedPartIndexVec[0] );
 
                 if ( feaprt )
                 {
                     feaprt->SetName( m_FeaPartNameInput.GetString() );
                 }
             }
-            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                SubSurface* subsurf = structvec[StructureMgr.GetCurrStructIndex()]->GetFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() );
+                SubSurface* subsurf = structvec[StructureMgr.m_CurrStructIndex()]->GetFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() );
 
                 if ( subsurf )
                 {
@@ -2508,7 +2896,7 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
     }
     else if ( device == &m_AddFeaPartButton )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
@@ -2518,7 +2906,7 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
             {
                 FeaPart* feaprt = NULL;
 
-                feaprt = structvec[StructureMgr.GetCurrStructIndex()]->AddFeaPart( m_FeaPartChoice.GetVal() );
+                feaprt = structvec[StructureMgr.m_CurrStructIndex()]->AddFeaPart( m_FeaPartChoice.GetVal() );
 
                 if ( m_FeaPartChoice.GetVal() == vsp::FEA_SLICE )
                 {
@@ -2530,8 +2918,8 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
 
                 if ( feaprt )
                 {
-                    m_SelectedPartIndexVec.push_back( structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() - 1 );
-                    StructureMgr.SetCurrPartIndex( structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() - 1 );
+                    m_SelectedPartIndexVec.push_back( structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() - 1 );
+                    StructureMgr.SetCurrPartIndex( structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() - 1 );
                     feaprt->Update();
                 }
             }
@@ -2539,12 +2927,12 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
             {
                 SubSurface* ssurf = NULL;
 
-                ssurf = structvec[StructureMgr.GetCurrStructIndex()]->AddFeaSubSurf( m_FeaPartChoice.GetVal() - m_FeaPartChoiceSubSurfOffset );
+                ssurf = structvec[StructureMgr.m_CurrStructIndex()]->AddFeaSubSurf( m_FeaPartChoice.GetVal() - m_FeaPartChoiceSubSurfOffset );
 
                 if ( ssurf )
                 {
-                    m_SelectedPartIndexVec.push_back( structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() + structvec[StructureMgr.GetCurrStructIndex()]->NumFeaSubSurfs() - 1 );
-                    StructureMgr.SetCurrPartIndex( structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() + structvec[StructureMgr.GetCurrStructIndex()]->NumFeaSubSurfs() - 1 );
+                    m_SelectedPartIndexVec.push_back( structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() + structvec[StructureMgr.m_CurrStructIndex()]->NumFeaSubSurfs() - 1 );
+                    StructureMgr.SetCurrPartIndex( structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() + structvec[StructureMgr.m_CurrStructIndex()]->NumFeaSubSurfs() - 1 );
                     ssurf->Update();
                 }
             }
@@ -2556,7 +2944,7 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
     }
     else if ( device == &m_DelFeaPartButton )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
@@ -2564,7 +2952,7 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
             {
                 for ( size_t i = 0; i < m_SelectedPartIndexVec.size(); i++ )
                 {
-                    FeaPart* prt = structvec[StructureMgr.GetCurrStructIndex()]->GetFeaPart( m_SelectedPartIndexVec[i] );
+                    FeaPart* prt = structvec[StructureMgr.m_CurrStructIndex()]->GetFeaPart( m_SelectedPartIndexVec[i] );
 
                     if ( prt )
                     {
@@ -2584,13 +2972,13 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
 
                 while ( m_SelectedPartIndexVec.size() > 0 )
                 {
-                    if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+                    if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
                     {
-                        structvec[StructureMgr.GetCurrStructIndex()]->DelFeaPart( m_SelectedPartIndexVec[0] );
+                        structvec[StructureMgr.m_CurrStructIndex()]->DelFeaPart( m_SelectedPartIndexVec[0] );
                     }
-                    else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+                    else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
                     {
-                        structvec[StructureMgr.GetCurrStructIndex()]->DelFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() );
+                        structvec[StructureMgr.m_CurrStructIndex()]->DelFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() );
                     }
 
                     vector < int > temp_index_vec;
@@ -2605,7 +2993,7 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
 
                 if ( first_selection != -1 )
                 {
-                    if ( structvec[StructureMgr.GetCurrStructIndex()]->ValidFeaPartInd( first_selection - 1 ) )
+                    if ( structvec[StructureMgr.m_CurrStructIndex()]->ValidFeaPartInd( first_selection - 1 ) )
                     {
                         m_SelectedPartIndexVec.clear();
                         m_SelectedPartIndexVec.push_back( first_selection - 1 );
@@ -2621,15 +3009,15 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
         Parm* curr_parm = ParmMgr.FindParm( curr_parm_id );
         bool curr_val = curr_parm->Get();
 
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) && m_SelectedPartIndexVec.size() > 1 )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) && m_SelectedPartIndexVec.size() > 1 )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             for ( size_t i = 0; i < m_SelectedPartIndexVec.size(); i++ )
             {
-                if ( m_SelectedPartIndexVec[i] < structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+                if ( m_SelectedPartIndexVec[i] < structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
                 {
-                    FeaPart* prt = structvec[StructureMgr.GetCurrStructIndex()]->GetFeaPart( m_SelectedPartIndexVec[i] );
+                    FeaPart* prt = structvec[StructureMgr.m_CurrStructIndex()]->GetFeaPart( m_SelectedPartIndexVec[i] );
 
                     if ( prt )
                     {
@@ -2643,9 +3031,9 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
                         }
                     }
                 }
-                else if ( m_SelectedPartIndexVec[i] >= structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+                else if ( m_SelectedPartIndexVec[i] >= structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
                 {
-                    SubSurface* ssurf = structvec[StructureMgr.GetCurrStructIndex()]->GetFeaSubSurf( m_SelectedPartIndexVec[i] - structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() );
+                    SubSurface* ssurf = structvec[StructureMgr.m_CurrStructIndex()]->GetFeaSubSurf( m_SelectedPartIndexVec[i] - structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() );
 
                     if ( ssurf )
                     {
@@ -2657,21 +3045,21 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
     }
     else if ( device == &m_DrawAllButton )
     {
-        FeaMeshMgr.SetAllDisplayFlags( true );
+        FeaMeshMgr.GetMeshPtr()->SetAllDisplayFlags( true );
     }
     else if ( device == &m_HideAllButton )
     {
-        FeaMeshMgr.SetAllDisplayFlags( false );
+        FeaMeshMgr.GetMeshPtr()->SetAllDisplayFlags( false );
     }
     else if ( device == &m_MovePrtUpButton )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) && m_SelectedPartIndexVec.size() == 1 )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) && m_SelectedPartIndexVec.size() == 1 )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
-            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->ReorderFeaPart( m_SelectedPartIndexVec[0], Vehicle::REORDER_MOVE_UP );
+                structvec[StructureMgr.m_CurrStructIndex()]->ReorderFeaPart( m_SelectedPartIndexVec[0], Vehicle::REORDER_MOVE_UP );
 
                 if ( m_SelectedPartIndexVec[0] != 0 )
                 {
@@ -2679,11 +3067,11 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
                     StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
                 }
             }
-            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->ReorderFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts(), Vehicle::REORDER_MOVE_UP );
+                structvec[StructureMgr.m_CurrStructIndex()]->ReorderFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts(), Vehicle::REORDER_MOVE_UP );
 
-                if ( m_SelectedPartIndexVec[0] != structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+                if ( m_SelectedPartIndexVec[0] != structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
                 {
                     m_SelectedPartIndexVec[0]--;
                     StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
@@ -2693,25 +3081,25 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
     }
     else if ( device == &m_MovePrtDownButton )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) && m_SelectedPartIndexVec.size() == 1 )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) && m_SelectedPartIndexVec.size() == 1 )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
-            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->ReorderFeaPart( m_SelectedPartIndexVec[0], Vehicle::REORDER_MOVE_DOWN );
+                structvec[StructureMgr.m_CurrStructIndex()]->ReorderFeaPart( m_SelectedPartIndexVec[0], Vehicle::REORDER_MOVE_DOWN );
 
-                if ( m_SelectedPartIndexVec[0] != structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() - 1 )
+                if ( m_SelectedPartIndexVec[0] != structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() - 1 )
                 {
                     m_SelectedPartIndexVec[0]++;
                     StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
                 }
             }
-            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->ReorderFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts(), Vehicle::REORDER_MOVE_DOWN );
+                structvec[StructureMgr.m_CurrStructIndex()]->ReorderFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts(), Vehicle::REORDER_MOVE_DOWN );
 
-                if ( m_SelectedPartIndexVec[0] != structvec[StructureMgr.GetCurrStructIndex()]->NumFeaSubSurfs() + structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() - 1 )
+                if ( m_SelectedPartIndexVec[0] != structvec[StructureMgr.m_CurrStructIndex()]->NumFeaSubSurfs() + structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() - 1 )
                 {
                     m_SelectedPartIndexVec[0]++;
                     StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
@@ -2721,40 +3109,40 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
     }
     else if ( device == &m_MovePrtTopButton )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) && m_SelectedPartIndexVec.size() == 1 )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) && m_SelectedPartIndexVec.size() == 1 )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
-            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->ReorderFeaPart( m_SelectedPartIndexVec[0], Vehicle::REORDER_MOVE_TOP );
+                structvec[StructureMgr.m_CurrStructIndex()]->ReorderFeaPart( m_SelectedPartIndexVec[0], Vehicle::REORDER_MOVE_TOP );
                 m_SelectedPartIndexVec[0] = 0;
                 StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
             }
-            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->ReorderFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts(), Vehicle::REORDER_MOVE_TOP );
-                m_SelectedPartIndexVec[0] = structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts();
+                structvec[StructureMgr.m_CurrStructIndex()]->ReorderFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts(), Vehicle::REORDER_MOVE_TOP );
+                m_SelectedPartIndexVec[0] = structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts();
                 StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
             }
         }
     }
     else if ( device == &m_MovePrtBotButton )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) && m_SelectedPartIndexVec.size() == 1 )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) && m_SelectedPartIndexVec.size() == 1 )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
-            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            if ( m_SelectedPartIndexVec[0] < structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->ReorderFeaPart( m_SelectedPartIndexVec[0], Vehicle::REORDER_MOVE_BOTTOM );
-                m_SelectedPartIndexVec[0] = structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() - 1;
+                structvec[StructureMgr.m_CurrStructIndex()]->ReorderFeaPart( m_SelectedPartIndexVec[0], Vehicle::REORDER_MOVE_BOTTOM );
+                m_SelectedPartIndexVec[0] = structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() - 1;
                 StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
             }
-            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() )
+            else if ( m_SelectedPartIndexVec[0] >= structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->ReorderFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts(), Vehicle::REORDER_MOVE_BOTTOM );
-                m_SelectedPartIndexVec[0] = structvec[StructureMgr.GetCurrStructIndex()]->NumFeaParts() + structvec[StructureMgr.GetCurrStructIndex()]->NumFeaSubSurfs() - 1;
+                structvec[StructureMgr.m_CurrStructIndex()]->ReorderFeaSubSurf( m_SelectedPartIndexVec[0] - structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts(), Vehicle::REORDER_MOVE_BOTTOM );
+                m_SelectedPartIndexVec[0] = structvec[StructureMgr.m_CurrStructIndex()]->NumFeaParts() + structvec[StructureMgr.m_CurrStructIndex()]->NumFeaSubSurfs() - 1;
                 StructureMgr.SetCurrPartIndex( m_SelectedPartIndexVec[0] );
             }
         }
@@ -2852,157 +3240,250 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
     }
     else if ( device == &m_SelectStlFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select .stl file.", "*.stl" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_STL_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_STL_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectMassFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select mass .txt file.", "*.txt" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_MASS_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_MASS_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectNastFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select NASTRAN .dat file.", "*.dat" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_NASTRAN_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_NASTRAN_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectNkeyFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select NASTRAN key file.", "*.nkey" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_NKEY_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_NKEY_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectCalcFile  )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select Calculix .dat file.", "*.dat" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_CALCULIX_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_CALCULIX_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectGmshFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select .msh file.", "*.msh" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_GMSH_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_GMSH_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectSrfFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select .srf file.", "*.srf" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_SRF_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_SRF_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectCurvFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select GridTool .curv file.", "*.curv" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_CURV_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_CURV_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectPlot3DFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select Plot3D .p3d file.", "*.p3d" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_PLOT3D_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_PLOT3D_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectIGESFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select IGES .igs file.", "*.igs" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_IGES_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_IGES_FILE_NAME );
             }
         }
     }
     else if ( device == &m_SelectSTEPFile )
     {
-        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
             string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select STEP .stp file.", "*.stp" );
             if ( newfile.compare( "" ) != 0 )
             {
-                structvec[StructureMgr.GetCurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_STEP_FILE_NAME );
+                structvec[StructureMgr.m_CurrStructIndex()]->GetStructSettingsPtr()->SetExportFileName( newfile, vsp::FEA_STEP_FILE_NAME );
             }
         }
     }
-    else if ( device == &m_CADExportButton )
+    else if ( device == &m_AddFeaBCButton )
     {
-        // Set m_FeaMeshInProgress to ensure m_MonitorProcess does not terminate prematurely
-        FeaMeshMgr.SetFeaMeshInProgress( true );
-        FeaMeshMgr.SetCADOnlyFlag( true );
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
+        {
+            vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
 
-        // Identify which structure to mesh
-        FeaMeshMgr.SetFeaMeshStructIndex( StructureMgr.GetCurrStructIndex() );
+            FeaStructure* curr_struct = structvec[StructureMgr.m_CurrStructIndex()];
 
-        m_FeaMeshProcess.StartThread( feamesh_thread_fun, (void*)this );
+            if ( curr_struct )
+            {
+                FeaBC* feabc = curr_struct->AddFeaBC();
+
+                if ( feabc )
+                {
+                    StructureMgr.SetCurrBCIndex( curr_struct->NumFeaBCs() - 1 );
+//                    feabc->Update();
+                }
+            }
+        }
+        else
+        {
+            AddOutputText( "Error: No Structure Selected\n" );
+        }
+    }
+    else if ( device == &m_DelFeaBCButton )
+    {
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
+        {
+            vector < FeaStructure* > structvec = StructureMgr.GetAllFeaStructs();
+
+            FeaStructure* curr_struct = structvec[StructureMgr.m_CurrStructIndex()];
+
+            if ( curr_struct )
+            {
+
+                if ( curr_struct->ValidFeaBCInd( StructureMgr.GetCurrBCIndex() ) )
+                {
+                    curr_struct->DelFeaBC( StructureMgr.GetCurrBCIndex() );
+
+                    StructureMgr.SetCurrBCIndex( StructureMgr.GetCurrBCIndex() - 1 );
+                }
+                else
+                {
+                    StructureMgr.SetCurrBCIndex( -1 );
+                }
+            }
+        }
+    }
+    else if ( device == &m_FeaBCPartChoice )
+    {
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
+        {
+            vector < FeaStructure * > structvec = StructureMgr.GetAllFeaStructs();
+
+            FeaStructure *curr_struct = structvec[ StructureMgr.m_CurrStructIndex() ];
+
+            if ( curr_struct )
+            {
+                m_SelectedBCPartChoice = m_FeaBCPartChoice.GetVal();
+
+                if ( m_SelectedBCPartChoice >= 0 && m_SelectedBCPartChoice < m_FeaBCPartChoiceIDVec.size() &&
+                     m_FeaBCPartChoiceIDVec.size() > 0 )
+                {
+                    if ( curr_struct->ValidFeaBCInd( StructureMgr.GetCurrBCIndex()))
+                    {
+                        FeaBC *curr_bc = curr_struct->GetFeaBC( StructureMgr.GetCurrBCIndex());
+
+                        if ( curr_bc->m_FeaBCType() == vsp::FEA_BC_PART )
+                        {
+                            curr_bc->SetPartID( m_FeaBCPartChoiceIDVec[ m_SelectedBCPartChoice ] );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else if ( device == &m_FeaBCSubSurfChoice )
+    {
+        if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
+        {
+            vector < FeaStructure * > structvec = StructureMgr.GetAllFeaStructs();
+
+            FeaStructure *curr_struct = structvec[ StructureMgr.m_CurrStructIndex() ];
+
+            if ( curr_struct )
+            {
+                m_SelectedBCSubSurfChoice = m_FeaBCSubSurfChoice.GetVal();
+
+                if ( m_SelectedBCSubSurfChoice >= 0 && m_SelectedBCSubSurfChoice < m_FeaBCSubSurfChoiceIDVec.size() &&
+                     m_FeaBCSubSurfChoiceIDVec.size() > 0 )
+                {
+                    if ( curr_struct->ValidFeaBCInd( StructureMgr.GetCurrBCIndex()))
+                    {
+                        FeaBC *curr_bc = curr_struct->GetFeaBC( StructureMgr.GetCurrBCIndex());
+
+                        if ( curr_bc->m_FeaBCType() == vsp::FEA_BC_SUBSURF )
+                        {
+                            curr_bc->SetSubSurfID( m_FeaBCSubSurfChoiceIDVec[ m_SelectedBCSubSurfChoice ] );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     m_ScreenMgr->SetUpdateFlag( true );
@@ -3010,12 +3491,12 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
 
 void StructScreen::OrientStructure( VSPGraphic::Common::VSPenum type )
 {
-    if ( !StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+    if ( !StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
     {
         return;
     }
 
-    FeaStructure* curr_struct = StructureMgr.GetAllFeaStructs()[StructureMgr.GetCurrStructIndex()];
+    FeaStructure* curr_struct = StructureMgr.GetAllFeaStructs()[StructureMgr.m_CurrStructIndex()];
     Vehicle* veh = m_ScreenMgr->GetVehiclePtr();
 
     if ( veh && curr_struct )
@@ -3092,12 +3573,12 @@ void StructScreen::OrientStructure( VSPGraphic::Common::VSPenum type )
 
 void StructScreen::OrientWing()
 {
-    if ( !StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+    if ( !StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
     {
         return;
     }
 
-    FeaStructure* curr_struct = StructureMgr.GetAllFeaStructs()[StructureMgr.GetCurrStructIndex()];
+    FeaStructure* curr_struct = StructureMgr.GetAllFeaStructs()[StructureMgr.m_CurrStructIndex()];
     Vehicle* veh = m_ScreenMgr->GetVehiclePtr();
 
     if ( veh && curr_struct )
@@ -3144,11 +3625,11 @@ void StructScreen::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
 
     if ( IsShown() )
     {
-        if ( !FeaMeshMgr.GetFeaMeshInProgress() && StructureMgr.ValidTotalFeaStructInd( StructureMgr.GetCurrStructIndex() ) )
+        if ( !FeaMeshMgr.GetFeaMeshInProgress() && StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
         {
             vector < FeaStructure* > totalstructvec = StructureMgr.GetAllFeaStructs();
 
-            FeaStructure* curr_struct = totalstructvec[StructureMgr.GetCurrStructIndex()];
+            FeaStructure* curr_struct = totalstructvec[StructureMgr.m_CurrStructIndex()];
 
             if ( !curr_struct )
             {

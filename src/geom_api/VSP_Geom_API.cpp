@@ -417,14 +417,8 @@ void SetComputationFileName( int file_type, const string & file_name )
         GetVehicle()->GetCfdSettingsPtr()->SetExportFileName( file_name, CFD_KEY_FILE_NAME );
     if ( file_type == CFD_GMSH_TYPE )
         GetVehicle()->GetCfdSettingsPtr()->SetExportFileName( file_name, CFD_GMSH_FILE_NAME );
-    if ( file_type == CFD_SRF_TYPE )
-        GetVehicle()->GetCfdSettingsPtr()->SetExportFileName( file_name, CFD_SRF_FILE_NAME );
     if ( file_type == CFD_TKEY_TYPE )
         GetVehicle()->GetCfdSettingsPtr()->SetExportFileName( file_name, CFD_TKEY_FILE_NAME );
-    if ( file_type == CFD_CURV_TYPE )
-        GetVehicle()->GetCfdSettingsPtr()->SetExportFileName( file_name, CFD_CURV_FILE_NAME );
-    if ( file_type == CFD_PLOT3D_TYPE )
-        GetVehicle()->GetCfdSettingsPtr()->SetExportFileName( file_name, CFD_PLOT3D_FILE_NAME );
     if ( file_type == CFD_VSPGEOM_TYPE )
         GetVehicle()->GetCfdSettingsPtr()->SetExportFileName( file_name, CFD_VSPGEOM_FILE_NAME );
 
@@ -537,9 +531,9 @@ void SetCFDMeshVal( int type, double val )
     else if ( type == CFD_INTERSECT_SUBSURFACE_FLAG )
         GetVehicle()->GetCfdSettingsPtr()->m_IntersectSubSurfs = ToBool(val);
     else if ( type == CFD_HALF_MESH_FLAG )
-        GetVehicle()->GetCfdSettingsPtr()->SetHalfMeshFlag( ToBool(val) );
+        GetVehicle()->GetCfdSettingsPtr()->m_HalfMeshFlag = ToBool(val);
     else if ( type == CFD_FAR_FIELD_FLAG )
-        GetVehicle()->GetCfdSettingsPtr()->SetFarMeshFlag( ToBool(val) );
+        GetVehicle()->GetCfdSettingsPtr()->m_FarMeshFlag = ToBool(val);
     else if ( type == CFD_FAR_MAX_EDGE_LEN )
         GetVehicle()->GetCfdGridDensityPtr()->m_FarMaxLen = val;
     else if ( type == CFD_FAR_MAX_GAP )
@@ -547,7 +541,7 @@ void SetCFDMeshVal( int type, double val )
     else if ( type == CFD_FAR_NUM_CIRCLE_SEGS )
         GetVehicle()->GetCfdGridDensityPtr()->m_FarNCircSeg = val;
     else if ( type == CFD_FAR_SIZE_ABS_FLAG )
-        GetVehicle()->GetCfdSettingsPtr()->SetFarAbsSizeFlag( ToBool(val) );
+        GetVehicle()->GetCfdSettingsPtr()->m_FarAbsSizeFlag = ToBool(val);
     else if ( type == CFD_FAR_LENGTH )
         GetVehicle()->GetCfdSettingsPtr()->m_FarLength = val;
     else if ( type == CFD_FAR_WIDTH )
@@ -561,7 +555,7 @@ void SetCFDMeshVal( int type, double val )
     else if ( type == CFD_FAR_Z_SCALE )
         GetVehicle()->GetCfdSettingsPtr()->m_FarZScale = val;
     else if ( type == CFD_FAR_LOC_MAN_FLAG )
-        GetVehicle()->GetCfdSettingsPtr()->SetFarManLocFlag( ToBool(val) );
+        GetVehicle()->GetCfdSettingsPtr()->m_FarManLocFlag = ToBool(val);
     else if ( type == CFD_FAR_LOC_X )
         GetVehicle()->GetCfdSettingsPtr()->m_FarXLocation = val;
     else if ( type == CFD_FAR_LOC_Y )
@@ -702,14 +696,8 @@ void ComputeCFDMesh( int set, int file_export_types )
         veh->GetCfdSettingsPtr()->SetFileExportFlag( CFD_KEY_FILE_NAME, true );
     if ( file_export_types & CFD_GMSH_TYPE )
         veh->GetCfdSettingsPtr()->SetFileExportFlag( CFD_GMSH_FILE_NAME, true );
-    if ( file_export_types & CFD_SRF_TYPE )
-        veh->GetCfdSettingsPtr()->SetFileExportFlag( CFD_SRF_FILE_NAME, true );
     if ( file_export_types & CFD_TKEY_TYPE )
         veh->GetCfdSettingsPtr()->SetFileExportFlag( CFD_TKEY_FILE_NAME, true );
-    if ( file_export_types & CFD_CURV_TYPE )
-        veh->GetCfdSettingsPtr()->SetFileExportFlag( CFD_CURV_FILE_NAME, true );
-    if ( file_export_types & CFD_PLOT3D_TYPE )
-        veh->GetCfdSettingsPtr()->SetFileExportFlag( CFD_PLOT3D_FILE_NAME, true );
     if ( file_export_types & CFD_VSPGEOM_TYPE )
         veh->GetCfdSettingsPtr()->SetFileExportFlag( CFD_VSPGEOM_FILE_NAME, true );
 
@@ -2485,11 +2473,11 @@ int AddFeaStruct( const string & geom_id, bool init_skin, int surfindex )
 
 void SetFeaMeshStructIndex( int struct_index )
 { 
-    vector < FeaStructure* > structVec = StructureMgr.GetAllFeaStructs();
+    FeaStructure* feastruct = StructureMgr.GetFeaStruct( struct_index );
 
-    if ( struct_index <= ( int )structVec.size() && struct_index >= 0 )
+    if ( feastruct )
     {
-        FeaMeshMgr.SetFeaMeshStructIndex( struct_index );
+        FeaMeshMgr.SetFeaMeshStructID( feastruct->GetID() );
         ErrorMgr.NoError();
     }
     else
@@ -2702,7 +2690,7 @@ void DeleteFeaPart( const string & geom_id, int fea_struct_ind, const string & p
         return;
     }
 
-    int index = StructureMgr.GetFeaPartIndex( part_id );
+    int index = feastruct->GetFeaPartIndex( part_id );
     if ( index == -1 )
     {
         ErrorMgr.AddError( VSP_INVALID_PTR, "DeleteFeaPart::Can't Find FeaPart " + part_id );
@@ -3060,7 +3048,7 @@ void SetFeaMeshVal( const string & geom_id, int fea_struct_ind, int type, double
     else if ( type == CFD_LIMIT_GROWTH_FLAG )
         feastruct->GetFeaGridDensityPtr()->SetRigorLimit( ToBool( val ) );
     else if ( type == CFD_HALF_MESH_FLAG )
-        feastruct->GetStructSettingsPtr()->SetHalfMeshFlag( ToBool( val ) );
+        feastruct->GetStructSettingsPtr()->m_HalfMeshFlag = ToBool( val );
     else
     {
         ErrorMgr.AddError( VSP_CANT_FIND_TYPE, "SetFEAMeshVal::Can't Find Type " + to_string( (long long)type ) );
@@ -3125,7 +3113,7 @@ void ComputeFeaMesh( const string & geom_id, int fea_struct_ind, int file_type )
     feastruct->GetStructSettingsPtr()->SetAllFileExportFlags( false );
     feastruct->GetStructSettingsPtr()->SetFileExportFlag( file_type, true );
 
-    FeaMeshMgr.SetFeaMeshStructIndex( StructureMgr.GetTotFeaStructIndex( feastruct ) );
+    FeaMeshMgr.SetFeaMeshStructID( feastruct->GetID() );
 
     FeaMeshMgr.GenerateFeaMesh();
     ErrorMgr.NoError();
@@ -3145,7 +3133,7 @@ void ComputeFeaMesh( const string & struct_id, int file_type )
     feastruct->GetStructSettingsPtr()->SetAllFileExportFlags( false );
     feastruct->GetStructSettingsPtr()->SetFileExportFlag( file_type, true );
 
-    FeaMeshMgr.SetFeaMeshStructIndex( StructureMgr.GetTotFeaStructIndex( feastruct ) );
+    FeaMeshMgr.SetFeaMeshStructID( struct_id );
 
     FeaMeshMgr.GenerateFeaMesh();
     ErrorMgr.NoError();

@@ -23,18 +23,6 @@ using namespace std;
 
 #include <cfloat>  /* for DBL_EPSILON */
 
-template <class T> bool ContainsVal( vector< T > & vec, T const & val )
-{
-    for ( int i = 0 ; i < ( int )vec.size() ; i++ )
-    {
-        if ( val == vec[i] )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 extern string GenerateRandomID( int length );
 
 extern bool ToBool( double val );
@@ -42,6 +30,7 @@ extern bool ToBool( double val );
 double mag( double x );
 double magrounddn( double x );
 double magroundup( double x );
+double magp1roundup( double x );
 double floor2scale( double x, double scale );
 double ceil2scale( double x, double scale );
 vector <double> linspace( double a, double b, double n );
@@ -69,6 +58,8 @@ bool aboutequal( T a, T b, T tol = 1e-12 )
 {
     return std::abs( a - b ) < tol;
 }
+
+int toint( double x );
 
 #endif
 

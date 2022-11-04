@@ -68,13 +68,41 @@ void FeaNode::WriteNASTRAN( FILE* fp, int noffset )
     double y = m_Pnt.y();
     double z = m_Pnt.z();
 
-    string fmt = "GRID    ,%8d,        ," + NasFmt( x ) + "," + NasFmt( y ) + "," + NasFmt( z ) + "\n";
-    fprintf( fp, fmt.c_str(), m_Index + noffset, x, y, z );
+    string bcstr = m_BCs.AsNASTRAN();
+
+    string fmt = "GRID    ,%8d,        ," + NasFmt( x ) + "," + NasFmt( y ) + "," + NasFmt( z ) + ",        ,%s\n";
+    fprintf( fp, fmt.c_str(), m_Index + noffset, x, y, z, bcstr.c_str() );
 }
 
 void FeaNode::WriteCalculix( FILE* fp, int noffset )
 {
-    fprintf( fp, "%d,%f,%f,%f\n", m_Index + noffset, m_Pnt.x(), m_Pnt.y(), m_Pnt.z() );
+    if ( true )   // print 'just' nodes.
+    {
+        fprintf( fp, "%d,%f,%f,%f\n", m_Index + noffset, m_Pnt.x(), m_Pnt.y(), m_Pnt.z() );
+    }
+    else          // also print node tags for debugging.
+    {
+        fprintf( fp, "%d,%f,%f,%f  ** ", m_Index + noffset, m_Pnt.x(), m_Pnt.y(), m_Pnt.z() );
+        for ( int i = 0; i < m_Tags.size(); i++ )
+        {
+            fprintf( fp, "%d ", m_Tags[ i ] );
+        }
+        fprintf( fp, "\n" );
+    }
+}
+
+void FeaNode::WriteCalculixBCs( FILE* fp, int noffset )
+{
+    int ndof = 6;
+
+    vector < bool > bv = m_BCs.AsBoolVec( ndof );
+    for ( int i = 0; i < ndof; i++ )
+    {
+        if ( bv[i] )
+        {
+            fprintf( fp, "%d,%d\n", m_Index + noffset, i + 1 );
+        }
+    }
 }
 
 void FeaNode::WriteGmsh( FILE* fp, int noffset )
@@ -208,6 +236,27 @@ void FeaTri::WriteGmsh( FILE* fp, int id, int fea_part_index, int noffset, int e
     }
 }
 
+void FeaTri::WriteSTL( FILE* fp )
+{
+    vec3d p0 = m_Corners[0]->m_Pnt;
+    vec3d p1 = m_Corners[1]->m_Pnt;
+    vec3d p2 = m_Corners[2]->m_Pnt;
+    vec3d v01 = p1 - p0;
+    vec3d v12 = p2 - p1;
+    vec3d norm = cross( v01, v12 );
+    norm.normalize();
+
+    fprintf( fp, " facet normal  %2.10le %2.10le %2.10le\n",  norm.x(), norm.y(), norm.z() );
+    fprintf( fp, "   outer loop\n" );
+
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p0.x(), p0.y(), p0.z() );
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p1.x(), p1.y(), p1.z() );
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p2.x(), p2.y(), p2.z() );
+
+    fprintf( fp, "   endloop\n" );
+    fprintf( fp, " endfacet\n" );
+}
+
 double FeaTri::ComputeMass( int property_index )
 {
     double mass = 0.0;
@@ -331,6 +380,43 @@ void FeaQuad::WriteGmsh( FILE* fp, int id, int fea_part_index, int noffset, int 
     }
 }
 
+void FeaQuad::WriteSTL( FILE* fp )
+{
+    vec3d p0 = m_Corners[0]->m_Pnt;
+    vec3d p1 = m_Corners[1]->m_Pnt;
+    vec3d p2 = m_Corners[2]->m_Pnt;
+    vec3d v01 = p1 - p0;
+    vec3d v12 = p2 - p1;
+    vec3d norm = cross( v01, v12 );
+    norm.normalize();
+
+    fprintf( fp, " facet normal  %2.10le %2.10le %2.10le\n",  norm.x(), norm.y(), norm.z() );
+    fprintf( fp, "   outer loop\n" );
+
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p0.x(), p0.y(), p0.z() );
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p1.x(), p1.y(), p1.z() );
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p2.x(), p2.y(), p2.z() );
+
+    fprintf( fp, "   endloop\n" );
+    fprintf( fp, " endfacet\n" );
+
+    vec3d p3 = m_Corners[3]->m_Pnt;
+    vec3d v23 = p3 - p2;
+    vec3d v30 = p0 - p3;
+    norm = cross( v23, v30 );
+    norm.normalize();
+
+    fprintf( fp, " facet normal  %2.10le %2.10le %2.10le\n",  norm.x(), norm.y(), norm.z() );
+    fprintf( fp, "   outer loop\n" );
+
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p0.x(), p0.y(), p0.z() );
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p2.x(), p2.y(), p2.z() );
+    fprintf( fp, "     vertex %2.10le %2.10le %2.10le\n", p3.x(), p3.y(), p3.z() );
+
+    fprintf( fp, "   endloop\n" );
+    fprintf( fp, " endfacet\n" );
+}
+
 double FeaQuad::ComputeMass( int property_index )
 {
     double mass = 0.0;
@@ -371,7 +457,7 @@ double FeaQuad::ComputeMass( int property_index )
 //=================== FeaBeam ======================//
 //////////////////////////////////////////////////////
 
-void FeaBeam::Create( vec3d & p0, vec3d & p1, vec3d & norm )
+void FeaBeam::Create( vec3d &p0, vec3d &p1, vec3d &norm0, vec3d &norm1 )
 {
     m_ElementType = FEA_BEAM;
     DeleteAllNodes();
@@ -383,7 +469,8 @@ void FeaBeam::Create( vec3d & p0, vec3d & p1, vec3d & norm )
 
     m_Mids.push_back( new FeaNode( p01 ) );
 
-    m_DispVec = norm;
+    m_Norm0 = norm0;
+    m_Norm1 = norm1;
 }
 
 void FeaBeam::WriteCalculix( FILE* fp, int id, int noffset, int eoffset )
@@ -396,16 +483,21 @@ void FeaBeam::WriteCalculix( FILE* fp, int id, int noffset, int eoffset )
 
 void FeaBeam::WriteCalculixNormal( FILE* fp, int noffset, int eoffset )
 {
-    fprintf( fp, "%d,%d,%f,%f,%f\n", m_ElementIndex + eoffset, m_Corners[0]->GetIndex() + noffset, m_DispVec.x(), m_DispVec.y(), m_DispVec.z() );
+    vec3d norm = ( m_Norm0 + m_Norm1 ) * 0.5;
+    norm.normalize();
+
+    fprintf( fp, "%d,%d,%f,%f,%f\n", m_ElementIndex + eoffset, m_Corners[0]->GetIndex() + noffset, m_Norm0.x(), m_Norm0.y(), m_Norm0.z() );
+    fprintf( fp, "%d,%d,%f,%f,%f\n", m_ElementIndex + eoffset, m_Mids[0]->GetIndex() + noffset, norm.x(), norm.y(), norm.z() );
+    fprintf( fp, "%d,%d,%f,%f,%f\n", m_ElementIndex + eoffset, m_Corners[1]->GetIndex() + noffset, m_Norm1.x(), m_Norm1.y(), m_Norm1.z() );
 }
 
 void FeaBeam::WriteNASTRAN( FILE* fp, int id, int property_index, int noffset, int eoffset )
 {
-    string format_string = "CBAR    ,%8d,%8d,%8d,%8d," + NasFmt( m_DispVec.x() ) + "," +
-                           NasFmt( m_DispVec.y() ) + "," + NasFmt( m_DispVec.z() ) + "\n";
+    string format_string = "CBAR    ,%8d,%8d,%8d,%8d," + NasFmt( m_Norm0.x() ) + "," +
+                           NasFmt( m_Norm0.y() ) + "," + NasFmt( m_Norm0.z() ) + "\n";
 
     fprintf( fp, format_string.c_str(), id + eoffset, property_index + 1, m_Corners[0]->GetIndex() + noffset,
-             m_Corners[1]->GetIndex() + noffset, m_DispVec.x(), m_DispVec.y(), m_DispVec.z() );
+             m_Corners[1]->GetIndex() + noffset, m_Norm0.x(), m_Norm0.y(), m_Norm0.z() );
 }
 
 void FeaBeam::WriteGmsh( FILE* fp, int id, int fea_part_index, int noffset, int eoffset )
@@ -502,6 +594,7 @@ void SimpleFeaProperty::CopyFrom( FeaProperty* fea_prop )
         m_Dim6 = fea_prop->m_Dim6.Get();
         m_CrossSectType = fea_prop->m_CrossSectType.Get();
         m_SimpleFeaMatIndex = fea_prop->m_FeaMaterialIndex();
+        m_Used = false;
 
         FeaMaterial* fea_mat = StructureMgr.GetFeaMaterial( m_SimpleFeaMatIndex );
 
@@ -512,8 +605,13 @@ void SimpleFeaProperty::CopyFrom( FeaProperty* fea_prop )
     }
 }
 
-void SimpleFeaProperty::WriteNASTRAN( FILE* fp, int prop_id )
+void SimpleFeaProperty::WriteNASTRAN( FILE* fp, int prop_id ) const
 {
+    if ( !m_Used )
+    {
+        return;
+    }
+
     fprintf( fp, "$ %s using %s\n", m_Name.c_str(), m_MaterialName.c_str() );
     if ( m_FeaPropertyType == vsp::FEA_SHELL )
     {
@@ -567,8 +665,13 @@ void SimpleFeaProperty::WriteNASTRAN( FILE* fp, int prop_id )
     }
 }
 
-void SimpleFeaProperty::WriteCalculix( FILE* fp, const string &ELSET, const string &ORIENTATION )
+void SimpleFeaProperty::WriteCalculix( FILE* fp, const string &ELSET, const string &ORIENTATION ) const
 {
+    if ( !m_Used )
+    {
+        return;
+    }
+
     if ( m_FeaPropertyType == vsp::FEA_SHELL )
     {
         fprintf( fp, "*SHELL SECTION, ELSET=%s, MATERIAL=%s, ORIENTATION=%s\n", ELSET.c_str(), m_MaterialName.c_str(), ORIENTATION.c_str() );
@@ -580,7 +683,7 @@ void SimpleFeaProperty::WriteCalculix( FILE* fp, const string &ELSET, const stri
         {
             // Note: *BEAM GENERAL SECTION is supported by Abaqus but not Calculix. Calculix depends on BEAM SECTION properties
             //  where the cross-section dimensions must be explicitly defined. 
-            fprintf( fp, "*BEAM GENERAL SECTION, SECTION=GENERAL, ELSET=%s, MATERIAL=%s\n", ELSET.c_str(), m_MaterialName.c_str() );
+            fprintf( fp, "*BEAM SECTION, SECTION=GENERAL, ELSET=%s, MATERIAL=%s\n", ELSET.c_str(), m_MaterialName.c_str() );
             fprintf( fp, "%g,%g,%g,%g,%g\n", m_CrossSecArea, m_Izz, m_Izy, m_Iyy, m_Ixx );
         }
         else if ( m_CrossSectType == vsp::FEA_XSEC_CIRC )
@@ -640,7 +743,7 @@ void SimpleFeaMaterial::CopyFrom( FeaMaterial* fea_mat )
     }
 }
 
-void SimpleFeaMaterial::WriteNASTRAN( FILE* fp, int mat_id )
+void SimpleFeaMaterial::WriteNASTRAN( FILE* fp, int mat_id ) const
 {
     if ( !m_Used )
     {
@@ -678,7 +781,7 @@ void SimpleFeaMaterial::WriteNASTRAN( FILE* fp, int mat_id )
     fprintf( fp, "\n" );
 }
 
-void SimpleFeaMaterial::WriteCalculix( FILE* fp, int mat_id )
+void SimpleFeaMaterial::WriteCalculix( FILE* fp, int mat_id ) const
 {
     if ( !m_Used )
     {
@@ -709,7 +812,7 @@ void SimpleFeaMaterial::WriteCalculix( FILE* fp, int mat_id )
     fprintf( fp, "\n" );
 }
 
-double SimpleFeaMaterial::GetShearModulus()
+double SimpleFeaMaterial::GetShearModulus() const
 {
     return ( m_ElasticModulus / ( 2.0 * ( m_PoissonRatio + 1.0 ) ) );
 }

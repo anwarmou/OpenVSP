@@ -102,6 +102,23 @@ void SimpleMeshCommonSettings::CopyFrom( MeshCommonSettings* settings )
     m_HalfMeshFlag = settings->m_HalfMeshFlag.Get();
 }
 
+string SimpleMeshCommonSettings::GetExportFileName( int type )
+{
+    if ( type >= 0 && type < m_ExportFileNames.size() )
+    {
+        return m_ExportFileNames[type];
+    }
+
+    return string();
+}
+
+bool SimpleMeshCommonSettings::GetExportFileFlag( int type )
+{
+    assert( type >= 0 && type < m_ExportFileFlags.size() );
+
+    return m_ExportFileFlags[type];
+}
+
 //////////////////////////////////////////////////////
 //============ SimpleIntersectSettings ===============//
 //////////////////////////////////////////////////////
@@ -118,7 +135,6 @@ SimpleIntersectSettings::~SimpleIntersectSettings()
 
 void SimpleIntersectSettings::CopyFrom( IntersectSettings* settings )
 {
-
     m_ExportFileFlags.clear();
     m_ExportFileFlags.resize( vsp::INTERSECT_NUM_FILE_NAMES );
 
@@ -143,23 +159,6 @@ void SimpleIntersectSettings::CopyFrom( IntersectSettings* settings )
     m_CADLabelSplitNo = settings->m_CADLabelSplitNo.Get();
 
     SimpleMeshCommonSettings::CopyFrom( settings );
-}
-
-string SimpleIntersectSettings::GetExportFileName( int type )
-{
-    if ( type >= 0 && type < vsp::INTERSECT_NUM_FILE_NAMES )
-    {
-        return m_ExportFileNames[type];
-    }
-
-    return string();
-}
-
-bool SimpleIntersectSettings::GetExportFileFlag( int type )
-{
-    assert( type >= 0 && type < vsp::INTERSECT_NUM_FILE_NAMES );
-
-    return m_ExportFileFlags[type];
 }
 
 //////////////////////////////////////////////////////
@@ -239,23 +238,6 @@ void SimpleCfdMeshSettings::CopyFrom( CfdMeshSettings* settings )
     SimpleMeshCommonSettings::CopyFrom( settings );
 }
 
-string SimpleCfdMeshSettings::GetExportFileName( int type )
-{
-    if ( type >= 0 && type < vsp::CFD_NUM_FILE_NAMES )
-    {
-        return m_ExportFileNames[type];
-    }
-
-    return string();
-}
-
-bool SimpleCfdMeshSettings::GetExportFileFlag( int type )
-{
-    assert( type >= 0 && type < vsp::CFD_NUM_FILE_NAMES );
-
-    return m_ExportFileFlags[type];
-}
-
 //////////////////////////////////////////////////////
 //============ SimpleFeaMeshSettings ===============//
 //////////////////////////////////////////////////////
@@ -264,6 +246,7 @@ SimpleFeaMeshSettings::SimpleFeaMeshSettings()
 {
     m_NumEvenlySpacedPart = 0;
     m_DrawNodesFlag = false;
+    m_DrawBCNodesFlag = false;
     m_DrawElementOrientVecFlag = false;
     m_XYZIntCurveFlag = false;
 
@@ -278,6 +261,22 @@ SimpleFeaMeshSettings::~SimpleFeaMeshSettings()
 
 void SimpleFeaMeshSettings::CopyFrom( StructSettings* settings )
 {
+    m_NumEvenlySpacedPart = settings->m_NumEvenlySpacedPart.Get(); // Not used by FeaMeshMgr
+
+    m_DrawNodesFlag = settings->m_DrawNodesFlag.Get();
+    m_DrawBCNodesFlag = settings->m_DrawBCNodesFlag.Get();
+    m_DrawElementOrientVecFlag = settings->m_DrawElementOrientVecFlag.Get();
+
+    CopyPostOpFrom( settings );
+    SimpleMeshCommonSettings::CopyFrom( settings );
+}
+
+// The Post-op variables are used after the primary operation.
+// For example, the file names (and flags) and mesh/element offsets might
+// be adjusted after the mesh is generated, but before a file is written.
+void SimpleFeaMeshSettings::CopyPostOpFrom( StructSettings* settings )
+{
+    // File output flags and names.
     m_ExportFileFlags.clear();
     m_ExportFileFlags.resize( vsp::FEA_NUM_FILE_NAMES );
 
@@ -286,16 +285,14 @@ void SimpleFeaMeshSettings::CopyFrom( StructSettings* settings )
         m_ExportFileFlags[i] = settings->m_ExportFileFlags[i].Get();
     }
 
-    m_NumEvenlySpacedPart = settings->m_NumEvenlySpacedPart.Get();
-    m_DrawNodesFlag = settings->m_DrawNodesFlag.Get();
-    m_DrawElementOrientVecFlag = settings->m_DrawElementOrientVecFlag.Get();
+    m_ExportFileNames = settings->GetExportFileNames();
 
+    // FEA numbering offsets
     m_NodeOffset = settings->m_NodeOffset.Get();
     m_ElementOffset = settings->m_ElementOffset.Get();
 
+    // Allow CAD output settings to be included as Post-Op for Structures
     m_XYZIntCurveFlag = settings->m_XYZIntCurveFlag.Get();
-
-    m_ExportFileNames = settings->GetExportFileNames();
 
     m_STEPTol = settings->m_STEPTol.Get();
     m_STEPMergePoints = settings->m_STEPMergePoints.Get();
@@ -308,25 +305,11 @@ void SimpleFeaMeshSettings::CopyFrom( StructSettings* settings )
     m_CADLabelDelim = settings->m_CADLabelDelim.Get();
     m_CADLabelSplitNo = settings->m_CADLabelSplitNo.Get();
 
-    SimpleMeshCommonSettings::CopyFrom( settings );
+    // Copied in SimpleMeshCommonSettings, but needed here also.
+    m_ExportRawFlag = settings->m_ExportRawFlag.Get();
+    m_RelCurveTol = settings->m_RelCurveTol.Get();
 }
 
-string SimpleFeaMeshSettings::GetExportFileName( int type )
-{
-    if ( type >= 0 && type < vsp::FEA_NUM_FILE_NAMES )
-    {
-        return m_ExportFileNames[type];
-    }
-
-    return string();
-}
-
-bool SimpleFeaMeshSettings::GetExportFileFlag( int type )
-{
-    assert( type >= 0 && type < vsp::FEA_NUM_FILE_NAMES );
-
-    return m_ExportFileFlags[type];
-}
 
 //////////////////////////////////////////////////////
 //============== SimpleGridDensity =================//
@@ -514,4 +497,73 @@ SimpleFeaGridDensity::~SimpleFeaGridDensity()
 
 }
 
+
+//////////////////////////////////////////////////////
+//============ SimpleAssemblySettings ==============//
+//////////////////////////////////////////////////////
+
+SimpleAssemblySettings::SimpleAssemblySettings()
+{
+    m_DrawAsMeshFlag = true;
+
+    m_DrawMeshFlag = false;
+    m_ColorTagsFlag = false;
+
+    m_DrawNodesFlag = false;
+    m_DrawBCNodesFlag = false;
+    m_DrawElementOrientVecFlag = false;
+}
+
+SimpleAssemblySettings::~SimpleAssemblySettings()
+{
+
+}
+
+void SimpleAssemblySettings::CopyFrom( AssemblySettings* settings )
+{
+    m_DrawAsMeshFlag = settings->m_DrawAsMeshFlag.Get();
+
+    m_DrawMeshFlag = settings->m_DrawMeshFlag.Get();
+    m_ColorTagsFlag = settings->m_ColorTagsFlag.Get();
+
+    m_DrawNodesFlag = settings->m_DrawNodesFlag.Get();
+    m_DrawBCNodesFlag = settings->m_DrawBCNodesFlag.Get();
+    m_DrawElementOrientVecFlag = settings->m_DrawElementOrientVecFlag.Get();
+
+    CopyPostOpFrom( settings );
+}
+
+string SimpleAssemblySettings::GetExportFileName( int type )
+{
+    if ( type >= 0 && type < m_ExportFileNames.size() )
+    {
+        return m_ExportFileNames[type];
+    }
+
+    return string();
+}
+
+bool SimpleAssemblySettings::GetExportFileFlag( int type )
+{
+    assert( type >= 0 && type < m_ExportFileFlags.size() );
+
+    return m_ExportFileFlags[type];
+}
+
+// The Post-op variables are used after the primary operation.
+// For example, the file names (and flags) and mesh/element offsets might
+// be adjusted after the mesh is generated, but before a file is written.
+void SimpleAssemblySettings::CopyPostOpFrom( AssemblySettings* settings )
+{
+    // File output flags and names.
+    m_ExportFileFlags.clear();
+    m_ExportFileFlags.resize( vsp::FEA_NUM_FILE_NAMES );
+
+    for ( size_t i = 0; i < vsp::FEA_NUM_FILE_NAMES; i++ )
+    {
+        m_ExportFileFlags[i] = settings->m_ExportFileFlags[i].Get();
+    }
+
+    m_ExportFileNames = settings->GetExportFileNames();
+}
 

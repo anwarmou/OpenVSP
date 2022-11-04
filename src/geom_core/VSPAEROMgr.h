@@ -151,20 +151,15 @@ public:
 
     void Update();
 
-    int WriteGroup( FILE* logFile );
-
-    int GetSelectedCompIndex()                                                              { return m_SelectedCompIndex; }
-    void SetSelectedCompIndex( int index );
+    int WriteGroup( FILE *group_file, int method, bool alternatefile );
 
     vector < pair < string, int > > GetCompSurfPairVec()                                    { return m_ComponentSurfPairVec; }
     void SetCompSurfPairVec( const vector < pair < string, int > > comp_surf_pair_vec )     { m_ComponentSurfPairVec = comp_surf_pair_vec; }
 
-    vector < int > GetVSPAEROIndexVec()                                                     { return m_ComponentVSPAEROIndexVec; }
     void SetVSPAEROIndexVec( vector < int > vepaero_index_vec )                             { m_ComponentVSPAEROIndexVec = vepaero_index_vec; }
+    void SetGeomIDsInGroup( vector < string > gidvec )                                      { m_GeomIDsInGroup = gidvec; }
 
     void AddComp( string comp_id, int surf_ind )                                            { m_ComponentSurfPairVec.push_back( std::make_pair( comp_id, surf_ind ) ); }
-    void ClearCompIDVec()                                                                   { m_ComponentSurfPairVec.clear(); }
-    void RemoveComp( int index );
 
     enum GEOM_PROPERTY_TYPE
     {
@@ -203,7 +198,8 @@ private:
 
     vector < pair < string, int > > m_ComponentSurfPairVec; // Pairs of component IDs and symmetric surface index for the unsteady group
     vector < int > m_ComponentVSPAEROIndexVec;
-    int m_SelectedCompIndex;
+
+    vector < string > m_GeomIDsInGroup; // Used with vspgeom files
 };
 
 //==== VSPAERO Manager ====//
@@ -270,7 +266,6 @@ public:
     string CreateSetupFile();                          // natively creates a *.vspaero template setup file
     string ComputeSolver( FILE * logFile = NULL ); // returns a result with a vector of results id's under the name ResultVec
     string ComputeSolverBatch( FILE * logFile = NULL );
-    string ComputeSolverSingle( FILE * logFile = NULL );
     ProcessUtil* GetSolverProcess();
     bool IsSolverRunning();
     void KillSolver();
@@ -322,7 +317,7 @@ public:
     void SetCurrentUnsteadyGroupIndex( const string& id );
     int GetCurrentUnsteadyGroupIndex()                          { return m_CurrentUnsteadyGroupIndex; }
     UnsteadyGroup* AddUnsteadyGroup();
-    void DeleteUnsteadyGroup( int index );
+    void DeleteUnsteadyGroup( vector <int> ind_vec );
     bool ValidUnsteadyGroupInd( int index );
     void AddUnsteadyGroup( UnsteadyGroup* group )               { m_UnsteadyGroupVec.push_back( group ); }
     UnsteadyGroup* GetUnsteadyGroup( int index );
@@ -374,8 +369,6 @@ public:
     Parm m_cref;
     string m_RefGeomID;
     IntParm m_RefFlag;
-
-    BoolParm m_BatchModeFlag;
 
     // Mass Properties Parms
     IntParm m_CGGeomSet;
@@ -506,7 +499,6 @@ protected:
     static int WaitForFile( string filename );  // function is used to wait for the result to show up on the file system
     void GetSweepVectors( vector<double> &alphaVec, vector<double> &betaVec, vector<double> &machVec, vector<double> &recrefVec );
 
-    void MonitorSolver( FILE * logFile );
     bool m_SolverProcessKill;
 
     // helper functions for VSPAERO files
@@ -536,6 +528,7 @@ private:
     VSPAEROMgrSingleton();
     VSPAEROMgrSingleton( VSPAEROMgrSingleton const& copy );            // Not Implemented
     VSPAEROMgrSingleton& operator=( VSPAEROMgrSingleton const& copy ); // Not Implemented
+    ~VSPAEROMgrSingleton();
 
     vector< RotorDisk* > m_RotorDiskVec;
     vector< VspAeroControlSurf > m_CompleteControlSurfaceVec;   // list of all control and rectangle sub-surfaces in the model selected as control surfaces
@@ -554,8 +547,6 @@ private:
     int m_CpSliceAnalysisType;
 
     bool m_Verbose;
-
-    int m_iCase; // Index corresponding to the current VSPAERO solution case in non-batch mode runs (see ComputeSolverSingle)
 
     // VSPAERO Inputs from Existing Results
     int m_PreviousStabilityType;
