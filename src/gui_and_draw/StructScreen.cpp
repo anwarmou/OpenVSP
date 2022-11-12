@@ -80,13 +80,16 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 430, 720, "FEA St
     m_BorderConsoleLayout.SetFitWidthFlag( true );
     m_BorderConsoleLayout.SetSameLineFlag( false );
     m_BorderConsoleLayout.AddChoice( m_CurrFeaMeshChoice, "Structure" );
-    m_BorderConsoleLayout.AddButton( m_ResetPartDisplayButton, "Reset Part Display" );
 
     m_BorderConsoleLayout.SetSameLineFlag( true );
     m_BorderConsoleLayout.SetFitWidthFlag( false );
 
     m_BorderConsoleLayout.SetButtonWidth( m_BorderConsoleLayout.GetW() / 2 );
     m_BorderConsoleLayout.SetInputWidth( m_BorderConsoleLayout.GetW() / 2 );
+
+    m_BorderConsoleLayout.AddButton( m_ResetPartDisplayButton, "Reset Part Display" );
+    m_BorderConsoleLayout.AddButton( m_ResetMeshDisplayButton, "Reset Mesh Display" );
+    m_BorderConsoleLayout.ForceNewLine();
 
     m_BorderConsoleLayout.AddButton( m_IntersectOnlyButton, "Intersect Only" );
     m_BorderConsoleLayout.AddButton( m_ExportCADButton, "Export CAD" );
@@ -900,6 +903,7 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 430, 720, "FEA St
 
     m_MeshTabLayout.AddButton( m_ConvertToQuadsToggle, "Convert to Quads" );
     m_MeshTabLayout.AddButton( m_HighOrderElementToggle, "High order Elements" );
+    m_MeshTabLayout.AddButton( m_BeamPerElementNormalToggle, "Beam Per-Element Normal Vectors" );
 
     m_MeshTabLayout.AddYGap();
     m_MeshTabLayout.AddDividerBox( "FEA Index Offsets" );
@@ -1273,6 +1277,12 @@ void StructScreen::UpdateStructBrowser()
             m_StructureSelectBrowser->select( StructureMgr.m_CurrStructIndex() + 2 );
             m_CurrFeaMeshChoice.Update( StructureMgr.m_CurrStructIndex.GetID() );
         }
+    }
+
+    // Make sure FeaMeshMgr is consistent.
+    if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
+    {
+        FeaMeshMgr.SetFeaMeshStructID( m_StructIDs[ StructureMgr.m_CurrStructIndex() ] );
     }
 
     m_StructureSelectBrowser->position( scroll_pos );
@@ -2237,6 +2247,8 @@ bool StructScreen::Update()
             m_NodeOffset.Update( curr_struct->GetStructSettingsPtr()->m_NodeOffset.GetID() );
             m_ElementOffset.Update( curr_struct->GetStructSettingsPtr()->m_ElementOffset.GetID() );
 
+            m_BeamPerElementNormalToggle.Update( curr_struct->GetStructSettingsPtr()->m_BeamPerElementNormal.GetID() );
+
             //===== Display Tab Toggle Update =====//
             m_DrawMeshButton.Update( curr_struct->GetStructSettingsPtr()->m_DrawMeshFlag.GetID() );
             m_ColorElementsButton.Update( curr_struct->GetStructSettingsPtr()->m_ColorTagsFlag.GetID() );
@@ -2742,6 +2754,15 @@ void StructScreen::GuiDeviceCallBack( GuiDevice* device )
         if ( FeaMeshMgr.GetMeshPtr() )
         {
             FeaMeshMgr.GetMeshPtr()->SetAllDisplayFlags( false );
+        }
+    }
+    else if ( device == &m_ResetMeshDisplayButton )
+    {
+        StructureMgr.HideAllParts();
+
+        if ( FeaMeshMgr.GetMeshPtr() )
+        {
+            FeaMeshMgr.GetMeshPtr()->SetAllDisplayFlags( true );
         }
     }
     else if ( device == &m_WikiLinkButton )

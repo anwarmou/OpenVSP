@@ -107,6 +107,7 @@ private:
     Choice m_CurrFeaMeshChoice;
 
     TriggerButton m_ResetPartDisplayButton;
+    TriggerButton m_ResetMeshDisplayButton;
 
     TriggerButton m_FeaIntersectMeshButton;
     TriggerButton m_FeaExportFEMButton;
@@ -325,6 +326,7 @@ private:
 
     ToggleButton m_ConvertToQuadsToggle;
     ToggleButton m_HighOrderElementToggle;
+    ToggleButton m_BeamPerElementNormalToggle;
 
     SliderAdjRangeInput m_NodeOffset;
     SliderAdjRangeInput m_ElementOffset;
