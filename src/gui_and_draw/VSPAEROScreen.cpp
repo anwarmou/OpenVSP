@@ -287,17 +287,7 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
 
     m_AdvancedCaseSetupLayout.AddSlider( m_NCPUSlider, "Num CPU", 10.0, "%3.0f" );
 
-    m_AdvancedCaseSetupLayout.SetFitWidthFlag( false );
-    m_AdvancedCaseSetupLayout.SetSameLineFlag( true );
-
-    m_AdvancedCaseSetupLayout.SetButtonWidth( m_AdvancedCaseSetupLayout.GetW() / 2 );
-
-    m_AdvancedCaseSetupLayout.AddButton( m_BatchCalculationToggle, "Batch Calculation" );
     m_AdvancedCaseSetupLayout.AddButton( m_SymmetryToggle, "X-Z Symmetry" );
-
-    m_AdvancedCaseSetupLayout.ForceNewLine();
-    m_AdvancedCaseSetupLayout.SetFitWidthFlag( true );
-    m_AdvancedCaseSetupLayout.SetSameLineFlag( false );
 
     m_AdvancedCaseSetupLayout.SetButtonWidth( 80 );
 
@@ -390,13 +380,12 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     m_PropAndStabLayout.SetSliderWidth( m_PropAndStabLayout.GetRemainX() / 2 );
 
     m_PropAndStabLayout.AddChoice( m_StabilityTypeChoice, "Stability Type" );
-    m_StabilityTypeChoice.AddItem( "Off" );
-    m_StabilityTypeChoice.AddItem( "Steady" );
-    m_StabilityTypeChoice.AddItem( "P Analysis" );
-    m_StabilityTypeChoice.AddItem( "Q Analysis" );
-    m_StabilityTypeChoice.AddItem( "R Analysis" );
-    //m_StabilityTypeChoice.AddItem( "Heave" ); // To Be Implemented
-    //m_StabilityTypeChoice.AddItem( "Impulse" ); // To Be Implemented
+    m_StabilityTypeChoice.AddItem( "Off", vsp::STABILITY_OFF );
+    m_StabilityTypeChoice.AddItem( "Steady", vsp::STABILITY_DEFAULT );
+    m_StabilityTypeChoice.AddItem( "Pitch", vsp::STABILITY_PITCH );
+    m_StabilityTypeChoice.AddItem( "P Analysis", vsp::STABILITY_P_ANALYSIS );
+    m_StabilityTypeChoice.AddItem( "Q Analysis", vsp::STABILITY_Q_ANALYSIS );
+    m_StabilityTypeChoice.AddItem( "R Analysis", vsp::STABILITY_R_ANALYSIS );
     m_StabilityTypeChoice.UpdateItems();
     m_PropAndStabLayout.ForceNewLine();
 
@@ -967,6 +956,50 @@ void * solver_thread_fun( void *data )
     return 0;
 }
 
+void VSPAEROScreen::LaunchVSPAERO()
+{
+    Vehicle *veh = VehicleMgr.GetVehicle();
+
+    if( veh )
+    {
+        if( !veh->GetVSPAEROFound() || VSPAEROMgr.IsSolverRunning() )
+        { /* Do nothing. Should not be reachable, button should be deactivated.*/ }
+        else
+        {
+            // Clear out previous results
+            VSPAEROMgr.ClearAllPreviousResults();
+
+            VSPAEROMgr.ComputeGeometry();
+
+            // Clear the solver console
+            m_SolverBuffer->text( "" );
+
+            // Check for transonic Mach numbers and warn the user if found
+            double transonic_mach_min = 0.8;
+            double transonic_mach_max = 1.2;
+            double mach_delta = 0.0;
+            vector < double > mach_vec( VSPAEROMgr.m_MachNpts.Get() );
+
+            // Identify Mach flow condition vector
+            if( VSPAEROMgr.m_MachNpts.Get() > 1 )
+            {
+                mach_delta = ( VSPAEROMgr.m_MachEnd.Get() - VSPAEROMgr.m_MachStart.Get() ) / ( VSPAEROMgr.m_MachNpts.Get() - 1.0 );
+            }
+            for( size_t iMach = 0; iMach < VSPAEROMgr.m_MachNpts.Get(); iMach++ )
+            {
+                mach_vec[iMach] = VSPAEROMgr.m_MachStart.Get() + double( iMach ) * mach_delta;
+
+                if( mach_vec[iMach] > transonic_mach_min && mach_vec[iMach] < transonic_mach_max )
+                {
+                    AddOutputText( m_SolverDisplay, "WARNING: Possible transonic Mach number detected - transonic flow is not supported.\n\n" );
+                    break;
+                }
+            }
+
+            m_SolverProcess.StartThread( solver_thread_fun, ( void* ) &m_SolverPair );
+        }
+    }
+}
 
 void VSPAEROScreen::GuiDeviceCallBack( GuiDevice* device )
 {
@@ -980,42 +1013,7 @@ void VSPAEROScreen::GuiDeviceCallBack( GuiDevice* device )
 
         if ( device == &m_SolverButton )
         {
-            if( !veh->GetVSPAEROFound() || VSPAEROMgr.IsSolverRunning() )
-            { /* Do nothing. Should not be reachable, button should be deactivated.*/ }
-            else
-            {
-                // Clear out previous results
-                VSPAEROMgr.ClearAllPreviousResults();
-
-                VSPAEROMgr.ComputeGeometry();
-
-                // Clear the solver console
-                m_SolverBuffer->text( "" );
-
-                // Check for transonic Mach numbers and warn the user if found
-                double transonic_mach_min = 0.8;
-                double transonic_mach_max = 1.2;
-                double mach_delta = 0.0;
-                vector < double > mach_vec( VSPAEROMgr.m_MachNpts.Get() );
-
-                // Identify Mach flow condition vector
-                if( VSPAEROMgr.m_MachNpts.Get() > 1 )
-                {
-                    mach_delta = ( VSPAEROMgr.m_MachEnd.Get() - VSPAEROMgr.m_MachStart.Get() ) / ( VSPAEROMgr.m_MachNpts.Get() - 1.0 );
-                }
-                for( size_t iMach = 0; iMach < VSPAEROMgr.m_MachNpts.Get(); iMach++ )
-                {
-                    mach_vec[iMach] = VSPAEROMgr.m_MachStart.Get() + double( iMach ) * mach_delta;
-
-                    if( mach_vec[iMach] > transonic_mach_min && mach_vec[iMach] < transonic_mach_max )
-                    {
-                        AddOutputText( m_SolverDisplay, "WARNING: Possible transonic Mach number detected - transonic flow is not supported.\n\n" );
-                        break;
-                    }
-                }
-
-                m_SolverProcess.StartThread( solver_thread_fun, ( void* ) &m_SolverPair );
-            }
+            LaunchVSPAERO();
         }
         else if ( device == &m_ViewerButton )
         {
@@ -1405,7 +1403,6 @@ void VSPAEROScreen::UpdateAdvancedTabDevices()
     }
 
     m_NCPUSlider.Update(VSPAEROMgr.m_NCPU.GetID());
-    m_BatchCalculationToggle.Update(VSPAEROMgr.m_BatchModeFlag.GetID());
     m_PreconditionChoice.Update(VSPAEROMgr.m_Precondition.GetID());
     m_KTCorrectionToggle.Update( VSPAEROMgr.m_KTCorrection.GetID() );
     m_SymmetryToggle.Update( VSPAEROMgr.m_Symmetry.GetID() );
@@ -1455,7 +1452,7 @@ void VSPAEROScreen::UpdateAdvancedTabDevices()
     // Stability
     if (VSPAEROMgr.m_Symmetry())
     {
-        VSPAEROMgr.m_StabilityType.Set( vsp::STABILITY_OFF );
+        VSPAEROMgr.m_StabilityType.Set( vsp::STABILITY_OFF ); // Potentially relax to allow STABILITY_PITCH or STABILITY_Q_ANALYSIS
     }
 
     m_StabilityTypeChoice.Update( VSPAEROMgr.m_StabilityType.GetID() );
@@ -1750,7 +1747,8 @@ void VSPAEROScreen::UpdateOtherSetupParms()
         m_StabilityTypeChoice.Activate();
     }
 
-    if ( VSPAEROMgr.m_RotateBladesFlag() || VSPAEROMgr.m_StabilityType.Get() >= vsp::STABILITY_P_ANALYSIS )
+    if ( VSPAEROMgr.m_RotateBladesFlag() ||
+       ( VSPAEROMgr.m_StabilityType.Get() >= vsp::STABILITY_P_ANALYSIS && VSPAEROMgr.m_StabilityType.Get() <= vsp::STABILITY_R_ANALYSIS ) )
     {
         m_ReCrefNptsInput.Deactivate();
     }
@@ -1759,7 +1757,9 @@ void VSPAEROScreen::UpdateOtherSetupParms()
         m_ReCrefNptsInput.Activate();
     }
 
-    if ( VSPAEROMgr.m_RotateBladesFlag.Get() || VSPAEROMgr.m_ActuatorDiskFlag.Get() || VSPAEROMgr.m_StabilityType.Get() > vsp::STABILITY_OFF )
+    if ( VSPAEROMgr.m_RotateBladesFlag.Get() ||
+         VSPAEROMgr.m_ActuatorDiskFlag.Get() ||
+       ( VSPAEROMgr.m_StabilityType.Get() > vsp::STABILITY_OFF && VSPAEROMgr.m_StabilityType.Get() < vsp::STABILITY_PITCH ) )
     {
         m_VinfSlider.Activate();
         m_ActivateVRefToggle.Activate();

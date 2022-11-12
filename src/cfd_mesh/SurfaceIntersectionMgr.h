@@ -217,6 +217,7 @@ public:
 
     virtual void TransferSubSurfData();
     virtual vector < SimpleSubSurface > GetSimpSubSurfs( string geom_id, int surfnum, int comp_id );
+    virtual int GetSimpSubSurfIndex( string ss_id );
 
     void addOutputText( string str, int output_type = VOCAL_OUTPUT );
 
@@ -330,10 +331,6 @@ public:
     vector< vec3d > m_DebugColors;
 #endif
 
-    virtual SimpleIntersectSettings* GetIntersectSettingsPtr()
-    {
-        return &m_IntersectSettings;
-    }
     virtual SimpleMeshCommonSettings* GetSettingsPtr()
     {
         return (SimpleMeshCommonSettings* )&m_IntersectSettings;

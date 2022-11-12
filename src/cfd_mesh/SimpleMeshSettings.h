@@ -26,6 +26,9 @@ public:
 
     virtual void CopyFrom( MeshCommonSettings* settings );
 
+    string GetExportFileName( int type );
+    bool GetExportFileFlag( int type );
+
     bool m_SymSplittingOnFlag;
 
     bool m_DrawMeshFlag;
@@ -71,7 +74,11 @@ public:
     bool m_CADLabelSplitNo;
     int m_CADLabelDelim;
 
+    vector < bool > m_ExportFileFlags;
+
 protected:
+
+    vector < string > m_ExportFileNames;
 
 };
 
@@ -83,15 +90,6 @@ public:
 
     virtual void CopyFrom( IntersectSettings* settings );
 
-    string GetExportFileName( int type );
-    bool GetExportFileFlag( int type );
-
-    vector < bool > m_ExportFileFlags;
-
-protected:
-
-    vector < string > m_ExportFileNames;
-
 };
 
 class SimpleCfdMeshSettings : public SimpleMeshCommonSettings
@@ -101,9 +99,6 @@ public:
     virtual ~SimpleCfdMeshSettings();
 
     virtual void CopyFrom( CfdMeshSettings* settings );
-
-    string GetExportFileName( int type );
-    bool GetExportFileFlag( int type );
 
     bool m_FarManLocFlag;
     bool m_FarAbsSizeFlag;
@@ -128,12 +123,6 @@ public:
     bool m_DrawWakeFlag;
     bool m_DrawBadFlag;
 
-    vector < bool > m_ExportFileFlags;
-
-protected:
-
-    vector < string > m_ExportFileNames;
-
 };
 
 class SimpleFeaMeshSettings : public SimpleMeshCommonSettings
@@ -143,21 +132,17 @@ public:
     virtual ~SimpleFeaMeshSettings();
 
     virtual void CopyFrom( StructSettings* settings );
+    virtual void CopyPostOpFrom( StructSettings* settings );
 
-    string GetExportFileName( int type );
-    bool GetExportFileFlag( int type );
-
-    vector < bool > m_ExportFileFlags;
     int m_NumEvenlySpacedPart;
     bool m_DrawNodesFlag;
+    bool m_DrawBCNodesFlag;
     bool m_DrawElementOrientVecFlag;
+
+    bool m_BeamPerElementNormal;
 
     int m_NodeOffset;
     int m_ElementOffset;
-
-protected:
-
-    vector < string > m_ExportFileNames;
 
 };
 
@@ -249,5 +234,26 @@ public:
     virtual ~SimpleFeaGridDensity();
 
 };
+
+class SimpleAssemblySettings : public SimpleFeaMeshSettings
+{
+public:
+    SimpleAssemblySettings();
+    virtual ~SimpleAssemblySettings();
+
+    virtual void CopyFrom( AssemblySettings* settings );
+
+    string GetExportFileName( int type );
+    bool GetExportFileFlag( int type );
+
+    virtual void CopyPostOpFrom( AssemblySettings* settings );
+
+    bool m_DrawAsMeshFlag;
+
+protected:
+
+};
+
+
 
 #endif

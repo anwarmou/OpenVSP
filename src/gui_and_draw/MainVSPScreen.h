@@ -126,9 +126,11 @@ protected:
     ScreenMenuItem m_SurfIntMenuItem;
     ScreenMenuItem m_CFDMeshMenuItem;
     ScreenMenuItem m_StructMenuItem;
+    ScreenMenuItem m_StructAssemblyMenuItem;
     ScreenMenuItem m_DegenGeomMenuItem;
     ScreenMenuItem m_VSPAEROMenuItem;
     ScreenMenuItem m_ParasiteDragMenuItem;
+    ScreenMenuItem m_AeroStructMenuItem;
 
     // ScreenMenuItem m_AboutMenuItem;
     // ScreenMenuItem m_OnlineHelpMenuItem;

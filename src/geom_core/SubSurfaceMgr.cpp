@@ -175,12 +175,14 @@ void SubSurfaceMgrSingleton::ReSuffixGroupNames( const string& comp_id )
 //==== Manage Tag Maps ====//
 void SubSurfaceMgrSingleton::ClearTagMaps()
 {
+    m_TagKeys.clear();
+    m_SingleTagMap.clear();
 
     m_TagCombos.clear();
     m_TagNames.clear();
     m_TagIDs.clear();
-    m_SingleTagMap.clear();
     m_CompNames.clear();
+    m_CompIDs.clear();
 
     // Add Dummy tag combo for meshes with no tags
     // so there will a draw object for them
@@ -271,6 +273,22 @@ void SubSurfaceMgrSingleton::BuildSingleTagMap()
             m_SingleTagMap[m_TagKeys[i]] = i + 1;
         }
     }
+}
+
+int SubSurfaceMgrSingleton::FindGNum( const string &gid )
+{
+    // Build GeomID set to have unique integer index instead of GeomID.
+    std::set< string, greater< string > > gids;
+    for ( int i = 0 ; i < ( int )m_TagKeys.size() ; i++ )
+    {
+        string id_list = GetTagIDs( m_TagKeys[i] );
+        int pos = id_list.find( "_Surf" );
+        string gid = id_list.substr( 0, pos );
+        gids.insert( gid );
+    }
+
+    int gnum = distance( gids.begin(), gids.find( gid ) );
+    return gnum;
 }
 
 //==== Write Key File ====//

@@ -40,6 +40,9 @@ public:
     virtual void UpdateFeaPropertyBrowser();
     virtual void UpdateFeaMaterialBrowser();
     virtual void UpdateFeaMaterialChoice();
+    virtual void UpdateFeaBCBrowser();
+    virtual void UpdateBCPartChoice();
+    virtual void UpdateBCSubSurfChoice();
 
     virtual void UpdateUnitLabels();
 
@@ -47,6 +50,7 @@ public:
     virtual void OrientStructure( VSPGraphic::Common::VSPenum type );
 
     virtual void Show();
+    virtual void LaunchFEAMesh();
 
     virtual void GuiDeviceCallBack( GuiDevice* device );
 
@@ -85,9 +89,11 @@ private:
     GroupLayout m_MaterialEditGroup;
     GroupLayout m_PropertyTabLayout;
     GroupLayout m_PropertyEditGroup;
+    GroupLayout m_BCTabLayout;
+    GroupLayout m_BCEditGroup;
     GroupLayout m_MeshTabLayout;
-    GroupLayout m_OutputTabLayout;
-    GroupLayout m_DisplayTabLayout;
+    GroupLayout m_CadTabLayout;
+    GroupLayout m_FemTabLayout;
 
     GroupLayout* m_CurrDispGroup;
 
@@ -96,13 +102,18 @@ private:
     Fl_Text_Buffer* m_ConsoleBuffer;
 
     ProcessUtil m_FeaMeshProcess;
-    ProcessUtil m_MonitorProcess;
 
     //===== Common buttons =====//
-    StringOutput m_CurrStructOutput;
-    TriggerButton m_ResetDisplayButton;
-    TriggerButton m_FeaMeshExportButton;
-    TriggerButton m_CADExportButton;
+    Choice m_CurrFeaMeshChoice;
+
+    TriggerButton m_ResetPartDisplayButton;
+    TriggerButton m_ResetMeshDisplayButton;
+
+    TriggerButton m_FeaIntersectMeshButton;
+    TriggerButton m_FeaExportFEMButton;
+
+    TriggerButton m_IntersectOnlyButton;
+    TriggerButton m_ExportCADButton;
 
     //===== Structure Tab Items =====//
     TriggerButton m_WikiLinkButton;
@@ -113,6 +124,7 @@ private:
     TriggerButton m_DelFeaStructButton;
 
     ColResizeBrowser* m_StructureSelectBrowser;
+    vector < string > m_StructIDs;
 
     StringInput m_FeaStructNameInput;
 
@@ -255,6 +267,51 @@ private:
     SliderAdjRangeInput m_BoxDim4Slider;
     TriggerButton m_BoxDim4Unit;
 
+    //===== BC Tab Items =====//
+    ColResizeBrowser* m_FeaBCSelectBrowser;
+
+    TriggerButton m_AddFeaBCButton;
+    TriggerButton m_DelFeaBCButton;
+
+    Choice m_FeaBCTypeChoice;
+
+    GroupLayout m_FeaBCCommonGroup;
+
+    Choice m_FeaBCModeChoice;
+
+    CheckButtonBit m_TxButton;
+    CheckButtonBit m_TyButton;
+    CheckButtonBit m_TzButton;
+    CheckButtonBit m_RxButton;
+    CheckButtonBit m_RyButton;
+    CheckButtonBit m_RzButton;
+
+    Choice m_FeaBCPartChoice;
+    vector < string > m_FeaBCPartChoiceIDVec;
+    int m_SelectedBCPartChoice;
+
+    Choice m_FeaBCSubSurfChoice;
+    vector < string > m_FeaBCSubSurfChoiceIDVec;
+    int m_SelectedBCSubSurfChoice;
+
+    ToggleButton m_XLTFlagButton;
+    ToggleButton m_XGTFlagButton;
+
+    ToggleButton m_YLTFlagButton;
+    ToggleButton m_YGTFlagButton;
+
+    ToggleButton m_ZLTFlagButton;
+    ToggleButton m_ZGTFlagButton;
+
+    SliderAdjRangeInput m_XLTValSlider;
+    SliderAdjRangeInput m_XGTValSlider;
+
+    SliderAdjRangeInput m_YLTValSlider;
+    SliderAdjRangeInput m_YGTValSlider;
+
+    SliderAdjRangeInput m_ZLTValSlider;
+    SliderAdjRangeInput m_ZGTValSlider;
+
     //===== Mesh Tab Items =====//
     SliderAdjRangeInput m_MaxEdgeLen;
     SliderAdjRangeInput m_MinEdgeLen;
@@ -269,11 +326,12 @@ private:
 
     ToggleButton m_ConvertToQuadsToggle;
     ToggleButton m_HighOrderElementToggle;
+    ToggleButton m_BeamPerElementNormalToggle;
 
     SliderAdjRangeInput m_NodeOffset;
     SliderAdjRangeInput m_ElementOffset;
 
-    //===== Output Items =====//
+    //===== FEM Items =====//
     ToggleButton m_StlFile;
     ToggleButton m_GmshFile;
     ToggleButton m_MassFile;
@@ -295,6 +353,18 @@ private:
     StringOutput m_NkeyOutput;
     StringOutput m_CalcOutput;
 
+    ToggleButton m_DrawMeshButton;
+    ToggleButton m_ColorElementsButton;
+    ToggleButton m_DrawNodesToggle;
+    ToggleButton m_DrawBCNodesToggle;
+    ToggleButton m_DrawElementOrientVecToggle;
+
+    Fl_Check_Browser* m_DrawPartSelectBrowser;
+
+    TriggerButton m_DrawAllButton;
+    TriggerButton m_HideAllButton;
+
+    //===== CAD Items =====//
     ToggleButton m_SrfFile;
     ToggleButton m_XYZIntCurves;
     TriggerButton m_SelectSrfFile;
@@ -330,12 +400,6 @@ private:
     ToggleButton m_LabelSplitNoToggle;
     Choice m_LabelDelimChoice;
 
-    //===== Draw Tab Items =====//
-    ToggleButton m_DrawMeshButton;
-    ToggleButton m_ColorElementsButton;
-    ToggleButton m_DrawNodesToggle;
-    ToggleButton m_DrawElementOrientVecToggle;
-
     ToggleButton m_DrawIsect;
     ToggleButton m_DrawBorder;
 
@@ -345,11 +409,6 @@ private:
 
     ToggleButton m_ShowCurve;
     ToggleButton m_ShowPts;
-
-    Fl_Check_Browser* m_DrawPartSelectBrowser;
-
-    TriggerButton m_DrawAllButton;
-    TriggerButton m_HideAllButton;
 
     //==== Private Variables ====//
     string m_SelectedGeomID;

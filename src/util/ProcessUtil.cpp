@@ -4,6 +4,10 @@
 //
 
 #include "ProcessUtil.h"
+#include "MessageMgr.h"
+#include "StringUtil.h"
+
+#include <ctime>
 
 #ifdef __APPLE__
 
@@ -50,10 +54,10 @@ ProcessUtil::ProcessUtil()
 }
 
 #ifndef WIN32
-// C++ wrapper for execv.
+// Wrapper for handling arguments for exec*** routines.
 // Note, this automatically makes cmd the first argument in the list.
 // This also automatically NULL terminates the list of arguments.
-int cppexecv( const string &cmd, const vector< string > &options )
+const char** opt2argv( const string &cmd, const vector< string > &options )
 {
     int narg = options.size();
     const char **argv = new const char*[narg + 2];
@@ -66,7 +70,27 @@ int cppexecv( const string &cmd, const vector< string > &options )
     }
     argv[narg + 1] = NULL;
 
+    return argv;
+}
+
+// C++ wrapper for execv.
+int cppexecv( const string &cmd, const vector< string > &options )
+{
+    const char **argv = opt2argv( cmd, options );
+
     int retval = execv( cmd.c_str(), (char **)argv );
+
+    delete[] argv;
+
+    return retval;
+}
+
+// C++ wrapper for execvp -- searches path.
+int cppexecvp( const string &cmd, const vector< string > &options )
+{
+    const char **argv = opt2argv( cmd, options );
+
+    int retval = execvp( cmd.c_str(), (char **)argv );
 
     delete[] argv;
 
@@ -77,7 +101,13 @@ int cppexecv( const string &cmd, const vector< string > &options )
 int ProcessUtil::SystemCmd( const string &path, const string &cmd, const vector<string> &opts )
 {
 #ifdef WIN32
-    string command = string( "start " ) + path + string("\\") + cmd;
+    string command = string( "start " );
+    if ( !path.empty() )
+    {
+        command += path + string("\\");
+    }
+    command += cmd;
+
     for( unsigned int i = 0; i < opts.size(); i++ )
     {
         command += string(" ") + opts[i];
@@ -86,7 +116,13 @@ int ProcessUtil::SystemCmd( const string &path, const string &cmd, const vector<
     return system( command.c_str() );
 
 #else
-    string command = path + string("/") + cmd;
+    string command;
+    if ( !path.empty() )
+    {
+        command += path + string( "/" );
+    }
+    command += cmd;
+
     for( unsigned int i = 0; i < opts.size(); i++ )
     {
         command += string(" ") + opts[i];
@@ -146,6 +182,7 @@ string ProcessUtil::QuoteString( const string &str )
 
 int ProcessUtil::ForkCmd( const string &path, const string &cmd, const vector<string> &opts )
 {
+    clock_t tstart = clock();
 
 #ifdef WIN32
 
@@ -168,7 +205,13 @@ int ProcessUtil::ForkCmd( const string &path, const string &cmd, const vector<st
         exit( 0 );
     }
 
-    string command = QuoteString( path + string("\\") + cmd );
+    string command;
+    if ( !path.empty() )
+    {
+        command += path + string("\\");
+    }
+    command = QuoteString( command + cmd );
+
     for( int i = 0; i < opts.size(); i++ )
     {
         command += string(" ") + QuoteString( opts[i] );
@@ -201,16 +244,11 @@ int ProcessUtil::ForkCmd( const string &path, const string &cmd, const vector<st
         return 0;
     }
 
-    CloseHandle( m_StdoutPipe[PIPE_WRITE] );
-    m_StdoutPipe[PIPE_WRITE] = NULL;
-
-    free( cmdstr );
-
 #else
 
     if( pipe( m_StdoutPipe ) < 0 )
     {
-        printf( "Error allocating pipe for child output redirect");
+        printf( "Error allocating pipe for child output redirect\n");
         return -1;
     }
 
@@ -223,16 +261,31 @@ int ProcessUtil::ForkCmd( const string &path, const string &cmd, const vector<st
         if( dup2( m_StdoutPipe[PIPE_WRITE], STDOUT_FILENO ) == -1 ||
             dup2( m_StdoutPipe[PIPE_WRITE], STDERR_FILENO ) == -1 )
         {
-            printf( "Error redirecting child stdout" );
+            printf( "Error redirecting child stdout\n" );
             exit( 0 );
         }
 
         close( m_StdoutPipe[PIPE_READ] );
         close( m_StdoutPipe[PIPE_WRITE] );
 
-        string command = path + string("/") + cmd;
-        if( cppexecv( command, opts ) < 0 ) {
-            printf( "execv error\n" );
+        if ( path.empty() ) // Search OS path for cmd
+        {
+            if( cppexecvp( cmd, opts ) < 0 ) {
+                printf( "execvp error\n" );
+            }
+        }
+        else // Full path to cmd specified.
+        {
+            string command;
+            if ( !path.empty() )
+            {
+                command = path + string("/");
+            }
+            command += cmd;
+
+            if( cppexecv( command, opts ) < 0 ) {
+                printf( "execv error\n" );
+            }
         }
     }
     else if (childPid < 0)
@@ -243,9 +296,25 @@ int ProcessUtil::ForkCmd( const string &path, const string &cmd, const vector<st
         printf( "Fork failed (%d).\n", childPid );
         return 0;
     }
+#endif
 
+    // Attempt at forking has taken less than one second, so delay to make up for it.  This gives the monitor thread
+    // a fair chance to connect.  Threads that terminate too quickly do not get their output captured because they
+    // terminate before the monitor is working.  Delay occurs before the output pipe is closed.
+    double tmin = 1.0;
+    double telapsed = ( clock() - tstart ) / (double)CLOCKS_PER_SEC;
+    if ( telapsed < tmin )
+    {
+        SleepForMilliseconds( 1000.0 * ( tmin - telapsed ) );
+    }
+
+#ifdef WIN32
+    CloseHandle( m_StdoutPipe[PIPE_WRITE] );
+    m_StdoutPipe[PIPE_WRITE] = NULL;
+
+    free( cmdstr );
+#else
     close( m_StdoutPipe[PIPE_WRITE] );
-
 #endif
 
     return 0;
@@ -388,13 +457,25 @@ void ProcessUtil::ReadStdoutPipe(char * bufptr, int bufsize, BUF_READ_TYPE * nre
 string ProcessUtil::PrettyCmd( const string &path, const string &cmd, const vector<string> &opts )
 {
 #ifdef WIN32
-    string command = QuoteString( path + string("\\") + cmd );
+    string command;
+    if ( !path.empty() )
+    {
+        command += path + string("\\");
+    }
+    command = QuoteString( command + cmd );
+
     for( int i = 0; i < opts.size(); i++ )
     {
         command += string(" ") + QuoteString( opts[i] );
     }
 #else
-    string command = path + string("/") + cmd;
+    string command;
+    if ( !path.empty() )
+    {
+        command = path + string("/");
+    }
+    command += cmd;
+
     for( unsigned int i = 0; i < opts.size(); i++ )
     {
         command += string(" ") + opts[i];
@@ -405,4 +486,62 @@ string ProcessUtil::PrettyCmd( const string &path, const string &cmd, const vect
     command += string("\n");
 
     return command;
+}
+
+void MonitorProcess( FILE * logFile, ProcessUtil *process, const string &msgLabel )
+{
+    // ==== MonitorSolverProcess ==== //
+    int bufsize = 1000;
+    char *buf;
+    buf = ( char* ) malloc( sizeof( char ) * ( bufsize + 1 ) );
+    BUF_READ_TYPE nread = 1;
+    bool runflag = process->IsRunning();
+    while ( runflag || nread > 0 )
+    {
+        process->ReadStdoutPipe( buf, bufsize, &nread );
+        if( nread > 0 )
+        {
+            if ( buf )
+            {
+                buf[nread] = 0;
+                StringUtil::change_from_to( buf, '\r', '\n' );
+                if( logFile )
+                {
+                    fprintf( logFile, "%s", buf );
+                }
+                else
+                {
+                    MessageData data;
+                    data.m_String = msgLabel;
+                    data.m_StringVec.push_back( string( buf ) );
+                    MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
+                }
+            }
+        }
+
+        SleepForMilliseconds( 100 );
+        runflag = process->IsRunning();
+    }
+
+    if( logFile )
+    {
+        fprintf( logFile, "Done\n" );
+    }
+    else
+    {
+        MessageData data;
+        data.m_String = msgLabel;
+        data.m_StringVec.push_back( string( "Done\n" ) );
+        MessageMgr::getInstance().Send( "ScreenMgr", NULL, data );
+    }
+
+#ifdef WIN32
+    CloseHandle( process->m_StdoutPipe[0] );
+    process->m_StdoutPipe[0] = NULL;
+#else
+    close( process->m_StdoutPipe[0] );
+    process->m_StdoutPipe[0] = -1;
+#endif
+
+    free( buf );
 }

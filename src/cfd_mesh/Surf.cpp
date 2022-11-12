@@ -71,6 +71,11 @@ void Surf::GetBorderCurve( const vec3d &uw0, const vec3d &uw1, Bezier_curve & cr
     m_SurfCore.GetBorderCurve( uw0, uw1, crv );
 }
 
+int Surf::UWPointOnBorder( double u, double w, double tol ) const
+{
+    return m_SurfCore.UWPointOnBorder( u, w, tol );
+}
+
 double Surf::TargetLen( double u, double w, double gap, double radfrac )
 {
     double k1, k2, ka, kg;
@@ -821,7 +826,7 @@ void Surf::SetBBox( const vec3d &pmin, const vec3d &pmax )
 }
 
 
-void Surf::InitMesh( vector< ISegChain* > chains, SurfaceIntersectionSingleton *MeshMgr )
+void Surf::InitMesh( vector< ISegChain* > chains, const vector < vec2d > &adduw, SurfaceIntersectionSingleton *MeshMgr )
 {
 
 //static int name_cnt = 0;
@@ -852,7 +857,7 @@ void Surf::InitMesh( vector< ISegChain* > chains, SurfaceIntersectionSingleton *
     //==== Store Only One Instance of each IPnt ====//
     set< IPnt* > ipntSet;
     for ( int i = 0 ; i < ( int )chains.size() ; i++ )
-        for ( int j = 0 ; j < ( int )chains[i]->m_TessVec.size() ; j += 2 )
+        for ( int j = 0 ; j < ( int )chains[i]->m_TessVec.size() ; j += 2 )  // Note every other point fed.
         {
             ipntSet.insert( chains[i]->m_TessVec[j] );
         }
@@ -887,6 +892,11 @@ void Surf::InitMesh( vector< ISegChain* > chains, SurfaceIntersectionSingleton *
         }
     }
 
+    // Add additional points for Triangle -- these are structures Fix Points.
+    for ( int i = 0; i < adduw.size(); i++ )
+    {
+        uwPntVec.push_back( adduw[i] );
+    }
 
     MeshSeg seg;
     vector< MeshSeg > isegVec;
@@ -1270,6 +1280,27 @@ bool Surf::BorderMatch( Surf* otherSurf )
     }
     return false;
 }
+
+bool Surf::BorderMatch( int iborder, Surf* otherSurf )
+{
+    double tol = 1e-4;
+
+    Bezier_curve borderA = m_SurfCore.GetBorderCurve( iborder );
+
+    vector < Bezier_curve > borderCurvesB;
+    otherSurf->GetSurfCore()->LoadBorderCurves( borderCurvesB );
+
+    for ( int j = 0 ; j < ( int )borderCurvesB.size() ; j++ )
+    {
+        if ( borderA.Match( borderCurvesB[j], tol ) )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 void Surf::Subtag( bool tag_subs )
 {

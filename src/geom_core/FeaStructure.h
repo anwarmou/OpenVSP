@@ -24,11 +24,13 @@
 #include "SubSurface.h"
 #include "MeshCommonSettings.h"
 #include "GridDensity.h"
+#include "BitMask.h"
 
 #define FEA_PART_EXPANSION_FACTOR 1e-4
 
 // Forward declaration
 class FeaPart;
+class FeaBC;
 
 class FeaStructure : public ParmContainer
 {
@@ -59,6 +61,9 @@ public:
     void ReorderFeaPart( int ind, int action );
     void UpdateFeaParts();
     FeaPart* GetFeaPart( int ind );
+
+    int GetFeaPartIndex( const string &id );
+
     string GetFeaPartName( int ind );
     vector< FeaPart* > GetFeaPartVec()
     {
@@ -71,6 +76,8 @@ public:
     }
 
     virtual void FetchAllTrimPlanes( vector < vector < vec3d > > &pt, vector < vector < vec3d > > &norm );
+
+    vector< FeaPart* > GetFeaPartVecType( int type );
 
     bool FeaPartIsFixPoint( int ind );
     int GetNumFeaFixPoints();
@@ -95,6 +102,7 @@ public:
     bool ValidFeaSubSurfInd( int ind );
     void DelFeaSubSurf( int ind );
     SubSurface* GetFeaSubSurf( int ind );
+    SubSurface* GetFeaSubSurf( const string &id );
     void ReorderFeaSubSurf( int ind, int action );
     int NumFeaSubSurfs()
     {
@@ -122,6 +130,8 @@ public:
         return m_MainSurfIndx;
     }
 
+    void ResetExportFileNames();
+
     StructSettings* GetStructSettingsPtr()
     {
         return &m_StructSettings;
@@ -144,6 +154,35 @@ public:
 
     bool PtsOnAnyPlanarPart( const vector < vec3d > &pnts );
 
+    // Boundary Condition Stuff
+    void AddFeaBC( FeaBC* fea_bc )
+    {
+        m_FeaBCVec.push_back( fea_bc );
+    }
+
+    FeaBC* AddFeaBC( int type = -1 );
+
+    void DelFeaBC( int ind );
+
+    bool ValidFeaBCInd( int ind );
+
+    FeaBC* GetFeaBC( int ind );
+
+    int GetFeaBCIndex( const string &id );
+
+    int GetFeaBCIndex( FeaBC* fea_bc );
+
+    vector< FeaBC* > GetFeaBCVec()
+    {
+        return m_FeaBCVec;
+    }
+
+    int NumFeaBCs()
+    {
+        return m_FeaBCVec.size();
+    }
+    void UpdateFeaBCs();
+
 protected:
 
     string m_ParentGeomID;
@@ -158,6 +197,8 @@ protected:
 
     vector < SubSurface* > m_FeaSubSurfVec;
 
+    vector < FeaBC* > m_FeaBCVec;
+
     StructSettings m_StructSettings;
     FeaGridDensity m_FeaGridDensity;
 
@@ -167,7 +208,7 @@ class FeaPart : public ParmContainer
 {
 public:
 
-    FeaPart( const string& geomID, int type );
+    FeaPart( const string &geomID, const string &structID, int type );
     virtual ~FeaPart();
 
     virtual void Update();
@@ -240,6 +281,7 @@ protected:
     int m_FeaPartType;
 
     string m_ParentGeomID;
+    string m_StructID;
 
     vector < int > m_SymmIndexVec;
 
@@ -254,7 +296,7 @@ class FeaSlice : public FeaPart
 {
 public:
 
-    FeaSlice( const string& geomID, int type = vsp::FEA_SLICE );
+    FeaSlice( const string &geomID, const string &structID, int type = vsp::FEA_SLICE );
     virtual ~FeaSlice()    {};
 
     virtual void UpdateSurface();
@@ -289,7 +331,7 @@ class FeaSpar : public FeaSlice
 {
 public:
 
-    FeaSpar( const string& geomID, int type = vsp::FEA_SPAR );
+    FeaSpar( const string &geomID, const string &structID, int type = vsp::FEA_SPAR );
     virtual ~FeaSpar()    {};
 
     virtual void UpdateSurface();
@@ -316,7 +358,7 @@ class FeaRib : public FeaSlice
 {
 public:
 
-    FeaRib( const string& geomID, int type = vsp::FEA_RIB );
+    FeaRib( const string &geomID, const string &structID, int type = vsp::FEA_RIB );
     virtual ~FeaRib()    {};
 
     virtual void UpdateSurface();
@@ -360,7 +402,7 @@ class FeaFixPoint : public FeaPart
 {
 public:
 
-    FeaFixPoint( const string& geomID, const string& partID, int type = vsp::FEA_FIX_POINT );
+    FeaFixPoint( const string &geomID, const string &structID, const string &partID, int type = vsp::FEA_FIX_POINT );
     virtual ~FeaFixPoint()    {};
 
     virtual void UpdateSurface();
@@ -374,6 +416,8 @@ public:
     virtual void SetDrawObjHighlight ( bool highlight );
 
     virtual bool PtsOnPlanarPart( const vector < vec3d > & pnts, double minlen, int surf_ind = 0 );
+
+    virtual int NumFeaPartSurfs();
 
     Parm m_PosU;
     Parm m_PosW;
@@ -393,7 +437,7 @@ class FeaPartTrim : public FeaPart
 {
 public:
 
-    FeaPartTrim( const string& geomID, int type = vsp::FEA_TRIM );
+    FeaPartTrim( const string &geomID, const string &structID, int type = vsp::FEA_TRIM );
     virtual ~FeaPartTrim();
 
     virtual void Clear();
@@ -422,7 +466,7 @@ class FeaSkin : public FeaPart
 {
 public:
 
-    FeaSkin( const string& geomID, int type = vsp::FEA_SKIN );
+    FeaSkin( const string &geomID, const string &structID, int type = vsp::FEA_SKIN );
     virtual ~FeaSkin()    {};
 
     virtual void UpdateSurface();
@@ -444,7 +488,7 @@ class FeaDome : public FeaPart
 {
 public:
 
-    FeaDome( const string& geomID, int type = vsp::FEA_DOME );
+    FeaDome( const string &geomID, const string &structID, int type = vsp::FEA_DOME );
     virtual ~FeaDome()    {};
 
     virtual void UpdateSurface();
@@ -477,7 +521,7 @@ class FeaRibArray : public FeaPart
 {
 public:
 
-    FeaRibArray( const string& geomID, int type = vsp::FEA_RIB_ARRAY );
+    FeaRibArray( const string &geomID, const string &structID, int type = vsp::FEA_RIB_ARRAY );
     virtual ~FeaRibArray();
 
     virtual void UpdateSurface();
@@ -531,7 +575,7 @@ class FeaSliceArray : public FeaPart
 {
 public:
 
-    FeaSliceArray( const string& geomID, int type = vsp::FEA_SLICE_ARRAY );
+    FeaSliceArray( const string &geomID, const string &structID, int type = vsp::FEA_SLICE_ARRAY );
     virtual ~FeaSliceArray()    {};
 
     virtual void UpdateSurface();
@@ -636,6 +680,132 @@ public:
     Parm m_A1;
     Parm m_A2;
     Parm m_A3;
+
+};
+
+class FeaConnection : public ParmContainer
+{
+public:
+
+    FeaConnection();
+    virtual ~FeaConnection()    {};
+
+    virtual void Update();
+
+    virtual BitMask GetAsBitMask();
+
+    virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
+    virtual xmlNodePtr DecodeXml( xmlNodePtr & node );
+
+    virtual string MakeLabel();
+    virtual string MakeName();
+
+    virtual void LoadDrawObjs( std::vector< DrawObj* > & draw_obj_vec );
+    virtual void UpdateDrawObjs();
+    virtual void SetDrawObjHighlight ( bool highlight );
+
+    string m_StartStructID;
+    string m_StartFixPtID;
+    IntParm m_StartFixPtSurfIndex;
+
+    string m_EndStructID;
+    string m_EndFixPtID;
+    IntParm m_EndFixPtSurfIndex;
+
+    IntParm m_ConMode;
+    IntParm m_Constraints;
+
+protected:
+
+    DrawObj m_ConnLineDO;
+    DrawObj m_ConnPtsDO;
+
+};
+
+class FeaAssembly : public ParmContainer
+{
+public:
+
+    FeaAssembly();
+    ~FeaAssembly();
+
+    virtual void Update();
+
+    virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
+    virtual xmlNodePtr DecodeXml( xmlNodePtr & node );
+
+    virtual void AddStructure( const string &id );
+    virtual void DelStructure( const string &id );
+
+    virtual void GetAllFixPts( vector< FeaPart* > & fixpts, vector <string> &structids );
+    virtual void AddConnection( const string &startid, const string &startstructid, int startindx,
+                                const string &endid, const string &endstructid, int endindx );
+    virtual void DelConnection( int index );
+
+    virtual void ResetExportFileNames();
+    virtual void AddLinkableParms( vector< string > & linkable_parm_vec, const string & link_container_id = string() );
+
+
+    AssemblySettings m_AssemblySettings;
+
+    vector < string > m_StructIDVec;
+
+    vector < FeaConnection* > m_ConnectionVec;
+
+};
+
+class FeaBC : public ParmContainer
+{
+public:
+    FeaBC( const string &m_StructID );
+    ~FeaBC()       {};
+
+    virtual void ParmChanged( Parm* parm_ptr, int type );
+
+    virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
+    virtual xmlNodePtr DecodeXml( xmlNodePtr & node );
+
+    virtual string GetDescription();
+    virtual string GetDescriptionDOF();
+
+    virtual BitMask GetAsBitMask();
+
+    virtual void SetPartID( const string &id ) { m_PartID = id; }
+    virtual string GetPartID()  { return m_PartID; }
+
+    virtual void SetSubSurfID( const string &id ) { m_SubSurfID = id; }
+    virtual string GetSubSurfID()  { return m_SubSurfID; }
+
+    virtual void Update();
+
+    IntParm m_FeaBCType;
+
+    IntParm m_ConMode;
+    IntParm m_Constraints;
+
+    BoolParm m_XLTFlag;
+    BoolParm m_XGTFlag;
+
+    BoolParm m_YLTFlag;
+    BoolParm m_YGTFlag;
+
+    BoolParm m_ZLTFlag;
+    BoolParm m_ZGTFlag;
+
+    Parm m_XLTVal;
+    Parm m_XGTVal;
+
+    Parm m_YLTVal;
+    Parm m_YGTVal;
+
+    Parm m_ZLTVal;
+    Parm m_ZGTVal;
+
+protected:
+
+    string m_StructID;
+    string m_PartID;
+    string m_SubSurfID;
 
 };
 

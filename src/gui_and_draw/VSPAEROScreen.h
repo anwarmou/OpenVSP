@@ -97,6 +97,8 @@ public:
 
     void LoadDrawObjs( vector < DrawObj* > & draw_obj_vec );
 
+    void LaunchVSPAERO();
+
 protected:
 
     int m_NumVarAngle;
@@ -182,7 +184,6 @@ protected:
     StringOutput m_CompGeomFileName;
     TriggerButton m_CompGeomFileButton;
     SliderAdjRangeInput m_NCPUSlider;
-    ToggleButton m_BatchCalculationToggle;
     ToggleButton m_SymmetryToggle;
     ToggleButton m_Write2DFEMToggle;
     ToggleButton m_EnableAlternateFormat;

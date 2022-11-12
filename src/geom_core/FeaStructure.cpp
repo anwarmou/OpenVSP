@@ -16,6 +16,7 @@
 #include "WingGeom.h"
 #include "ConformalGeom.h"
 #include "UnitConversion.h"
+#include "StlHelper.h"
 
 #include <cfloat>
 
@@ -47,12 +48,20 @@ FeaStructure::~FeaStructure()
         delete m_FeaSubSurfVec[i];
     }
     m_FeaSubSurfVec.clear();
+
+    // Delete Boundary Conditions
+    for ( int i = 0; i < (int)m_FeaBCVec.size(); i++ )
+    {
+        delete m_FeaBCVec[i];
+    }
+    m_FeaBCVec.clear();
 }
 
 void FeaStructure::Update()
 {
     UpdateFeaParts();
     UpdateFeaSubSurfs();
+    UpdateFeaBCs();
 }
 
 void FeaStructure::ParmChanged( Parm* parm_ptr, int type )
@@ -92,6 +101,11 @@ xmlNodePtr FeaStructure::EncodeXml( xmlNodePtr & node )
         }
     }
 
+    for ( unsigned int i = 0; i < m_FeaBCVec.size(); i++ )
+    {
+        m_FeaBCVec[i]->EncodeXml( fea_info );
+    }
+
     m_StructSettings.EncodeXml( fea_info );
     m_FeaGridDensity.EncodeXml( fea_info );
 
@@ -119,7 +133,7 @@ xmlNodePtr FeaStructure::DecodeXml( xmlNodePtr & node )
             }
             else
             {
-                FeaPart* feaskin = new FeaSkin( m_ParentGeomID );
+                FeaPart* feaskin = new FeaSkin( m_ParentGeomID, GetID() );
                 feaskin->DecodeXml( part_info );
                 m_FeaPartVec.push_back( feaskin );
             }
@@ -147,6 +161,19 @@ xmlNodePtr FeaStructure::DecodeXml( xmlNodePtr & node )
         }
     }
 
+    int numBCs = XmlUtil::GetNumNames( node, "FeaBCInfo" );
+
+    for ( unsigned int i = 0; i < numBCs; i++ )
+    {
+        xmlNodePtr bc_info = XmlUtil::GetNode( node, "FeaBCInfo", i );
+
+        if ( bc_info )
+        {
+            FeaBC* feabc = AddFeaBC();
+            feabc->DecodeXml( bc_info );
+        }
+    }
+
     return node;
 }
 
@@ -162,6 +189,11 @@ void FeaStructure::AddLinkableParms( vector< string > & linkable_parm_vec, const
     for ( size_t i = 0; i < (int)m_FeaSubSurfVec.size(); i++ )
     {
         m_FeaSubSurfVec[i]->AddLinkableParms( linkable_parm_vec, m_ID );
+    }
+
+    for ( size_t i = 0; i < (int)m_FeaBCVec.size(); i++ )
+    {
+        m_FeaBCVec[i]->AddLinkableParms( linkable_parm_vec, m_ID );
     }
 
     m_StructSettings.AddLinkableParms( linkable_parm_vec, m_ID );
@@ -203,17 +235,17 @@ FeaPart* FeaStructure::AddFeaPart( int type )
 
     if ( type == vsp::FEA_SLICE )
     {
-        feaprt = new FeaSlice( m_ParentGeomID );
+        feaprt = new FeaSlice( m_ParentGeomID, GetID() );
         feaprt->SetName( string( "Slice" + std::to_string( m_FeaPartCount ) ) );
     }
     else if ( type == vsp::FEA_RIB )
     {
-        feaprt = new FeaRib( m_ParentGeomID );
+        feaprt = new FeaRib( m_ParentGeomID, GetID() );
         feaprt->SetName( string( "Rib" + std::to_string( m_FeaPartCount ) ) );
     }
     else if ( type == vsp::FEA_SPAR )
     {
-        feaprt = new FeaSpar( m_ParentGeomID );
+        feaprt = new FeaSpar( m_ParentGeomID, GetID() );
         feaprt->SetName( string( "Spar" + std::to_string( m_FeaPartCount ) ) );
     }
     else if ( type == vsp::FEA_FIX_POINT )
@@ -223,28 +255,28 @@ FeaPart* FeaStructure::AddFeaPart( int type )
 
         if ( skin )
         {
-            feaprt = new FeaFixPoint( m_ParentGeomID, skin->GetID() );
+            feaprt = new FeaFixPoint( m_ParentGeomID, GetID(), skin->GetID() );
             feaprt->SetName( string( "FixPoint" + std::to_string( m_FeaPartCount ) ) );
         }
     }
     else if ( type == vsp::FEA_DOME )
     {
-        feaprt = new FeaDome( m_ParentGeomID );
+        feaprt = new FeaDome( m_ParentGeomID, GetID() );
         feaprt->SetName( string( "Dome" + std::to_string( m_FeaPartCount ) ) );
     }
     else if ( type == vsp::FEA_RIB_ARRAY )
     {
-        feaprt = new FeaRibArray( m_ParentGeomID );
+        feaprt = new FeaRibArray( m_ParentGeomID, GetID() );
         feaprt->SetName( string( "RibArray" + std::to_string( m_FeaPartCount ) ) );
     }
     else if ( type == vsp::FEA_SLICE_ARRAY )
     {
-        feaprt = new FeaSliceArray( m_ParentGeomID );
+        feaprt = new FeaSliceArray( m_ParentGeomID, GetID() );
         feaprt->SetName( string( "SliceArray" + std::to_string( m_FeaPartCount ) ) );
     }
     else if ( type == vsp::FEA_TRIM )
     {
-        feaprt = new FeaPartTrim( m_ParentGeomID );
+        feaprt = new FeaPartTrim( m_ParentGeomID, GetID() );
         feaprt->SetName( string( "Trim" + std::to_string( m_FeaPartCount ) ) );
     }
 
@@ -425,6 +457,18 @@ SubSurface* FeaStructure::GetFeaSubSurf( int ind )
     return NULL;
 }
 
+SubSurface* FeaStructure::GetFeaSubSurf( const string &id )
+{
+    for ( int i = 0; i < m_FeaSubSurfVec.size(); i++ )
+    {
+        if ( m_FeaSubSurfVec[i]->GetID() == id )
+        {
+            return m_FeaSubSurfVec[i];
+        }
+    }
+    return NULL;
+}
+
 void FeaStructure::ReorderFeaSubSurf( int ind, int action )
 {
     //==== Check SubSurface Index Validity ====//
@@ -511,6 +555,14 @@ void FeaStructure::UpdateFeaSubSurfs()
     }
 }
 
+void FeaStructure::UpdateFeaBCs()
+{
+    for ( unsigned int i = 0; i < m_FeaBCVec.size(); i++ )
+    {
+        m_FeaBCVec[i]->Update();
+    }
+}
+
 vector < FeaPart* > FeaStructure::InitFeaSkin()
 {
     m_FeaPartVec.clear();
@@ -523,7 +575,7 @@ vector < FeaPart* > FeaStructure::InitFeaSkin()
         if ( currgeom )
         {
             FeaPart* feaskin;
-            feaskin = new FeaSkin( m_ParentGeomID );
+            feaskin = new FeaSkin( m_ParentGeomID, GetID() );
 
             if ( feaskin )
             {
@@ -547,6 +599,18 @@ FeaPart* FeaStructure::GetFeaPart( int ind )
         return m_FeaPartVec[ind];
     }
     return NULL;
+}
+
+int FeaStructure::GetFeaPartIndex( const string &id )
+{
+    for ( int i = 0; i < (int)m_FeaPartVec.size(); i++ )
+    {
+        if ( id == m_FeaPartVec[i]->GetID() )
+        {
+            return i;
+        }
+    }
+    return -1;
 }
 
 string FeaStructure::GetFeaPartName( int ind )
@@ -592,6 +656,24 @@ void FeaStructure::FetchAllTrimPlanes( vector < vector < vec3d > > &pt, vector <
             }
         }
     }
+}
+
+vector< FeaPart* > FeaStructure::GetFeaPartVecType( int type )
+{
+    vector< FeaPart* > retvec;
+
+    for ( int i = 0; i < m_FeaPartVec.size(); i++ )
+    {
+        FeaPart* fea_part = m_FeaPartVec[i];
+        if ( fea_part )
+        {
+            if ( fea_part->GetType() == type )
+            {
+                retvec.push_back( fea_part );
+            }
+        }
+    }
+    return retvec;
 }
 
 bool FeaStructure::FeaPartIsFixPoint( int ind )
@@ -823,6 +905,11 @@ int FeaStructure::GetFeaPartIndex( FeaPart* fea_prt )
     return -1; // indicates an error
 }
 
+void FeaStructure::ResetExportFileNames()
+{
+    m_StructSettings.ResetExportFileNames( GetName() );
+}
+
 void FeaStructure::BuildSuppressList()
 {
     m_Usuppress.clear();
@@ -904,14 +991,79 @@ bool FeaStructure::PtsOnAnyPlanarPart( const vector < vec3d > &pnts )
     return false;
 }
 
+FeaBC* FeaStructure::AddFeaBC( int type )
+{
+    FeaBC* feabc = new FeaBC( GetID() );
+
+    if ( feabc )
+    {
+        feabc->m_FeaBCType.Set( type );
+        AddFeaBC( feabc );
+    }
+
+    return feabc;
+}
+
+void FeaStructure::DelFeaBC( int ind )
+{
+    if ( ValidFeaBCInd( ind ) )
+    {
+        delete m_FeaBCVec[ind];
+        m_FeaBCVec.erase( m_FeaBCVec.begin() + ind );
+    }
+}
+
+bool FeaStructure::ValidFeaBCInd( int ind )
+{
+    if ( (int)m_FeaBCVec.size() > 0 && ind >= 0 && ind < (int)m_FeaBCVec.size() )
+    {
+        return true;
+    }
+    return false;
+}
+
+FeaBC* FeaStructure::GetFeaBC( int ind )
+{
+    if ( ValidFeaBCInd( ind ) )
+    {
+        return m_FeaBCVec[ind];
+    }
+    return NULL;
+}
+
+int FeaStructure::GetFeaBCIndex( const string &id )
+{
+    for ( int i = 0; i < (int)m_FeaBCVec.size(); i++ )
+    {
+        if ( id == m_FeaBCVec[i]->GetID() )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int FeaStructure::GetFeaBCIndex( FeaBC* fea_bc )
+{
+    for ( int i = 0; i < (int)m_FeaBCVec.size(); i++ )
+    {
+        if ( m_FeaBCVec[i] == fea_bc )
+        {
+            return i;
+        }
+    }
+    return -1; // indicates an error
+}
+
 //////////////////////////////////////////////////////
 //==================== FeaPart =====================//
 //////////////////////////////////////////////////////
 
-FeaPart::FeaPart( const string& geomID, int type )
+FeaPart::FeaPart( const string &geomID, const string &structID, int type )
 {
     m_FeaPartType = type;
     m_ParentGeomID = geomID;
+    m_StructID = structID;
 
     m_MainSurfIndx = 0;
 
@@ -1059,18 +1211,13 @@ void FeaPart::UpdateOrientation()
     }
 }
 
-// This should really call FeaStructure::ParmChanged, but there is no clear way to get a pointer to the
-// FeaStructure that contains this FeaPart
 void FeaPart::ParmChanged( Parm* parm_ptr, int type )
 {
-    Vehicle* veh = VehicleMgr.GetVehicle();
-    if ( veh )
+    FeaStructure *pstruct = StructureMgr.GetFeaStruct( m_StructID );
+
+    if ( pstruct )
     {
-        Geom* geom = veh->FindGeom( m_ParentGeomID );
-        if ( geom  )
-        {
-            geom->ParmChanged( parm_ptr, type );
-        }
+        pstruct->ParmChanged( parm_ptr, type );
     }
 }
 
@@ -1414,7 +1561,7 @@ bool FeaPart::PtsOnPlanarPart( const vector < vec3d > & pnts, double minlen, int
 //==================== FeaSlice ====================//
 //////////////////////////////////////////////////////
 
-FeaSlice::FeaSlice( const string& geomID, int type ) : FeaPart( geomID, type )
+FeaSlice::FeaSlice( const string &geomID, const string &structID, int type ) : FeaPart( geomID, structID, type )
 {
     m_OrientationPlane.Init( "OrientationPlane", "FeaSlice", this, vsp::YZ_BODY, vsp::XY_BODY, vsp::SPINE_NORMAL );
     m_OrientationPlane.SetDescript( "Plane the FeaSlice Part will be Parallel to (Body or Absolute Reference Frame)" );
@@ -2014,7 +2161,7 @@ VspSurf FeaSlice::ComputeSliceSurf()
 //===================== FeaSpar ====================//
 //////////////////////////////////////////////////////
 
-FeaSpar::FeaSpar( const string& geomID, int type ) : FeaSlice( geomID, type )
+FeaSpar::FeaSpar( const string &geomID, const string &structID, int type ) : FeaSlice( geomID, structID, type )
 {
     m_Theta.Init( "Theta", "FeaSpar", this, 0.0, -90.0, 90.0 );
     m_Theta.SetDescript( "Rotation of Spar About Axis Normal to Wing Chord Line " );
@@ -2328,7 +2475,7 @@ void FeaSpar::ComputePlanarSurf()
             }
 
             FeaSlice* temp_slice = NULL;
-            temp_slice = new FeaSlice( m_ParentGeomID );
+            temp_slice = new FeaSlice( m_ParentGeomID, m_StructID );
 
             if ( temp_slice )
             {
@@ -2512,7 +2659,7 @@ void FeaSpar::ComputePlanarSurf()
 //===================== FeaRib =====================//
 //////////////////////////////////////////////////////
 
-FeaRib::FeaRib( const string& geomID, int type ) : FeaSlice( geomID, type )
+FeaRib::FeaRib( const string &geomID, const string &structID, int type ) : FeaSlice( geomID, structID, type )
 {
     m_Theta.Init( "Theta", "FeaRib", this, 0.0, -90.0, 90.0 );
     m_Theta.SetDescript( "Rotation of FeaRib About Axis Normal to Wing Chord Line" );
@@ -2978,7 +3125,7 @@ VspSurf FeaRib::ComputeRibSurf()
             }
 
             FeaSlice* temp_slice = NULL;
-            temp_slice = new FeaSlice( m_ParentGeomID );
+            temp_slice = new FeaSlice( m_ParentGeomID, m_StructID );
 
             if ( temp_slice )
             {
@@ -3195,7 +3342,7 @@ VspSurf FeaRib::ComputeRibSurf()
 //================= FeaFixPoint ==================//
 ////////////////////////////////////////////////////
 
-FeaFixPoint::FeaFixPoint( const string& compID, const string& partID, int type ) : FeaPart( compID, type )
+FeaFixPoint::FeaFixPoint( const string &compID, const string &structID, const string &partID, int type ) : FeaPart( compID, structID, type )
 {
     m_ParentFeaPartID = partID;
 
@@ -3342,7 +3489,7 @@ xmlNodePtr FeaFixPoint::DecodeXml( xmlNodePtr & node )
 
     if ( fea_prt_node )
     {
-        m_ParentFeaPartID = XmlUtil::FindString( fea_prt_node, "ParentFeaPartID", m_ParentFeaPartID );
+        m_ParentFeaPartID = ParmMgr.RemapID( XmlUtil::FindString( fea_prt_node, "ParentFeaPartID", m_ParentFeaPartID ) );
     }
 
     return fea_prt_node;
@@ -3399,11 +3546,22 @@ bool FeaFixPoint::PtsOnPlanarPart( const vector < vec3d > & pnts, double minlen,
     return false;
 }
 
+int FeaFixPoint::NumFeaPartSurfs()
+{
+    FeaPart* parent_part = StructureMgr.GetFeaPart( m_ParentFeaPartID );
+
+    if ( parent_part )
+    {
+        return parent_part->NumFeaPartSurfs();
+    }
+    return 0;
+}
+
 ////////////////////////////////////////////////////
 //================= FeaPartTrim ==================//
 ////////////////////////////////////////////////////
 
-FeaPartTrim::FeaPartTrim( const string& geomID, int type ) : FeaPart( geomID, type )
+FeaPartTrim::FeaPartTrim( const string &geomID, const string &structID, int type ) : FeaPart( geomID, structID, type )
 {
     m_IncludedElements.Set( vsp::FEA_NO_ELEMENTS );
 
@@ -3694,7 +3852,7 @@ void FeaPartTrim::RenameParms()
 //=================== FeaSkin ====================//
 ////////////////////////////////////////////////////
 
-FeaSkin::FeaSkin( const string& geomID, int type ) : FeaPart( geomID, type )
+FeaSkin::FeaSkin( const string &geomID, const string &structID, int type ) : FeaPart( geomID, structID, type )
 {
     m_IncludedElements.Set( vsp::FEA_SHELL );
     m_DrawFeaPartFlag.Set( false );
@@ -3738,7 +3896,7 @@ bool FeaSkin::PtsOnPlanarPart( const vector < vec3d > & pnts, double minlen, int
 //================= FeaDome ==================//
 ////////////////////////////////////////////////////
 
-FeaDome::FeaDome( const string& geomID, int type ) : FeaPart( geomID, type )
+FeaDome::FeaDome( const string &geomID, const string &structID, int type ) : FeaPart( geomID, structID, type )
 {
     m_Aradius.Init( "A_Radius", "FeaDome", this, 1.0, 0.0, 1.0e12 );
     m_Aradius.SetDescript( "A (x) Radius of Dome" );
@@ -3981,7 +4139,7 @@ bool FeaDome::PtsOnPlanarPart( const vector < vec3d > & pnts, double minlen, int
 //================= FeaRibArray ==================//
 ////////////////////////////////////////////////////
 
-FeaRibArray::FeaRibArray( const string& geomID, int type ) : FeaPart( geomID, type )
+FeaRibArray::FeaRibArray( const string &geomID, const string &structID, int type ) : FeaPart( geomID, structID, type )
 {
     m_RibAbsSpacing.Init( "RibAbsSpacing", "FeaRibArray", this, 0.1, 1e-6, 1e12 );
     m_RibAbsSpacing.SetDescript( "Absolute Spacing Between Ribs in Array" );
@@ -4213,7 +4371,7 @@ void FeaRibArray::CreateFeaRibArray()
 
             // Create a rib to calculate surface from
             FeaRib* rib = NULL;
-            rib = new FeaRib( m_ParentGeomID );
+            rib = new FeaRib( m_ParentGeomID, m_StructID );
             if ( !rib )
             {
                 return;
@@ -4246,7 +4404,7 @@ void FeaRibArray::CreateFeaRibArray()
 
 FeaRib* FeaRibArray::AddFeaRib( double center_location, int ind )
 {
-    FeaRib* fearib = new FeaRib( m_ParentGeomID );
+    FeaRib* fearib = new FeaRib( m_ParentGeomID, m_StructID );
 
     if ( fearib )
     {
@@ -4342,7 +4500,7 @@ xmlNodePtr FeaRibArray::DecodeXml( xmlNodePtr & node )
 //================= FeaSliceArray ==================//
 ////////////////////////////////////////////////////
 
-FeaSliceArray::FeaSliceArray( const string& geomID, int type ) : FeaPart( geomID, type )
+FeaSliceArray::FeaSliceArray( const string &geomID, const string &structID, int type ) : FeaPart( geomID, structID, type )
 {
     m_SliceAbsSpacing.Init( "SliceAbsSpacing", "FeaSliceArray", this, 0.2, 1e-6, 1e12 );
     m_SliceAbsSpacing.SetDescript( "Absolute Spacing Between Slices in Array" );
@@ -4579,7 +4737,7 @@ void FeaSliceArray::CreateFeaSliceArray()
 
             // Create a temporary slice to calculate surface from
             FeaSlice* slice = NULL;
-            slice = new FeaSlice( m_ParentGeomID );
+            slice = new FeaSlice( m_ParentGeomID, m_StructID );
             if ( !slice )
             {
                 return;
@@ -4606,7 +4764,7 @@ void FeaSliceArray::CreateFeaSliceArray()
 
 FeaSlice* FeaSliceArray::AddFeaSlice( double center_location, int ind )
 {
-    FeaSlice* slice = new FeaSlice( m_ParentGeomID );
+    FeaSlice* slice = new FeaSlice( m_ParentGeomID, m_StructID );
 
     if ( slice )
     {
@@ -5239,4 +5397,578 @@ xmlNodePtr FeaMaterial::DecodeXml( xmlNodePtr & node )
 double FeaMaterial::GetShearModulus()
 {
     return ( m_ElasticModulus() / ( 2 * ( m_PoissonRatio() + 1 ) ) );
+}
+
+//////////////////////////////////////////////////////
+//================= FeaConnection ==================//
+//////////////////////////////////////////////////////
+
+FeaConnection::FeaConnection( )
+{
+    m_StartFixPtSurfIndex.Init( "StartFixPtSurfIndex", "Connection", this, -1, -1, 1e12 );
+    m_EndFixPtSurfIndex.Init( "EndFixPtSurfIndex", "Connection", this, -1, -1, 1e12 );
+
+    m_ConMode.Init( "ConMode", "Connection", this, vsp::FEA_BCM_ALL, vsp::FEA_BCM_USER, vsp::FEA_BCM_PIN ); // not all possible.
+    m_Constraints.Init( "Constraints", "Connection", this, 0, 0, 63 );
+
+    m_ConnLineDO.m_Type = DrawObj::VSP_LINES;
+    m_ConnLineDO.m_Screen = DrawObj::VSP_MAIN_SCREEN;
+    m_ConnLineDO.m_LineWidth = 2.0;
+    m_ConnLineDO.m_GeomID = GetID() + "Line";
+
+    m_ConnPtsDO.m_Type = DrawObj::VSP_POINTS;
+    m_ConnPtsDO.m_Screen = DrawObj::VSP_MAIN_SCREEN;
+    m_ConnPtsDO.m_PointSize = 7.0;
+    m_ConnPtsDO.m_GeomID = GetID() + "Pts";
+}
+
+BitMask FeaConnection::GetAsBitMask()
+{
+    BitMask bm( m_Constraints() );
+
+    return bm;
+}
+
+void FeaConnection::Update( )
+{
+    m_Constraints.Deactivate();
+
+    if ( m_ConMode() == vsp::FEA_BCM_USER )
+    {
+        m_Constraints.Activate();
+    }
+    else if ( m_ConMode() == vsp::FEA_BCM_ALL )
+    {
+        std::vector < bool > bv( 6, true );
+        BitMask bm( bv );
+        m_Constraints.Set( bm.AsNum() );
+    }
+    else if ( m_ConMode() == vsp::FEA_BCM_PIN )
+    {
+        std::vector < bool > bv = {true, true, true, false, false, false};
+        BitMask bm( bv );
+        m_Constraints.Set( bm.AsNum() );
+    }
+
+    UpdateDrawObjs();
+}
+
+xmlNodePtr FeaConnection::EncodeXml( xmlNodePtr & node )
+{
+    xmlNodePtr conn_node = xmlNewChild( node, NULL, BAD_CAST "Connection", NULL );
+
+    if ( conn_node )
+    {
+        ParmContainer::EncodeXml( conn_node );
+
+        XmlUtil::AddStringNode( conn_node, "StartFixPtID", m_StartFixPtID );
+        XmlUtil::AddStringNode( conn_node, "StartStructID", m_StartStructID );
+        XmlUtil::AddStringNode( conn_node, "EndFixPtID", m_EndFixPtID );
+        XmlUtil::AddStringNode( conn_node, "EndStructID", m_EndStructID );
+    }
+
+    return conn_node;
+}
+
+xmlNodePtr FeaConnection::DecodeXml( xmlNodePtr & conn_node )
+{
+    if ( conn_node )
+    {
+        ParmContainer::DecodeXml( conn_node );
+
+        m_StartFixPtID = ParmMgr.RemapID( XmlUtil::FindString( conn_node, "StartFixPtID", m_StartFixPtID ) );
+        m_StartStructID = ParmMgr.RemapID( XmlUtil::FindString( conn_node, "StartStructID", m_StartStructID ) );
+        m_EndFixPtID = ParmMgr.RemapID( XmlUtil::FindString( conn_node, "EndFixPtID", m_EndFixPtID ) );
+        m_EndStructID = ParmMgr.RemapID( XmlUtil::FindString( conn_node, "EndStructID", m_EndStructID ) );
+    }
+
+    return conn_node;
+}
+
+string FeaConnection::MakeLabel()
+{
+    string lbl;
+
+    FeaStructure* start_struct = StructureMgr.GetFeaStruct( m_StartStructID );
+    FeaPart* start_pt = StructureMgr.GetFeaPart( m_StartFixPtID );
+    FeaStructure* end_struct = StructureMgr.GetFeaStruct( m_EndStructID );
+    FeaPart* end_pt = StructureMgr.GetFeaPart( m_EndFixPtID );
+
+    if ( start_struct && start_pt && end_struct && end_pt )
+    {
+        char str[512];
+        sprintf( str, "%s:%s:%d:%s:%s:%d:", start_struct->GetName().c_str(), start_pt->GetName().c_str(), m_StartFixPtSurfIndex(),
+                                      end_struct->GetName().c_str(), end_pt->GetName().c_str(), m_EndFixPtSurfIndex() );
+        lbl = string( str );
+    }
+    return lbl;
+}
+
+string FeaConnection::MakeName()
+{
+    string name;
+
+    FeaStructure* start_struct = StructureMgr.GetFeaStruct( m_StartStructID );
+    FeaPart* start_pt = StructureMgr.GetFeaPart( m_StartFixPtID );
+    FeaStructure* end_struct = StructureMgr.GetFeaStruct( m_EndStructID );
+    FeaPart* end_pt = StructureMgr.GetFeaPart( m_EndFixPtID );
+
+    if ( start_struct && start_pt && end_struct && end_pt )
+    {
+        char str[512];
+        sprintf( str, "%s_%s_%d_to_%s_%s_%d", start_struct->GetName().c_str(), start_pt->GetName().c_str(), m_StartFixPtSurfIndex(),
+                 end_struct->GetName().c_str(), end_pt->GetName().c_str(), m_EndFixPtSurfIndex() );
+        name = string( str );
+    }
+    return name;
+}
+
+void FeaConnection::LoadDrawObjs( std::vector< DrawObj* > & draw_obj_vec )
+{
+    draw_obj_vec.push_back( &m_ConnLineDO );
+    draw_obj_vec.push_back( &m_ConnPtsDO );
+}
+
+void FeaConnection::UpdateDrawObjs()
+{
+    FeaFixPoint* start_pt = dynamic_cast< FeaFixPoint* > ( StructureMgr.GetFeaPart( m_StartFixPtID ) );
+    FeaFixPoint* end_pt = dynamic_cast< FeaFixPoint* > ( StructureMgr.GetFeaPart( m_EndFixPtID ) );
+
+    if ( start_pt && end_pt )
+    {
+        vector <vec3d> sp = start_pt->GetPntVec();
+        vector <vec3d> ep = end_pt->GetPntVec();
+
+        vector <vec3d> pv(2);
+        pv[0] = sp[ m_StartFixPtSurfIndex() ];
+        pv[1] = ep[ m_EndFixPtSurfIndex() ];
+
+        m_ConnLineDO.m_GeomChanged = true;
+        m_ConnLineDO.m_PntVec = pv;
+
+        m_ConnPtsDO.m_GeomChanged = true;
+        m_ConnPtsDO.m_PntVec = pv;
+    }
+}
+
+void FeaConnection::SetDrawObjHighlight ( bool highlight )
+{
+    if ( highlight )
+    {
+        m_ConnLineDO.m_LineColor = vec3d( 0.0, 0.0, 1.0 );
+
+        m_ConnPtsDO.m_PointColor = vec3d( 0.0, 0.0, 1.0 );
+        m_ConnPtsDO.m_Visible = true;
+
+    }
+    else
+    {
+        m_ConnLineDO.m_LineColor = vec3d( 0.0, 0.0, 0.0 );
+
+        m_ConnPtsDO.m_Visible = false;
+    }
+}
+
+
+//////////////////////////////////////////////////////
+//================= FeaConnection ==================//
+//////////////////////////////////////////////////////
+
+FeaAssembly::FeaAssembly( )
+{
+}
+
+FeaAssembly::~FeaAssembly()
+{
+    for ( int i = 0 ; i < ( int )m_ConnectionVec.size() ; i++ )
+    {
+        delete m_ConnectionVec[i];
+    }
+    m_ConnectionVec.clear();
+}
+
+void FeaAssembly::Update()
+{
+    for ( int i = 0 ; i < ( int )m_ConnectionVec.size() ; i++ )
+    {
+        FeaConnection* conn = m_ConnectionVec[i];
+        if ( conn )
+        {
+            conn->Update();
+        }
+    }
+}
+
+xmlNodePtr FeaAssembly::EncodeXml( xmlNodePtr & node )
+{
+    xmlNodePtr assy_node = xmlNewChild( node, NULL, BAD_CAST "FeaAssembly", NULL );
+
+    if ( assy_node )
+    {
+        ParmContainer::EncodeXml( assy_node );
+
+        xmlNodePtr structlist_node = xmlNewChild( assy_node, NULL, BAD_CAST "Structure_List", NULL );
+        for ( int i = 0 ; i < ( int )m_StructIDVec.size() ; i++ )
+        {
+            xmlNodePtr struct_node = xmlNewChild( structlist_node, NULL, BAD_CAST "Structure", NULL );
+            XmlUtil::AddStringNode( struct_node, "ID", m_StructIDVec[i] );
+        }
+
+        xmlNodePtr conlist_node = xmlNewChild( assy_node, NULL, BAD_CAST "Connection_List", NULL );
+        for ( int i = 0 ; i < ( int )m_ConnectionVec.size() ; i++ )
+        {
+            FeaConnection* conn = m_ConnectionVec[i];
+            if ( conn )
+            {
+                conn->EncodeXml( conlist_node );
+            }
+        }
+    }
+
+    m_AssemblySettings.EncodeXml( assy_node );
+
+    return assy_node;
+}
+
+xmlNodePtr FeaAssembly::DecodeXml( xmlNodePtr & assy_node )
+{
+    ParmContainer::DecodeXml( assy_node );
+
+    if ( assy_node )
+    {
+        m_StructIDVec.clear();
+
+        xmlNodePtr structlist_node = XmlUtil::GetNode( assy_node, "Structure_List", 0 );
+        if ( structlist_node )
+        {
+            int num_struct = XmlUtil::GetNumNames( structlist_node, "Structure" );
+
+            for ( int i = 0; i < num_struct; i++ )
+            {
+                xmlNodePtr n = XmlUtil::GetNode( structlist_node, "Structure", i );
+                m_StructIDVec.push_back( ParmMgr.RemapID( XmlUtil::FindString( n, "ID", string() ) ) );
+            }
+        }
+
+        xmlNodePtr conlist_node = XmlUtil::GetNode( assy_node, "Connection_List", 0 );
+        if ( conlist_node )
+        {
+            int num = XmlUtil::GetNumNames( conlist_node, "Connection" );
+
+            for ( int i = 0; i < num; i++ )
+            {
+                xmlNodePtr n = XmlUtil::GetNode( conlist_node, "Connection", i );
+                if ( n )
+                {
+                    FeaConnection *conn = new FeaConnection();
+                    conn->DecodeXml( n );
+                    m_ConnectionVec.push_back( conn );
+                }
+            }
+        }
+    }
+
+    m_AssemblySettings.DecodeXml( assy_node );
+    ResetExportFileNames();
+
+    return assy_node;
+}
+
+void FeaAssembly::AddStructure( const string &id )
+{
+    if ( !vector_contains_val( m_StructIDVec, id ) )
+    {
+        m_StructIDVec.push_back( id );
+    }
+}
+
+void FeaAssembly::DelStructure( const string &id )
+{
+    if ( vector_contains_val( m_StructIDVec, id ) )
+    {
+        vector_remove_val( m_StructIDVec, id );
+    }
+}
+
+void FeaAssembly::GetAllFixPts( vector< FeaPart* > & fixpts, vector <string> &structids )
+{
+    fixpts.clear();
+    structids.clear();
+
+    for ( int i = 0; i < m_StructIDVec.size(); i++ )
+    {
+        FeaStructure* fea_struct = StructureMgr.GetFeaStruct( m_StructIDVec[i] );
+        if ( fea_struct )
+        {
+            vector < FeaPart * > st_pts = fea_struct->GetFeaPartVecType( vsp::FEA_FIX_POINT );
+            if ( st_pts.size() > 0 )
+            {
+                fixpts.insert( fixpts.end(), st_pts.begin(), st_pts.end() );
+                vector < string > ids( st_pts.size(), m_StructIDVec[ i ] );
+                structids.insert( structids.end(), ids.begin(), ids.end() );
+            }
+        }
+    }
+}
+
+void FeaAssembly::AddConnection( const string &startid, const string &startstructid, int startindx,
+                                 const string &endid, const string &endstructid, int endindx )
+{
+    if ( startid != endid )
+    {
+        FeaConnection *conn = new FeaConnection();
+
+        conn->m_StartFixPtID = startid;
+        conn->m_StartStructID = startstructid;
+        conn->m_StartFixPtSurfIndex = startindx;
+
+        conn->m_EndFixPtID = endid;
+        conn->m_EndStructID = endstructid;
+        conn->m_EndFixPtSurfIndex = endindx;
+
+        m_ConnectionVec.push_back( conn );
+    }
+}
+
+void FeaAssembly::DelConnection( int index )
+{
+    if ( index >= 0 && index < m_ConnectionVec.size() && m_ConnectionVec.size() > 0 )
+    {
+        FeaConnection* con = m_ConnectionVec[index];
+        if ( con )
+        {
+            delete con;
+        }
+        m_ConnectionVec.erase( m_ConnectionVec.begin() + index );
+    }
+}
+
+void FeaAssembly::ResetExportFileNames()
+{
+    m_AssemblySettings.ResetExportFileNames( GetName() );
+}
+
+void FeaAssembly::AddLinkableParms( vector< string > & linkable_parm_vec, const string & link_container_id )
+{
+    m_AssemblySettings.AddLinkableParms( linkable_parm_vec, m_ID );
+}
+
+//////////////////////////////////////////////////////
+//===================== FeaBC ======================//
+//////////////////////////////////////////////////////
+
+FeaBC::FeaBC( const string &structID )
+{
+    m_StructID = structID;
+    m_FeaBCType.Init( "Type", "FeaBC", this, vsp::FEA_BC_STRUCTURE, vsp::FEA_BC_STRUCTURE, vsp::FEA_NUM_BC_TYPES - 1 );
+
+    m_ConMode.Init( "ConMode", "FeaBC", this, vsp::FEA_BCM_USER, vsp::FEA_BCM_USER, vsp::FEA_NUM_BCM_MODES - 1 );
+    m_Constraints.Init( "Constraints", "FeaBC", this, 0, 0, 63 );
+
+    m_XLTFlag.Init( "XLTFlag", "FeaBC", this, false, false, true );
+    m_XGTFlag.Init( "XLGFlag", "FeaBC", this, false, false, true );
+
+    m_YLTFlag.Init( "YLTFlag", "FeaBC", this, false, false, true );
+    m_YGTFlag.Init( "YLGFlag", "FeaBC", this, false, false, true );
+
+    m_ZLTFlag.Init( "ZLTFlag", "FeaBC", this, false, false, true );
+    m_ZGTFlag.Init( "ZLGFlag", "FeaBC", this, false, false, true );
+
+    m_XLTVal.Init( "XLTVal", "FeaBC", this, 0.0, -1.0e12, 1.0e12 );
+    m_XGTVal.Init( "XGTVal", "FeaBC", this, 0.0, -1.0e12, 1.0e12 );
+
+    m_YLTVal.Init( "YLTVal", "FeaBC", this, 0.0, -1.0e12, 1.0e12 );
+    m_YGTVal.Init( "YGTVal", "FeaBC", this, 0.0, -1.0e12, 1.0e12 );
+
+    m_ZLTVal.Init( "ZLTVal", "FeaBC", this, 0.0, -1.0e12, 1.0e12 );
+    m_ZGTVal.Init( "ZGTVal", "FeaBC", this, 0.0, -1.0e12, 1.0e12 );
+}
+
+void FeaBC::ParmChanged( Parm* parm_ptr, int type )
+{
+    FeaStructure *pstruct = StructureMgr.GetFeaStruct( m_StructID );
+
+    if ( pstruct )
+    {
+        pstruct->ParmChanged( parm_ptr, type );
+    }
+}
+
+xmlNodePtr FeaBC::EncodeXml( xmlNodePtr & node )
+{
+    xmlNodePtr bc_info = xmlNewChild( node, NULL, BAD_CAST "FeaBCInfo", NULL );
+
+    xmlNodePtr conn_node = ParmContainer::EncodeXml( bc_info );
+
+    if ( conn_node )
+    {
+        XmlUtil::AddStringNode( conn_node, "PartID", m_PartID );
+        XmlUtil::AddStringNode( conn_node, "SubSurfID", m_SubSurfID );
+    }
+
+    return conn_node;
+}
+
+xmlNodePtr FeaBC::DecodeXml( xmlNodePtr & node )
+{
+    xmlNodePtr conn_node = ParmContainer::DecodeXml( node );
+
+    if ( conn_node )
+    {
+        m_PartID = ParmMgr.RemapID( XmlUtil::FindString( conn_node, "PartID", m_PartID ) );
+        m_SubSurfID = ParmMgr.RemapID( XmlUtil::FindString( conn_node, "SubSurfID", m_SubSurfID ) );
+
+    }
+
+    return conn_node;
+}
+
+string FeaBC::GetDescription()
+{
+    string desc = GetDescriptionDOF();
+
+    if ( m_FeaBCType() == vsp::FEA_BC_PART )
+    {
+        FeaPart* part = StructureMgr.GetFeaPart( m_PartID );
+
+        if ( part )
+        {
+            desc += part->GetName() + " ";
+        }
+        else
+        {
+            desc += string( "Not Found " );
+        }
+    }
+    else if ( m_FeaBCType() == vsp::FEA_BC_SUBSURF )
+    {
+        SubSurface* subsurf = StructureMgr.GetFeaSubSurf( m_SubSurfID );
+
+        if ( subsurf )
+        {
+            desc += subsurf->GetName() + " ";
+        }
+        else
+        {
+            desc += string( "Not Found " );
+        }
+    }
+
+    char str[256];
+
+    if ( m_XGTFlag() && m_XLTFlag() )
+    {
+        sprintf( str, "%g<=X<=%g ", m_XGTVal(), m_XLTVal() );
+        desc += string( str );
+    }
+    else if ( m_XGTFlag() )
+    {
+        sprintf( str, "X>=%g ", m_XGTVal() );
+        desc += string( str );
+    }
+    else if ( m_XLTFlag() )
+    {
+        sprintf( str, "X<=%g ", m_XLTVal() );
+        desc += string( str );
+    }
+
+    if ( m_YGTFlag() && m_YLTFlag() )
+    {
+        sprintf( str, "%g<=Y<=%g ", m_YGTVal(), m_YLTVal() );
+        desc += string( str );
+    }
+    else if ( m_YGTFlag() )
+    {
+        sprintf( str, "Y>=%g ", m_YGTVal() );
+        desc += string( str );
+    }
+    else if ( m_YLTFlag() )
+    {
+        sprintf( str, "Y<=%g ", m_YLTVal() );
+        desc += string( str );
+    }
+
+    if ( m_ZGTFlag() && m_ZLTFlag() )
+    {
+        sprintf( str, "%g<=Z<=%g ", m_ZGTVal(), m_ZLTVal() );
+        desc += string( str );
+    }
+    else if ( m_ZGTFlag() )
+    {
+        sprintf( str, "Z>=%g ", m_ZGTVal() );
+        desc += string( str );
+    }
+    else if ( m_ZLTFlag() )
+    {
+        sprintf( str, "Z<=%g ", m_ZLTVal() );
+        desc += string( str );
+    }
+
+    return desc;
+}
+
+string FeaBC::GetDescriptionDOF()
+{
+    char labels[] = "XYZPQR";
+    char str[13];
+
+    BitMask bm = GetAsBitMask();
+
+    for ( int i = 0; i < 6; i++ )
+    {
+        if ( bm.CheckBit( i ) )
+        {
+            str[ 2 * i ] = labels[ i ];
+        }
+        else
+        {
+            str[ 2 * i ] = ' ';
+        }
+
+        str[ 2 * i + 1 ] = ':';
+    }
+    str[12] = '\0';
+
+    return string( str );
+}
+
+BitMask FeaBC::GetAsBitMask()
+{
+    BitMask bm( m_Constraints() );
+
+    return bm;
+}
+
+void FeaBC::Update()
+{
+    m_Constraints.Deactivate();
+
+    if ( m_ConMode() == vsp::FEA_BCM_USER )
+    {
+        m_Constraints.Activate();
+    }
+    else if ( m_ConMode() == vsp::FEA_BCM_ALL )
+    {
+        std::vector < bool > bv( 6, true );
+        BitMask bm( bv );
+        m_Constraints.Set( bm.AsNum() );
+    }
+    else if ( m_ConMode() == vsp::FEA_BCM_PIN )
+    {
+        std::vector < bool > bv = {true, true, true, false, false, false};
+        BitMask bm( bv );
+        m_Constraints.Set( bm.AsNum() );
+    }
+    else if ( m_ConMode() == vsp::FEA_BCM_SYMM )
+    {
+        std::vector < bool > bv = {false, true, false, true, false, true};
+        BitMask bm( bv );
+        m_Constraints.Set( bm.AsNum() );
+    }
+    else if ( m_ConMode() == vsp::FEA_BCM_ASYMM )
+    {
+        std::vector < bool > bv = {true, false, true, false, true, false};
+        BitMask bm( bv );
+        m_Constraints.Set( bm.AsNum() );
+    }
 }

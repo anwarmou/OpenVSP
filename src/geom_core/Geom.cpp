@@ -2879,7 +2879,7 @@ xmlNodePtr Geom::DecodeXml( xmlNodePtr & node )
                         if ( setting_node )
                         {
                             feastruct->GetStructSettingsPtr()->DecodeXml( structnode );
-                            feastruct->GetStructSettingsPtr()->ResetExportFileNames( feastruct->GetName() );
+                            feastruct->ResetExportFileNames();
                         }
 
                         xmlNodePtr dense_node = XmlUtil::GetNode( structnode, "FEAGridDensity", 0 );
@@ -4649,23 +4649,40 @@ vector< TMesh* > Geom::CreateTMeshVec( const vector<VspSurf> &surf_vec ) const
     vector< vector<vec3d> > norms;
     vector< vector<vec3d> > uw_pnts;
 
-    for ( int i = 0 ; i < GetNumTotalSurfs(); i++ )
+    int nsurf = surf_vec.size();
+
+    for ( int i = 0 ; i < nsurf; i++ )
     {
         surf_vec[i].ResetUSkip();
     }
 
-    for ( int i = 0 ; i < GetNumTotalSurfs() - 1 ; i++ )
+    // Check for duplicate patches.  Typically occur at symmetrical wing root.  When they occur, skip both copies
+    // in tessellation.
+    if ( nsurf == GetNumTotalSurfs() ) // Detect if we're working m_SurfVec
     {
-        for ( int j = i + 1 ; j < GetNumTotalSurfs() ; j++ )
+        for ( int i = 0 ; i < nsurf - 1 ; i++ )
         {
-            if ( m_SurfIndxVec[i] == m_SurfIndxVec[j] )
+            for ( int j = i + 1 ; j < nsurf ; j++ )
+            {
+                if ( m_SurfIndxVec[i] == m_SurfIndxVec[j] ) // Check if they come from same main surface
+                {
+                    surf_vec[i].FlagDuplicate( surf_vec[j] );
+                }
+            }
+        }
+    }
+    else                                         // We're working copy of m_MainSurfVec
+    {
+        for ( int i = 0 ; i < nsurf - 1 ; i++ )
+        {
+            for ( int j = i + 1 ; j < nsurf ; j++ )
             {
                 surf_vec[i].FlagDuplicate( surf_vec[j] );
             }
         }
     }
 
-    for ( int i = 0 ; i < GetNumTotalSurfs() ; i++ )
+    for ( int i = 0 ; i < nsurf ; i++ )
     {
         if ( surf_vec[i].GetNumSectU() != 0 && surf_vec[i].GetNumSectW() != 0 )
         {
@@ -4855,7 +4872,7 @@ FeaStructure* Geom::AddFeaStruct( bool initskin, int surf_index )
 
             if ( feastruct->GetStructSettingsPtr() )
             {
-                feastruct->GetStructSettingsPtr()->ResetExportFileNames( defaultname );
+                feastruct->ResetExportFileNames();
             }
 
             if ( initskin )

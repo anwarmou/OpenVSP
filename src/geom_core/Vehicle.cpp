@@ -9,6 +9,7 @@
 #include "PodGeom.h"
 #include "FuselageGeom.h"
 #include "WingGeom.h"
+#include "AeroStructMgr.h"
 #include "BlankGeom.h"
 #include "BORGeom.h"
 #include "MeshGeom.h"
@@ -492,6 +493,8 @@ void Vehicle::Wype()
     MeasureMgr.Renew();
     StructureMgr.Renew();
 
+    // Need to renew FeaMeshMgr to  FeaMeshMgr.CleanMeshMap() however, it is invisible from here.
+
     LightMgr.Wype();
 }
 
@@ -501,6 +504,7 @@ void Vehicle::SetVSP3FileName( const string & f_name )
 
     m_CfdSettings.ResetExportFileNames( m_VSP3FileName );
     m_ISectSettings.ResetExportFileNames( m_VSP3FileName );
+    StructureMgr.ResetAllExportFileNames();
     resetExportFileNames();
 }
 
@@ -535,6 +539,9 @@ void Vehicle::SetupPaths()
 
 bool Vehicle::CheckForVSPAERO( const string & path )
 {
+    AeroStructMgr.FindCCX( path );
+    AeroStructMgr.FindCGX( path );
+
     bool ret_val = true;
 
     if( !CheckForFile( path, m_VSPAEROCmd ) )
@@ -1781,6 +1788,7 @@ xmlNodePtr Vehicle::EncodeXml( xmlNodePtr & node, int set )
     m_ClippingMgr.EncodeXml( node );
     WaveDragMgr.EncodeXml( node );
     ParasiteDragMgr.EncodeXml( node );
+    AeroStructMgr.EncodeXml( node );
 
     xmlNodePtr setnamenode = xmlNewChild( node, NULL, BAD_CAST"SetNames", NULL );
     if ( setnamenode )
@@ -1804,9 +1812,6 @@ xmlNodePtr Vehicle::DecodeXml( xmlNodePtr & node )
         // Decode lighting information.
         LightMgr.DecodeXml( vehicle_node );
 
-        // Decode label information.
-        MeasureMgr.DecodeXml( vehicle_node );
-
     }
 
     // 'GeomsOnly' is a euphamism for those entities we want to read when 'inserting' a file.
@@ -1817,10 +1822,10 @@ xmlNodePtr Vehicle::DecodeXml( xmlNodePtr & node )
     m_CfdSettings.DecodeXml( node );
     m_ISectSettings.DecodeXml( node );
     m_CfdGridDensity.DecodeXml( node );
-    StructureMgr.DecodeXml( node );
     m_ClippingMgr.DecodeXml( node );
     WaveDragMgr.DecodeXml( node );
     ParasiteDragMgr.DecodeXml( node );
+    AeroStructMgr.DecodeXml( node );
 
     ParasiteDragMgr.CorrectTurbEquation();
 
@@ -1858,6 +1863,8 @@ xmlNodePtr Vehicle::DecodeXmlGeomsOnly( xmlNodePtr & node )
     xmlNodePtr vehicle_node = XmlUtil::GetNode( node, "Vehicle", 0 );
     if ( vehicle_node )
     {
+        // Decode label information.
+        MeasureMgr.DecodeXml( vehicle_node );
 
         int num = XmlUtil::GetNumNames( vehicle_node, "Geom" );
         for ( int i = 0 ; i < num ; i++ )
@@ -1891,6 +1898,7 @@ xmlNodePtr Vehicle::DecodeXmlGeomsOnly( xmlNodePtr & node )
     LinkMgr.DecodeXml( node );
     AdvLinkMgr.DecodeXml( node );
     VarPresetMgr.DecodeXml( node );
+    StructureMgr.DecodeXml( node );
 
     return vehicle_node;
 }
@@ -2612,6 +2620,18 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set, int de
             if ( geom_ptr )
             {
                 MeshGeom *mg = dynamic_cast<MeshGeom *>( geom_ptr );
+
+                if ( half_flag )
+                {
+                    // This check is to ensure any triangles remaining from the positive bodies on the symmetry plane are removed.
+                    // Absolute tolerance here, would be perhaps better as a fraction of the triangle's edge lengths.  Comparison
+                    // based on triangle center location, so it should be reliable.
+                    mg->IgnoreYLessThan( -1e-5 );
+
+                    // Purge ignored tris.
+                    mg->FlattenTMeshVec();
+                }
+
                 mg->SubTagTris( true );
                 geom_vec.push_back( geom_ptr );
                 geom_ptr->Update();
@@ -2654,7 +2674,7 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set, int de
             && geom_vec[i]->GetType().m_Type == MESH_GEOM_TYPE )
         {
             MeshGeom *mg = ( MeshGeom * ) geom_vec[i];            // Cast
-            mg->BuildIndexedMesh( num_parts, half_flag );
+            mg->BuildIndexedMesh( num_parts );
             num_parts += mg->GetNumIndexedParts();
             num_pnts += mg->GetNumIndexedPnts();
             num_tris += mg->GetNumIndexedTris();
@@ -4531,18 +4551,18 @@ void Vehicle::resetExportFileNames()
     const char *suffix[] = {"_CompGeom.txt", "_CompGeom.csv", "_Slice.txt", "_MassProps.txt", "_DegenGeom.csv", "_DegenGeom.m", "_ProjArea.csv", "_WaveDrag.txt", ".tri", "_ParasiteBuildUp.csv", "_VSPGeom.vspgeom" };
     const int types[] = { COMP_GEOM_TXT_TYPE, COMP_GEOM_CSV_TYPE, SLICE_TXT_TYPE, MASS_PROP_TXT_TYPE, DEGEN_GEOM_CSV_TYPE, DEGEN_GEOM_M_TYPE, PROJ_AREA_CSV_TYPE, WAVE_DRAG_TXT_TYPE, VSPAERO_PANEL_TRI_TYPE, DRAG_BUILD_CSV_TYPE, VSPAERO_VSPGEOM_TYPE };
     const int ntype = ( sizeof(types) / sizeof(types[0]) );
-    int pos;
+
+    string fname = m_VSP3FileName;
+    int pos = fname.find( ".vsp3" );
+    if ( pos >= 0 )
+    {
+        fname.erase( pos, fname.length() - 1 );
+    }
 
     for( int i = 0; i < ntype; i++ )
     {
-        string fname = m_VSP3FileName;
-        pos = fname.find( ".vsp3" );
-        if ( pos >= 0 )
-        {
-            fname.erase( pos, fname.length() - 1 );
-        }
-        fname.append( suffix[i] );
         m_ExportFileNames[types[i]] = fname;
+        m_ExportFileNames[types[i]].append( suffix[i] );
     }
 }
 
@@ -4593,6 +4613,10 @@ string Vehicle::CompGeom( int set, int degenset, int halfFlag, int intSubsFlag, 
 
         mesh_ptr->GetMeshByID( "NEGATIVE_HALF" )->m_DeleteMeFlag = true;
         mesh_ptr->DeleteMarkedMeshes();
+
+        // Repeat tagging after removing meshes.
+        // This removes the empty tags from the key files.
+        mesh_ptr->SubTagTris( true );
     }
 
     return id;

@@ -175,8 +175,11 @@ void CfdMeshScreen::CreateOutputTab()
     m_OutputTabLayout.SetFitWidthFlag( false );
     m_OutputTabLayout.SetSameLineFlag( true );
 
-    m_OutputTabLayout.SetButtonWidth(55);
-    m_OutputTabLayout.SetInputWidth(300);
+
+    int typebuttonw = 80;
+    m_OutputTabLayout.SetButtonWidth(typebuttonw);
+    m_OutputTabLayout.SetInputWidth( m_OutputTabLayout.GetW() - typebuttonw - 30 );
+
     m_OutputTabLayout.AddButton(m_StlFile, ".stl");
     m_OutputTabLayout.AddOutput(m_StlOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
@@ -189,37 +192,37 @@ void CfdMeshScreen::CreateOutputTab()
     m_OutputTabLayout.ForceNewLine();
     m_OutputTabLayout.AddYGap();
 
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton(m_PolyFile, ".poly");
     m_OutputTabLayout.AddOutput(m_PolyOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
     m_OutputTabLayout.AddButton(m_SelectPolyFile, "...");
     m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton(m_TriFile, ".tri");
     m_OutputTabLayout.AddOutput(m_TriOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
     m_OutputTabLayout.AddButton(m_SelectTriFile, "...");
     m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton( m_FacFile, ".facet" );
     m_OutputTabLayout.AddOutput( m_FacOutput );
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
     m_OutputTabLayout.AddButton( m_SelectFacFile, "..." );
     m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton(m_ObjFile, ".obj");
     m_OutputTabLayout.AddOutput(m_ObjOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
     m_OutputTabLayout.AddButton(m_SelectObjFile, "...");
     m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton(m_MshFile, ".msh");
     m_OutputTabLayout.AddOutput(m_MshOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
     m_OutputTabLayout.AddButton(m_SelectMshFile, "...");
     m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton(m_VspgeomFile, ".vspgeom");
     m_OutputTabLayout.AddOutput(m_VspgeomOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
@@ -232,13 +235,13 @@ void CfdMeshScreen::CreateOutputTab()
     m_OutputTabLayout.ForceNewLine();
     m_OutputTabLayout.SetFitWidthFlag( false );
 
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton(m_DatFile, ".dat");
     m_OutputTabLayout.AddOutput(m_DatOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
     m_OutputTabLayout.AddButton(m_SelectDatFile, "...");
     m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton(m_KeyFile, ".key");
     m_OutputTabLayout.AddOutput(m_KeyOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
@@ -251,58 +254,11 @@ void CfdMeshScreen::CreateOutputTab()
     m_OutputTabLayout.ForceNewLine();
     m_OutputTabLayout.SetFitWidthFlag( false );
 
-    m_OutputTabLayout.SetButtonWidth( 55 );
+    m_OutputTabLayout.SetButtonWidth( typebuttonw );
     m_OutputTabLayout.AddButton(m_TkeyFile, ".tkey");
     m_OutputTabLayout.AddOutput(m_TkeyOutput);
     m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
     m_OutputTabLayout.AddButton(m_SelectTkeyFile, "...");
-    m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.AddYGap();
-
-    m_OutputTabLayout.SetFitWidthFlag( true );
-    m_OutputTabLayout.AddDividerBox("Surfaces and Intersection Curves");
-    m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetFitWidthFlag( false );
-
-    m_OutputTabLayout.InitWidthHeightVals();
-
-    m_OutputTabLayout.SetFitWidthFlag( true );
-    m_OutputTabLayout.SetSameLineFlag( false );
-    m_OutputTabLayout.SetButtonWidth( 175 );
-
-    m_OutputTabLayout.AddButton( m_ExportRaw, "Export Raw Points" );
-
-    m_OutputTabLayout.SetFitWidthFlag( false );
-    m_OutputTabLayout.SetSameLineFlag( true );
-
-    m_OutputTabLayout.SetButtonWidth(55);
-    m_OutputTabLayout.SetInputWidth(300);
-
-    m_OutputTabLayout.AddButton(m_CurvFile, ".curv");
-    m_OutputTabLayout.AddOutput(m_CurvOutput);
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton(m_SelectCurvFile, "...");
-
-    m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.SetButtonWidth( 55 );
-    m_OutputTabLayout.AddButton(m_Plot3DFile, ".p3d");
-    m_OutputTabLayout.AddOutput(m_Plot3DOutput);
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton(m_SelectPlot3DFile, "...");
-
-    m_OutputTabLayout.ForceNewLine();
-    m_OutputTabLayout.AddYGap();
-
-    m_OutputTabLayout.SetButtonWidth( 55 );
-    m_OutputTabLayout.AddButton( m_SrfFile, ".srf" );
-    m_OutputTabLayout.AddOutput( m_SrfOutput );
-    m_OutputTabLayout.SetButtonWidth( m_OutputTabLayout.GetRemainX() );
-    m_OutputTabLayout.AddButton( m_SelectSrfFile, "..." );
-    m_OutputTabLayout.ForceNewLine();
-
-    m_OutputTabLayout.SetFitWidthFlag( true );
-    m_OutputTabLayout.AddButton( m_XYZIntCurves, "Include X,Y,Z Intersection Curves" );
-    m_OutputTabLayout.SetFitWidthFlag( false );
     m_OutputTabLayout.ForceNewLine();
     m_OutputTabLayout.AddYGap();
 
@@ -764,8 +720,6 @@ void CfdMeshScreen::UpdateOutputTab()
     m_DatOutput.Update( StringUtil::truncateFileName( datname, 40 ).c_str() );
     string keyname = m_Vehicle->GetCfdSettingsPtr()->GetExportFileName( vsp::CFD_KEY_FILE_NAME );
     m_KeyOutput.Update( StringUtil::truncateFileName( keyname, 40 ).c_str() );
-    string srfname = m_Vehicle->GetCfdSettingsPtr()->GetExportFileName( vsp::CFD_SRF_FILE_NAME );
-    m_SrfOutput.Update( StringUtil::truncateFileName( srfname, 40 ).c_str() );
     string tkeyname = m_Vehicle->GetCfdSettingsPtr()->GetExportFileName( vsp::CFD_TKEY_FILE_NAME );
     m_TkeyOutput.Update( StringUtil::truncateFileName( tkeyname, 40).c_str() );
     string vspgeomname = m_Vehicle->GetCfdSettingsPtr()->GetExportFileName( vsp::CFD_VSPGEOM_FILE_NAME );
@@ -781,22 +735,9 @@ void CfdMeshScreen::UpdateOutputTab()
     m_MshFile.Update( m_Vehicle->GetCfdSettingsPtr()->GetExportFileFlag( vsp::CFD_GMSH_FILE_NAME )->GetID() );
     m_DatFile.Update( m_Vehicle->GetCfdSettingsPtr()->GetExportFileFlag( vsp::CFD_DAT_FILE_NAME )->GetID() );
     m_KeyFile.Update( m_Vehicle->GetCfdSettingsPtr()->GetExportFileFlag( vsp::CFD_KEY_FILE_NAME )->GetID() );
-    m_SrfFile.Update( m_Vehicle->GetCfdSettingsPtr()->GetExportFileFlag( vsp::CFD_SRF_FILE_NAME )->GetID() );
-    m_XYZIntCurves.Update( m_Vehicle->GetCfdSettingsPtr()->m_XYZIntCurveFlag.GetID() );
     m_TkeyFile.Update( m_Vehicle->GetCfdSettingsPtr()->GetExportFileFlag( vsp::CFD_TKEY_FILE_NAME)->GetID() );
     m_VspgeomFile.Update( m_Vehicle->GetCfdSettingsPtr()->GetExportFileFlag( vsp::CFD_VSPGEOM_FILE_NAME )->GetID() );
 
-
-    string curvname = m_Vehicle->GetCfdSettingsPtr()->GetExportFileName( vsp::CFD_CURV_FILE_NAME );
-    m_CurvOutput.Update( StringUtil::truncateFileName( curvname, 40 ).c_str() );
-    string plot3dname = m_Vehicle->GetCfdSettingsPtr()->GetExportFileName( vsp::CFD_PLOT3D_FILE_NAME );
-    m_Plot3DOutput.Update( StringUtil::truncateFileName( plot3dname, 40 ).c_str() );
-
-    //==== Update File Output Flags ====//
-    m_CurvFile.Update( m_Vehicle->GetCfdSettingsPtr()->GetExportFileFlag( vsp::CFD_CURV_FILE_NAME )->GetID() );
-    m_Plot3DFile.Update( m_Vehicle->GetCfdSettingsPtr()->GetExportFileFlag( vsp::CFD_PLOT3D_FILE_NAME )->GetID() );
-
-    m_ExportRaw.Update( m_Vehicle->GetCfdSettingsPtr()->m_ExportRawFlag.GetID() );
 }
 
 void CfdMeshScreen::UpdateSourcesTab( BaseSource* source )
@@ -934,11 +875,11 @@ void CfdMeshScreen::UpdateDomainTab()
     m_DomainZLoc.Update( m_Vehicle->GetCfdSettingsPtr()->m_FarZLocation.GetID() );
 
     //=== Domain tab GUI active areas ===//
-    if ( m_Vehicle->GetCfdSettingsPtr()->GetFarMeshFlag() )
+    if ( m_Vehicle->GetCfdSettingsPtr()->m_FarMeshFlag() )
     {
         m_FarParametersLayout.GetGroup()->activate();
 
-        if( m_Vehicle->GetCfdSettingsPtr()->GetFarCompFlag() )
+        if( m_Vehicle->GetCfdSettingsPtr()->m_FarCompFlag() )
         {
             m_FarBoxLayout.GetGroup()->deactivate();
             m_ComponentChoice.Activate();
@@ -948,7 +889,7 @@ void CfdMeshScreen::UpdateDomainTab()
             m_FarBoxLayout.GetGroup()->activate();
             m_ComponentChoice.Deactivate();
 
-            if( m_Vehicle->GetCfdSettingsPtr()->GetFarManLocFlag() )
+            if( m_Vehicle->GetCfdSettingsPtr()->m_FarManLocFlag() )
             {
                 m_FarXYZLocationLayout.GetGroup()->activate();
             }
@@ -1056,13 +997,6 @@ void * cfdmesh_thread_fun( void *data )
 #endif
 {
     CfdMeshMgr.GenerateMesh();
-
-    CfdMeshScreen *cs = (CfdMeshScreen *)data;
-    if ( cs )
-    {
-        cs->GetScreenMgr()->SetUpdateFlag( true );
-    }
-
     return 0;
 }
 
@@ -1079,7 +1013,7 @@ void CfdMeshScreen::GuiDeviceCallBack( GuiDevice* device )
     if ( device == &m_MeshAndExport )
     {
         CfdMeshMgr.SetMeshInProgress( true );
-        m_CFDMeshProcess.StartThread( cfdmesh_thread_fun, ( void* ) this );
+        m_CFDMeshProcess.StartThread( cfdmesh_thread_fun, NULL );
     }
 
     m_ScreenMgr->SetUpdateFlag( true );
@@ -1193,36 +1127,12 @@ void CfdMeshScreen::GuiDeviceOutputTabCallback( GuiDevice* device )
             m_Vehicle->GetCfdSettingsPtr()->SetExportFileName( newfile, vsp::CFD_KEY_FILE_NAME );
         }
     }
-    else if ( device == &m_SelectSrfFile )
-    {
-        string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select .srf file.", "*.srf" );
-        if ( newfile.compare( "" ) != 0 )
-        {
-            m_Vehicle->GetCfdSettingsPtr()->SetExportFileName( newfile, vsp::CFD_SRF_FILE_NAME );
-        }
-    }
     else if ( device == &m_SelectTkeyFile )
     {
         string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select .tkey file.", "*.tkey" );
         if ( newfile.compare( "" ) != 0 )
         {
             m_Vehicle->GetCfdSettingsPtr()->SetExportFileName( newfile, vsp::CFD_TKEY_FILE_NAME );
-        }
-    }
-    else if ( device == &m_SelectCurvFile )
-    {
-        string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select GridTool .curv file.", "*.curv" );
-        if ( newfile.compare( "" ) != 0 )
-        {
-            m_Vehicle->GetCfdSettingsPtr()->SetExportFileName( newfile, vsp::CFD_CURV_FILE_NAME );
-        }
-    }
-    else if ( device == &m_SelectPlot3DFile )
-    {
-        string newfile = m_ScreenMgr->GetSelectFileScreen()->FileChooser( "Select Plot3D .p3d file.", "*.p3d" );
-        if ( newfile.compare( "" ) != 0 )
-        {
-            m_Vehicle->GetCfdSettingsPtr()->SetExportFileName( newfile, vsp::CFD_PLOT3D_FILE_NAME );
         }
     }
     else if ( device == &m_SelectVspgeomFile )
@@ -1278,7 +1188,7 @@ void CfdMeshScreen::GuiDeviceDomainTabCallback( GuiDevice* device )
 {
     if ( device == &m_FarFieldTypeComponent )
     {
-        m_Vehicle->GetCfdSettingsPtr()->SetFarCompFlag( true );
+        m_Vehicle->GetCfdSettingsPtr()->m_FarCompFlag = true;
 
         if ( m_FarFieldTypeBox.GetValue() )
         {
@@ -1292,7 +1202,7 @@ void CfdMeshScreen::GuiDeviceDomainTabCallback( GuiDevice* device )
     }
     else if ( device == &m_FarFieldTypeBox )
     {
-        m_Vehicle->GetCfdSettingsPtr()->SetFarCompFlag( false );
+        m_Vehicle->GetCfdSettingsPtr()->m_FarCompFlag = false;
 
         if ( m_FarFieldTypeComponent.GetValue() )
         {
@@ -1306,7 +1216,7 @@ void CfdMeshScreen::GuiDeviceDomainTabCallback( GuiDevice* device )
     }
     else if ( device == &m_DomainRel )
     {
-        m_Vehicle->GetCfdSettingsPtr()->SetFarAbsSizeFlag( false );
+        m_Vehicle->GetCfdSettingsPtr()->m_FarAbsSizeFlag = false;
 
         if ( (int)m_DomainAbs.GetFlButton()->value() )
         {
@@ -1320,7 +1230,7 @@ void CfdMeshScreen::GuiDeviceDomainTabCallback( GuiDevice* device )
     }
     else if ( device == &m_DomainAbs )
     {
-        m_Vehicle->GetCfdSettingsPtr()->SetFarAbsSizeFlag( true );
+        m_Vehicle->GetCfdSettingsPtr()->m_FarAbsSizeFlag = true;
 
         if ( (int)m_DomainRel.GetFlButton()->value() )
         {
@@ -1334,7 +1244,7 @@ void CfdMeshScreen::GuiDeviceDomainTabCallback( GuiDevice* device )
     }
     else if ( device == &m_DomainCen )
     {
-        m_Vehicle->GetCfdSettingsPtr()->SetFarManLocFlag( false );
+        m_Vehicle->GetCfdSettingsPtr()->m_FarManLocFlag = false;
 
         if ( (int)m_DomainMan.GetFlButton()->value() )
         {
@@ -1348,7 +1258,7 @@ void CfdMeshScreen::GuiDeviceDomainTabCallback( GuiDevice* device )
     }
     else if ( device == &m_DomainMan )
     {
-        m_Vehicle->GetCfdSettingsPtr()->SetFarManLocFlag( true );
+        m_Vehicle->GetCfdSettingsPtr()->m_FarManLocFlag = true;
 
         if ( (int)m_DomainCen.GetFlButton()->value() )
         {

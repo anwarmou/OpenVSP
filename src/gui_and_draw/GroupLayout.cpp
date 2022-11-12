@@ -9,6 +9,8 @@
 #include "ScreenBase.h"
 #include <FL/Fl_Value_Slider.H>
 
+// #define DEBUG_LABEL_SIZE
+
 //==== Constructor ====//
 GroupLayout::GroupLayout()
 {
@@ -185,7 +187,9 @@ VspButton* GroupLayout::AddParmButton( const char* label )
     button->labelfont( FL_HELVETICA_BOLD );
     button->labelsize( 12 );
     button->labelcolor( FL_BLACK );
+    button->align( FL_ALIGN_NOWRAP );
     m_Group->add( button );
+    DebugLabelSize( button );
     AddX( m_ButtonWidth );
 
     return button;
@@ -437,8 +441,10 @@ void GroupLayout::AddLabel( const char* label, int width, int bgcolor )
     button->labelfont( FL_HELVETICA_BOLD );
     button->labelsize( 12 );
     button->labelcolor( FL_BLACK );
+    button->align( FL_ALIGN_NOWRAP );
     button->color( bgcolor );
     m_Group->add( button );
+    DebugLabelSize( button );
     AddX( width );
 }
 
@@ -455,8 +461,10 @@ void GroupLayout::AddButton( CheckButton& cbutton, const char* label )
     flbutton->labelfont( FL_HELVETICA_BOLD );
     flbutton->labelsize( 12 );
     flbutton->labelcolor( FL_DARK_BLUE );
+    flbutton->align( FL_ALIGN_NOWRAP );
     flbutton->copy_label( label );
     m_Group->add( flbutton );
+    DebugLabelSize( flbutton );
     AddX( bw );
 
     AddY( m_StdHeight );
@@ -476,10 +484,11 @@ void GroupLayout::AddButton( ToggleButton& tbutton, const char* label )
     flbutton->labelfont( FL_HELVETICA_BOLD );
     flbutton->labelsize( 12 );
     flbutton->align( Fl_Align( FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_WRAP ) );
-    flbutton->copy_label( label );
     flbutton->labelcolor( FL_DARK_BLUE );
+    flbutton->align( FL_ALIGN_NOWRAP );
     flbutton->copy_label( label );
     m_Group->add( flbutton );
+    DebugLabelSize( flbutton );
     AddX( bw );
 
     AddY( m_StdHeight );
@@ -500,8 +509,10 @@ void GroupLayout::AddButton( CheckButtonBit& cbutton, const char* label, int val
     flbutton->labelsize( 12 );
     flbutton->align( Fl_Align( FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_WRAP ) );
     flbutton->labelcolor( FL_DARK_BLUE );
+    flbutton->align( FL_ALIGN_NOWRAP );
     flbutton->copy_label( label );
     m_Group->add( flbutton );
+    DebugLabelSize( flbutton );
     AddX( bw );
 
     AddY( m_StdHeight );
@@ -522,8 +533,10 @@ void GroupLayout::AddButton( TriggerButton& tbutton, const char* label, int used
     flbutton->labelfont( FL_HELVETICA_BOLD );
     flbutton->labelsize( 12 );
     flbutton->labelcolor( FL_DARK_BLUE );
+    flbutton->align( FL_ALIGN_NOWRAP );
     flbutton->copy_label( label );
     m_Group->add( flbutton );
+    DebugLabelSize( flbutton );
     AddX( bw );
 
     AddY( m_StdHeight );
@@ -544,7 +557,9 @@ void GroupLayout::AddButton( ParmButton& pbutton, const char* label )
     flbutton->labelfont( FL_HELVETICA_BOLD );
     flbutton->labelsize( 12 );
     flbutton->labelcolor( FL_DARK_BLUE );
+    flbutton->align( FL_ALIGN_NOWRAP );
     m_Group->add( flbutton );
+    DebugLabelSize( flbutton );
 
     AddX( bw );
     AddY( m_StdHeight );
@@ -564,8 +579,10 @@ void GroupLayout::AddButton( RadioButton& rbutton, const char* label, int val )
     flbutton->labelfont( FL_HELVETICA_BOLD );
     flbutton->labelsize( 12 );
     flbutton->labelcolor( FL_DARK_BLUE );
+    flbutton->align( FL_ALIGN_NOWRAP );
     flbutton->copy_label( label );
     m_Group->add( flbutton );
+    DebugLabelSize( flbutton );
     AddX( bw );
 
     AddY( m_StdHeight );
@@ -588,8 +605,10 @@ Fl_Box* GroupLayout::AddDividerBox( const string& text, int used_w )
     flbox->color( ( Fl_Color )12 );
     flbox->labelfont( FL_HELVETICA_BOLD );
     flbox->labelcolor( FL_BACKGROUND2_COLOR );
+    flbox->align( FL_ALIGN_NOWRAP );
     flbox->copy_label( text.c_str() );
     m_Group->add( flbox );
+    DebugLabelSize( flbox );
     AddX( dw );
 
     AddY( m_DividerHeight );
@@ -627,7 +646,9 @@ void GroupLayout::AddLegendEntry( const string& text, Fl_Color c )
     button->labelfont( FL_HELVETICA_BOLD );
     button->labelsize( 12 );
     button->labelcolor( FL_BLACK );
+    button->align( FL_ALIGN_NOWRAP );
     m_Group->add( button );
+    DebugLabelSize( button );
     AddX( m_ButtonWidth );
 
     int dw = FitWidth( m_ButtonWidth, m_ButtonWidth );
@@ -1082,8 +1103,10 @@ void GroupLayout::AddChoice( Choice & choice, const char* label, int used_w )
         button->labelfont( FL_HELVETICA_BOLD );
         button->labelsize( 12 );
         button->labelcolor( FL_BLACK );
+        button->align( FL_ALIGN_NOWRAP );
         button->copy_label( label );
         m_Group->add( button );
+        DebugLabelSize( button );
         AddX( m_ChoiceButtonWidth );
     }
 
@@ -1526,7 +1549,9 @@ void GroupLayout::AddGeomPicker( GeomPicker & geom_picker, int used_w, string te
         button->labelfont( FL_HELVETICA_BOLD );
         button->labelsize( 12 );
         button->labelcolor( FL_BLACK );
+        button->align( FL_ALIGN_NOWRAP );
         m_Group->add( button );
+        DebugLabelSize( button );
         AddX( m_ChoiceButtonWidth );
         used_w += m_ChoiceButtonWidth;
     }
@@ -1560,8 +1585,10 @@ void GroupLayout::AddPCurveEditor( PCurveEditor& curve_editor )
     convbutton->labelfont( FL_HELVETICA_BOLD );
     convbutton->labelsize( 12 );
     convbutton->labelcolor( FL_DARK_BLUE );
+    convbutton->align( FL_ALIGN_NOWRAP );
     convbutton->copy_label( "Convert to:" );
     m_Group->add( convbutton );
+    DebugLabelSize( convbutton );
     AddX( m_ButtonWidth );
 
 
@@ -1602,8 +1629,10 @@ void GroupLayout::AddPCurveEditor( PCurveEditor& curve_editor )
     spbutton->labelfont( FL_HELVETICA_BOLD );
     spbutton->labelsize( 12 );
     spbutton->labelcolor( FL_DARK_BLUE );
+    spbutton->align( FL_ALIGN_NOWRAP );
     spbutton->copy_label( "Split" );
     m_Group->add( spbutton );
+    DebugLabelSize( spbutton );
     AddX( bw );
 
     SetFitWidthFlag( true );
@@ -1615,7 +1644,9 @@ void GroupLayout::AddPCurveEditor( PCurveEditor& curve_editor )
     splitpickbutton->align( Fl_Align( FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_WRAP ) );
     splitpickbutton->copy_label( "Split Pick" );
     splitpickbutton->labelcolor( FL_DARK_BLUE );
+    splitpickbutton->align( FL_ALIGN_NOWRAP );
     m_Group->add( splitpickbutton );
+    DebugLabelSize( splitpickbutton );
 
 
     ForceNewLine();
@@ -1628,8 +1659,10 @@ void GroupLayout::AddPCurveEditor( PCurveEditor& curve_editor )
     deletebutton->labelfont( FL_HELVETICA_BOLD );
     deletebutton->labelsize( 12 );
     deletebutton->labelcolor( FL_DARK_BLUE );
+    deletebutton->align( FL_ALIGN_NOWRAP );
     deletebutton->copy_label( "Del" );
     m_Group->add( deletebutton );
+    DebugLabelSize( deletebutton );
     AddX( bw );
 
     m_ButtonWidth -= 15;
@@ -1646,7 +1679,9 @@ void GroupLayout::AddPCurveEditor( PCurveEditor& curve_editor )
     deletetoggle->align( Fl_Align( FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_WRAP ) );
     deletetoggle->copy_label( "Del Pick" );
     deletetoggle->labelcolor( FL_DARK_BLUE );
+    deletetoggle->align( FL_ALIGN_NOWRAP );
     m_Group->add( deletetoggle );
+    DebugLabelSize( deletetoggle );
 
     ForceNewLine();
 
@@ -1833,4 +1868,28 @@ int StyleWheel( int i )
     // There are 5 true styles, but the 0th style is no-symbol at all.
     int nstyle = 5;
     return i % nstyle + 1;
+}
+
+void DebugLabelSize( Fl_Widget *widget )
+{
+#ifdef DEBUG_LABEL_SIZE
+    int ww = widget->w();
+    int hh = widget->h();
+    int wo = ww;
+    int ho = hh;
+
+    Fl_Font ff = widget->labelfont();
+    Fl_Fontsize fs = widget->labelsize();
+    fl_font( ff, fs );
+    fl_measure( widget->label(), ww, hh );
+
+    if ( wo - ww <= 0 )
+    {
+        printf( "'%s' insufficient width.\n", widget->label() );
+    }
+    if ( ho - hh <= -2 )
+    {
+        printf( "'%s' insufficient height.\n", widget->label() );
+    }
+#endif
 }
