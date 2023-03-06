@@ -240,7 +240,7 @@ public:
     vec3d GetFeaElementOrientation( double u, double w, int type, const vec3d & defaultorientation );
     vec3d GetFeaElementOrientation();
 
-    //Getter/Setter Surface VSP TYPE (NORMAL_SURF, WING_SURF, DISK_SURF, PROP_SURF)
+    //Getter/Setter Surface VSP TYPE (NORMAL_SURF, WING_SURF, DISK_SURF)
     void SetSurfaceVSPType( int surfVspType )
     {
         m_SurfVspType = surfVspType;
@@ -248,6 +248,25 @@ public:
     int GetSurfaceVSPType()
     {
         return m_SurfVspType;
+    }
+
+    //Getter/Setter Surface thick flag
+    void SetSurfaceThickSurf( bool thicksurf )
+    {
+        m_ThickSurf = thicksurf;
+    }
+    bool GetSurfaceThickSurf()
+    {
+        return m_ThickSurf;
+    }
+
+    void SetSurfacePlateNum( int p )
+    {
+        m_PlateNum = p;
+    }
+    int GetSurfacePlateNum()
+    {
+        return m_PlateNum;
     }
 
     virtual void SetSymPlaneFlag( bool flag );
@@ -322,6 +341,8 @@ protected:
 
     int m_SurfCfdType;
     int m_SurfVspType;
+    bool m_ThickSurf;
+    int m_PlateNum;
 
     SurfCore m_SurfCore;
 

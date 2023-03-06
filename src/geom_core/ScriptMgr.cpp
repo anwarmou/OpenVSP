@@ -49,7 +49,7 @@ void MessageCallback( const asSMessageInfo *msg, void *param )
     {
         type = "INFO";
     }
-    sprintf( str, "%s (%d, %d) : %s : %s\n", msg->section, msg->row, msg->col, type, msg->message );
+    snprintf( str, sizeof( str ),  "%s (%d, %d) : %s : %s\n", msg->section, msg->row, msg->col, type, msg->message );
     ScriptMgr.AddToMessages( str );
     printf( "%s", str );
 }
@@ -1142,6 +1142,8 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
 
     r = se->RegisterEnum( "FEA_PART_ELEMENT_TYPE", doc_struct );
     assert( r >= 0 );
+    r = se->RegisterEnumValue( "FEA_PART_ELEMENT_TYPE", "FEA_DEPRECATED", FEA_DEPRECATED, "/*!< Flag that this parameter has been deprecated. */" );
+    assert( r >= 0 );
     r = se->RegisterEnumValue( "FEA_PART_ELEMENT_TYPE", "FEA_SHELL", FEA_SHELL, "/*!< Shell (tris) FEA element type */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "FEA_PART_ELEMENT_TYPE", "FEA_BEAM", FEA_BEAM, "/*!< Beam FEA element type */" );
@@ -1151,6 +1153,17 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "FEA_PART_ELEMENT_TYPE", "FEA_NO_ELEMENTS", FEA_NO_ELEMENTS, "/*!< FEA part with no elements */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "FEA_PART_ELEMENT_TYPE", "FEA_NUM_ELEMENT_TYPES", FEA_NUM_ELEMENT_TYPES, "/*!< Number of FEA element type choices */" );
+    assert( r >= 0 );
+
+    doc_struct.comment = "/*! Enum for FEA Shell treatment types. */";
+
+    r = se->RegisterEnum( "FEA_SHELL_TREATMENT_TYPE", doc_struct );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "FEA_SHELL_TREATMENT_TYPE", "FEA_KEEP", FEA_KEEP, "/*!< Keep shell elements */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "FEA_SHELL_TREATMENT_TYPE", "FEA_DELETE", FEA_DELETE, "/*!< Delete shell elements */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "FEA_SHELL_TREATMENT_TYPE", "FEA_NUM_SHELL_TREATMENT_TYPES", FEA_NUM_SHELL_TREATMENT_TYPES, "/*!< Number of FEA subsurface treatment choices */" );
     assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum used to identify the available FEA Part types. */";
@@ -1433,6 +1446,8 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     assert( r >= 0 );
     r = se->RegisterEnumValue( "LEN_UNITS", "LEN_UNITLESS", LEN_UNITLESS, "/*!< Unitless */" );
     assert( r >= 0 );
+    r = se->RegisterEnumValue( "LEN_UNITS", "NUM_LEN_UNIT", NUM_LEN_UNIT, "/*!< Number of length unit types */" );
+    assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum that describes units for mass. */";
 
@@ -1449,6 +1464,8 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "MASS_UNIT", "MASS_UNIT_SLUG", MASS_UNIT_SLUG, "/*!< Slug */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "MASS_UNIT", "MASS_LBFSEC2IN", MASS_LBFSEC2IN, "/*!< Pound-force-second squared per inch  */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "MASS_UNIT", "NUM_MASS_UNIT", NUM_MASS_UNIT, "/*!< Number of mass unit types */" );
     assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum for OpenVSP's various Parm class types. */";
@@ -1525,6 +1542,8 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "PRES_UNITS", "PRES_UNIT_MB", PRES_UNIT_MB, "/*!< Millibar */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "PRES_UNITS", "PRES_UNIT_ATM", PRES_UNIT_ATM, "/*!< Atmosphere */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "PRES_UNITS", "NUM_PRES_UNIT", NUM_PRES_UNIT, "/*!< Number of pressure unit choices */" );
     assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum for Projected Area boundary option type. */";
@@ -1657,9 +1676,13 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     assert( r >= 0 );
     r = se->RegisterEnumValue( "RHO_UNITS", "RHO_UNIT_TONNE_MM3", RHO_UNIT_TONNE_MM3, "/*!< Tonne per cubic millimeter */" );
     assert( r >= 0 );
-    r = se->RegisterEnumValue( "RHO_UNITS", "RHO_UNIT_LBF_FT3", RHO_UNIT_LBF_FT3, "/*!< Pound-force per cubic foot */" );
+    r = se->RegisterEnumValue( "RHO_UNITS", "RHO_UNIT_LBM_FT3", RHO_UNIT_LBM_FT3, "/*!< Pound-mass per cubic foot */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "RHO_UNITS", "RHO_UNIT_LBFSEC2_IN4", RHO_UNIT_LBFSEC2_IN4, "/*!< Pound-force-second squared per inch to the fourth */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "RHO_UNITS", "RHO_UNIT_LBM_IN3", RHO_UNIT_LBM_IN3, "/*!< Pound-mass per cubic inch */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "RHO_UNITS", "NUM_RHO_UNIT", NUM_RHO_UNIT, "/*!< Number of density unit options */" );
     assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum for specifying named set types. */";
@@ -1780,6 +1803,8 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "TEMP_UNITS", "TEMP_UNIT_F", TEMP_UNIT_F, "/*!< Fahrenheit  */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "TEMP_UNITS", "TEMP_UNIT_R", TEMP_UNIT_R, "/*!< Rankine  */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "TEMP_UNITS", "NUM_TEMP_UNIT", NUM_TEMP_UNIT, "/*!< Number of temperature unit choices  */" );
     assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum that describes units for velocity. */";
@@ -1942,8 +1967,6 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "VSP_SURF_TYPE", "WING_SURF", WING_SURF, "/*!< Wing VSP surface */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "VSP_SURF_TYPE", "DISK_SURF", DISK_SURF, "/*!< Disk VSP surface */" );
-    assert( r >= 0 );
-    r = se->RegisterEnumValue( "VSP_SURF_TYPE", "PROP_SURF", PROP_SURF, "/*!< Propeller VSP surface */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "VSP_SURF_TYPE", "NUM_SURF_TYPES", NUM_SURF_TYPES, "/*!< Number of VSP surface types */" );
     assert( r >= 0 );
@@ -4315,9 +4338,10 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] thick_set Set index to export (i.e. SET_ALL)
     \param [in] file_type File type enum (i.e. EXPORT_IGES)
     \param [in] file_type File type enum (i.e. EXPORT_VSPGEOM)
+    \param [in] subsFlag Flag to tag subsurfaces if MeshGeom is created
     \return Mesh Geom ID if the export generates a mesh
 */)";
-    r = se->RegisterGlobalFunction( "string ExportFile( const string & in file_name, int thick_set, int file_type, int thin_set = -1 )", vspFUNCTION( vsp::ExportFile ), vspCALL_CDECL, doc_struct );
+    r = se->RegisterGlobalFunction( "string ExportFile( const string & in file_name, int thick_set, int file_type, int subsFlag = 1, int thin_set = -1 )", vspFUNCTION( vsp::ExportFile ), vspCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -4451,7 +4475,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     //==== Test Mass Props ====//
     string pid = AddGeom( "POD", "" );
 
-    string mesh_id = ComputeMassProps( SET_ALL, 20 );
+    string mesh_id = ComputeMassProps( SET_ALL, 20, X_DIR );
 
     string mass_res_id = FindLatestResultsID( "Mass_Properties" );
 
@@ -4462,9 +4486,10 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \sa SetAnalysisInputDefaults, PrintAnalysisInputs, ExecAnalysis
     \param [in] set Set index (i.e. SET_ALL)
     \param [in] num_slices Number of slices
+    \param [in] idir Direction of slicing for integration
     \return MeshGeom ID
 */)";
-    r = se->RegisterGlobalFunction( "string ComputeMassProps( int set, int num_slices )", vspFUNCTION( vsp::ComputeMassProps ), vspCALL_CDECL, doc_struct );
+    r = se->RegisterGlobalFunction( "string ComputeMassProps( int set, int num_slices, int idir = X_DIR )", vspFUNCTION( vsp::ComputeMassProps ), vspCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -4513,9 +4538,10 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] auto_bnd Flag to automatically set the start and end bound locations
     \param [in] start_bnd Location of the first slice along the normal axis (default: 0.0)
     \param [in] end_bnd Location of the last slice along the normal axis (default: 0.0)
+    \param [in] measureduct Flag to measure negative area inside positive area (default: false)
     \return MeshGeom ID
 */)";
-    r = se->RegisterGlobalFunction( "string ComputePlaneSlice( int set, int num_slices, const vec3d & in norm, bool auto_bnd, double start_bnd = 0, double end_bnd = 0 )", vspFUNCTION( vsp::ComputePlaneSlice ), vspCALL_CDECL, doc_struct );
+    r = se->RegisterGlobalFunction( "string ComputePlaneSlice( int set, int num_slices, const vec3d & in norm, bool auto_bnd, double start_bnd = 0, double end_bnd = 0, bool measureduct = false )", vspFUNCTION( vsp::ComputePlaneSlice ), vspCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -4570,13 +4596,14 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
 
    Print( "\tComputing CFDMesh..." );
 
-    ComputeCFDMesh( SET_ALL, CFD_FACET_TYPE );
+    ComputeCFDMesh( SET_ALL, SET_NONE, CFD_FACET_TYPE );
     \endcode
     \sa COMPUTATION_FILE_TYPE
     \param [in] set Set index (i.e. SET_ALL)
+    \param [in] set DegenSet index (i.e. SET_NONE)
     \param [in] file_type CFD Mesh file type to export (supports XOR i.e CFD_SRF_TYPE & CFD_STL_TYPE)
 */)";
-    r = se->RegisterGlobalFunction( "void ComputeCFDMesh( int set, int file_type )", vspFUNCTION( vsp::ComputeCFDMesh ), vspCALL_CDECL, doc_struct );
+    r = se->RegisterGlobalFunction( "void ComputeCFDMesh( int set, int degenset, int file_type )", vspFUNCTION( vsp::ComputeCFDMesh ), vspCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -4726,10 +4753,34 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
         Print( ( "\t" + in_names[i] + "\n" ) );
     }
     \endcode
-    \param [in] analysis Snalysis name
+    \param [in] analysis Analysis name
     \return Array of input names
 */)";
     r = se->RegisterGlobalFunction( "array<string>@ GetAnalysisInputNames(const string & in analysis )", vspMETHOD( ScriptMgrSingleton, GetAnalysisInputNames ), vspCALL_THISCALL_ASGLOBAL, &ScriptMgr, doc_struct );
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the analysis documentation string
+    \code{.cpp}
+    string analysis_name = "VSPAEROComputeGeometry";
+
+    string doc = GetAnalysisDoc( analysis_name );
+    \endcode
+    \param [in] analysis Analysis name
+    \return Documentation string
+*/)";
+    r = se->RegisterGlobalFunction( "string GetAnalysisDoc( const string & in analysis )", vspFUNCTION( vsp::GetAnalysisDoc ), vspCALL_CDECL, doc_struct );
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the documentation string for the particular analysis and input
+    \param [in] analysis Analysis name
+    \param [in] name Input name
+    \return Documentation string
+*/)";
+    r = se->RegisterGlobalFunction( "string GetAnalysisInputDoc( const string & in analysis, const string & in name )", vspFUNCTION( vsp::GetNumAnalysisInputData ), vspCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -4740,7 +4791,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
 
     string res_id = ExecAnalysis( analysis_name );
     \endcode
-    \param [in] analysis Snalysis name
+    \param [in] analysis Analysis name
     \return Result ID
 */)";
     r = se->RegisterGlobalFunction( "string ExecAnalysis( const string & in analysis )", vspFUNCTION( vsp::ExecAnalysis ), vspCALL_CDECL, doc_struct );
@@ -4871,6 +4922,21 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] analysis Analysis name
 */)";
     r = se->RegisterGlobalFunction( "void PrintAnalysisInputs( const string & in analysis )", vspFUNCTION( vsp::PrintAnalysisInputs ), vspCALL_CDECL, doc_struct );
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Print to stdout all current input documentation for a specific analysis
+    \code{.cpp}
+    //==== Analysis: VSPAero Compute Geometry ====//
+    string analysis_name = "VSPAEROComputeGeometry";
+
+    // list inputs, type, and documentation
+    PrintAnalysisDocs( analysis_name );
+    \endcode
+    \param [in] analysis Analysis name
+*/)";
+    r = se->RegisterGlobalFunction( "void PrintAnalysisDocs( const string & in analysis )", vspFUNCTION( vsp::PrintAnalysisDocs ), vspCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -5020,6 +5086,52 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \return Result name
 */)";
     r = se->RegisterGlobalFunction( "string GetResultsName( const string & in results_id )", vspFUNCTION( vsp::GetResultsName ), vspCALL_CDECL, doc_struct );
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the documentation string for a result given its ID
+    \code{.cpp}
+    //==== Analysis: VSPAero Compute Geometry ====//
+    string analysis_name = "VSPAEROComputeGeometry";
+
+    // Set defaults
+    SetAnalysisInputDefaults( analysis_name );
+
+    string res_id = ( ExecAnalysis( analysis_name ) );
+
+    Print( "Results doc: ", false );
+
+    Print( GetResultsSetDoc( res_id ) );
+    \endcode
+    \param [in] results_id Result ID
+    \return Result documentation string
+*/)";
+    r = se->RegisterGlobalFunction( "string GetResultsSetDoc( const string & in results_id )",
+                                    vspFUNCTION( vsp::GetResultsSetDoc ), vspCALL_CDECL, doc_struct );
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the documentation string for a given result ID and data name
+    \code{.cpp}
+    //==== Write Some Fake Test Results =====//
+    WriteTestResults();
+
+    string res_id = FindResultsID( "Test_Results" );
+
+    string doc = GetResultsSetDoc( res_id, "Test_Int" )
+
+    Print( doc );
+
+    \endcode
+    \param [in] results_id Result ID
+    \param [in] data_name Data name
+    \return Documentation string for data entry in result set
+*/)";
+    r = se->RegisterGlobalFunction(
+            "string GetResultsEntryDoc( const string & in results_id, const string & in data_name )",
+            vspFUNCTION( vsp::GetResultsSetDoc ), vspCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -5362,6 +5474,25 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] id Result ID
 */)";
     r = se->RegisterGlobalFunction( "void PrintResults( const string & in id )", vspFUNCTION( vsp::PrintResults ), vspCALL_CDECL, doc_struct );
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Print a result's names and documentation to stdout
+    \code{.cpp}
+    // Add Pod Geom
+    string pid = AddGeom( "POD" );
+
+    string analysis_name = "VSPAEROComputeGeometry";
+
+    string rid = ExecAnalysis( analysis_name );
+
+    // Get & Display Results Docs
+    PrintResultsDoc( rid );
+    \endcode
+    \param [in] id Result ID
+*/)";
+    r = se->RegisterGlobalFunction( "void PrintResultsDoc( const string & in id )", vspFUNCTION( vsp::PrintResultsDocs ), vspCALL_CDECL, doc_struct );
     assert( r >= 0 );
 
     doc_struct.comment = R"(
@@ -7558,7 +7689,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
 
     doc_struct.comment = R"(
 /*!
-    Set the ower points for an airfoil. The XSec must be of type XS_FILE_AIRFOIL.
+    Set the lower points for an airfoil. The XSec must be of type XS_FILE_AIRFOIL.
     \code{.cpp}
     // Add Fuselage Geom
     string fuseid = AddGeom( "FUSELAGE", "" );
@@ -11726,7 +11857,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
 
     doc_struct.comment = R"(
 /*!
-    Delete a particular Ruler from the Meaure Tool
+    Delete a particular Ruler from the Measure Tool
     \code{.cpp}
     string pid1 = AddGeom( "POD", "" );
 
@@ -11751,7 +11882,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
 
     doc_struct.comment = R"(
 /*!
-    Delete all Rulers from the Meaure Tool
+    Delete all Rulers from the Measure Tool
     \code{.cpp}
     string pid1 = AddGeom( "POD", "" );
 

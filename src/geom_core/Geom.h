@@ -394,6 +394,8 @@ public:
     virtual int GetNumTotalHrmSurfs() const;
     virtual int GetNumSymmCopies() const;
 
+    virtual vector<VspSurf> GetDegenSurfVec();
+
     virtual int GetSurfType( int indx ) const;
     virtual int GetMainSurfType( int indx ) const;
     virtual int GetMainCFDSurfType( int indx ) const;
@@ -403,6 +405,9 @@ public:
 
     virtual double GetUMax( int indx ) const;
     virtual double GetMainUMax( int indx ) const;
+
+    virtual double GetUMapMax( int indx ) const;
+    virtual double GetMainUMapMax( int indx ) const;
 
     virtual double GetWMax( int indx ) const;
     virtual double GetMainWMax( int indx ) const;
@@ -432,9 +437,8 @@ public:
     */
     virtual void ResetGeomChangedFlag( bool flag = false );
 
-    virtual vec3d CompPnt01(const double &u, const double &w);
     virtual vec3d CompPnt01(const int &indx, const double &u, const double &w);
-    virtual void GetUWTess01( int indx, vector < double > &u, vector < double > &w );
+    virtual void GetUWTess01( const int &indx, vector < double > &u, vector < double > &w );
 
     virtual vec3d CompTanU( const int &indx, const double &u, const double &w );
     virtual vec3d CompTanW( const int &indx, const double &u, const double &w );
@@ -444,8 +448,11 @@ public:
     virtual vec3d CompTanS( const int &indx, const double &r, const double &s, const double &t );
     virtual vec3d CompTanT( const int &indx, const double &r, const double &s, const double &t );
 
-    virtual bool CompRotCoordSys( const double &u, const double &w, Matrix4d &rotmat );
-    virtual bool CompTransCoordSys( const double &u, const double &w, Matrix4d &transmat );
+    virtual bool CompRotCoordSys( const int &indx, const double &u, const double &w, Matrix4d &rotmat );
+    virtual bool CompTransCoordSys( const int &indx, const double &u, const double &w, Matrix4d &transmat );
+
+    virtual double ProjPnt01I( const vec3d & pt, int &surf_indx, double &u, double &w );
+    virtual double AxisProjPnt01I( const int &iaxis, const vec3d &pt, int &surf_indx_out, double &u_out, double &w_out, vec3d &p_out );
 
     virtual vector < Matrix4d > GetFeaTransMatVec()
     {
@@ -708,6 +715,7 @@ protected:
 
     virtual void UpdateSurf() = 0;
     void UpdateEndCaps();
+    virtual void UpdateEngine()   {};
     virtual void UpdateFeatureLines();
     virtual void UpdateFlags();
     virtual void UpdateSymmAttach();
@@ -830,4 +838,5 @@ protected:
 
     DrawObj m_CurrentXSecDrawObj;
 };
+
 #endif // !defined(VSPGEOM__INCLUDED_)

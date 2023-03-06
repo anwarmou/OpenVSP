@@ -34,11 +34,11 @@ class FeaCount
 {
 public:
     FeaCount();
-    unsigned int m_NumNodes;
-    unsigned int m_NumEls;
-    unsigned int m_NumTris;
-    unsigned int m_NumQuads;
-    unsigned int m_NumBeams;
+    unsigned long long int m_NumNodes;
+    unsigned long long int m_NumEls;
+    unsigned long long int m_NumTris;
+    unsigned long long int m_NumQuads;
+    unsigned long long int m_NumBeams;
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -103,6 +103,7 @@ public:
     virtual void TransferFeaData();
     virtual void TransferPropMatData();
     virtual void TransferSubSurfData();
+    virtual bool CheckPropMat();
     virtual void TransferBCData();
     virtual void MergeCoplanarParts();
     virtual void AddStructureSurfParts();
@@ -222,11 +223,11 @@ public:
     virtual void WriteConnectionCalculix( FILE* fp, FeaConnection* conn );
     virtual void WriteCalculixMaterials( FILE* fp );
 
-    virtual void WriteAssemblyNASTRAN( const string &assembly_id, const FeaCount &feacount, int connoffset );
-    virtual void WriteAssemblyNASTRAN( FILE* fp, FILE* temp, FILE* nkey_fp, const string &assembly_id, const FeaCount &feacount, int connoffset );
-    virtual void WriteConnectionNASTRAN( FILE* fp, FeaConnection* conn, int &connid );
-    virtual void WriteNASTRANProperties( FILE* temp );
-    virtual void WriteNASTRANMaterials( FILE* temp );
+    virtual void WriteAssemblyNASTRAN( const string &assembly_id, const FeaCount &feacount, long long int connoffset );
+    virtual void WriteAssemblyNASTRAN( FILE *dat_fp, FILE *bdf_header_fp, FILE *bdf_fp, FILE *nkey_fp, const string &assembly_id, const FeaCount &feacount, long long int connoffset );
+    virtual void WriteConnectionNASTRAN( FILE* bdf_fp, FeaConnection* conn, int &connid );
+    virtual void WriteNASTRANProperties( FILE* bdf_fp );
+    virtual void WriteNASTRANMaterials( FILE* bdf_fp );
 
     virtual void DetermineConnectionNodes( FeaConnection* conn, int &startnod, int &endnod );
 

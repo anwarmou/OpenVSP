@@ -10,7 +10,7 @@
 #include "SimpleSubSurface.h"
 #include "SimpleBC.h"
 
-void CloseNASTRAN( FILE* fp, FILE* temp, FILE* nkey_fp );
+void CloseNASTRAN( FILE *dat_fp, FILE *bdf_header_fp, FILE *bdf_fp, FILE *nkey_fp );
 
 class FixPoint
 {
@@ -88,16 +88,17 @@ public:
     virtual void WriteCalculixProperties( FILE* fp );
 
     virtual void WriteNASTRAN();
-    virtual void WriteNASTRAN( FILE* fp, FILE* temp, FILE* nkey_fp );
-    virtual void WriteNASTRANHeader( FILE* fp );
-    virtual void WriteNASTRANNodes( FILE* fp, FILE* temp, FILE* nkey_fp, int &set_cnt );
-    virtual void WriteNASTRANElements( FILE* fp, FILE* temp, FILE* nkey_fp, int &set_cnt );
+    virtual void WriteNASTRAN( FILE *dat_fp, FILE *bdf_header_fp, FILE *bdf_fp, FILE *nkey_fp );
+    virtual void WriteNASTRANHeader( FILE* dat_fp );
+    virtual void WriteNASTRANNodes( FILE* dat_fp, FILE* bdf_fp, FILE* nkey_fp, int &set_cnt );
+    virtual void WriteNASTRANSPC1( FILE *bdf_fp );
+    virtual void WriteNASTRANElements( FILE* dat_fp, FILE* bdf_fp, FILE* nkey_fp, int &set_cnt );
 
     virtual void WriteGmsh();
     virtual void WriteSTL();
 
     // Was protected.
-    virtual void WriteNASTRANSet( FILE* Nastran_fid, FILE* NKey_fid, int & set_num, vector < int > set_ids, const string &set_name, const int &offset );
+    virtual void WriteNASTRANSet( FILE* dat_fp, FILE* nkey_fp, int & set_num, vector < long long int > set_ids, const string &set_name, const long long int &offset );
 
     virtual void ComputeWriteMass();
 
@@ -116,25 +117,31 @@ public:
     double m_TotalMass;
     string m_MassUnit;
 
+    // Scale factor for OpenVSP model to FEA Output length conversion.
+    double m_LenScale;
+
     bool m_MeshReady;
 
-    unsigned int m_NumFeaParts;
-    unsigned int m_NumFeaFixPoints;
-    unsigned int m_NumFeaSubSurfs;
+    unsigned long long int m_NumFeaParts;
+    unsigned long long int m_NumFeaFixPoints;
+    unsigned long long int m_NumFeaSubSurfs;
 
     vector < string > m_FeaPartNameVec;
     vector < string > m_FeaPartIDVec;
     vector < int > m_FeaPartTypeVec;
     vector < int > m_FeaPartNumSurfVec;
-    vector < int > m_FeaPartIncludedElementsVec;
+    vector < int > m_FeaPartKeepDelShellElementsVec;
+    vector < bool > m_FeaPartCreateBeamElementsVec;
     vector < int > m_FeaPartPropertyIndexVec;
     vector < int > m_FeaPartCapPropertyIndexVec;
+    vector < string > m_FeaPartPropertyIDVec;
+    vector < string > m_FeaPartCapPropertyIDVec;
 
-    unsigned int m_NumNodes;
-    unsigned int m_NumEls;
-    unsigned int m_NumTris;
-    unsigned int m_NumQuads;
-    unsigned int m_NumBeams;
+    unsigned long long int m_NumNodes;
+    unsigned long long int m_NumEls;
+    unsigned long long int m_NumTris;
+    unsigned long long int m_NumQuads;
+    unsigned long long int m_NumBeams;
 
     vector < string > m_DrawBrowserNameVec;
     vector < int > m_DrawBrowserPartIndexVec;
@@ -145,10 +152,8 @@ public:
     vector< FeaElement* > m_FeaElementVec;
 
 
-    vector< FeaNode* > m_FeaNodeVec;
-    vector< vec3d* > m_AllPntVec;
-    map< int, vector< int > > m_IndMap;
-    vector< int > m_PntShift;
+    vector < FeaNode* > m_FeaNodeVec;
+    vector < bool > m_FeaNodeVecUsed;
 
     vector < FixPoint > m_FixPntVec; // Fix point data map.
 

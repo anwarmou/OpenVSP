@@ -2988,6 +2988,8 @@ void ADBSLICER::LoadCalculixINPFileSurfaceElements(char *name)
     char file_name_w_ext[10000], DumChar[10000], SaveChar[10000];
     FILE *CalculixFile;
 
+    printf("Loading calculix input file... \n");fflush(NULL);
+    
     // Open the aerothermal data base file
 
     sprintf(file_name_w_ext,"%s.inp",name);
@@ -3044,25 +3046,35 @@ void ADBSLICER::LoadCalculixINPFileSurfaceElements(char *name)
 
     rewind(CalculixFile);
     
-    Done = 0;
+    AllDone = 0;
     
-    while ( !Done ) {
+    NumElements = 0;
+    
+    while ( !AllDone ) {
 
-       if ( fgets(DumChar,2000,CalculixFile) == NULL ) Done = 1;
+       if ( fgets(DumChar,2000,CalculixFile) == NULL ) AllDone = 1;
                              
        // Element list
 
+printf("DumChar: %s \n",DumChar);
+
        if ( strstr(DumChar,"*ELEMENT") != NULL && strstr(DumChar,"ELSET=ESkin") != NULL ) {
 
-          NumElements = 0;
+if ( Verbose_ ) printf("Found skin element set: %s \n",DumChar);
+          
+          Done = 0;
           
           while ( !Done ) {
              
              fgets(DumChar,2000,CalculixFile);
    
+printf("DumChar: %s \n",DumChar);
+   
              if ( strlen(DumChar) > 2 && strstr(DumChar,"*") == NULL ) {
                 
                 NumElements++;
+                
+                printf("NumElements: %d \n",NumElements);
         
              }
              
@@ -3078,8 +3090,8 @@ void ADBSLICER::LoadCalculixINPFileSurfaceElements(char *name)
 
     }
        
-    if ( Verbose_ ) printf("Found %d surface nodes \n",NumNodes);
-    if ( Verbose_ ) printf("Found %d surface elements \n",NumElements);
+    if ( Verbose_ ) printf("aFound %d surface nodes \n",NumNodes);
+    if ( Verbose_ ) printf("aFound %d surface elements \n",NumElements);
     fflush(NULL);
     
     FEM_Mesh.NodeList = new INTERP_NODE[NumNodes + 1];
@@ -3180,32 +3192,52 @@ void ADBSLICER::LoadCalculixINPFileSurfaceElements(char *name)
 
     // Now read in the element data
    
-    Done = 0;
+    i = 0;
     
-    while ( !Done ) {
+    AllDone = 0;
+    
+    while ( !AllDone ) {
        
-       if ( fgets(DumChar,2000,CalculixFile) == NULL ) Done = 1;
+       if ( fgets(DumChar,2000,CalculixFile) == NULL ) AllDone = 1;
            
        // Element list
-       
-       if ( strstr(DumChar,"*ELEMENT") != NULL && strstr(DumChar,"ELSET=ESkin") != NULL ) {
-          
-          for ( i = 1 ; i <= NumElements ; i++ ) {
-          
-             fgets(DumChar,2000,CalculixFile);
-             
-             sscanf(DumChar,"%d,%d,%d,%d,%d,%d,%d",
-             &(FEM_Mesh.TriList[i].element_id),
-             &(FEM_Mesh.TriList[i].node1),
-             &(FEM_Mesh.TriList[i].node2),
-             &(FEM_Mesh.TriList[i].node3),
-             &(FEM_Mesh.TriList[i].node4),
-             &(FEM_Mesh.TriList[i].node5),
-             &(FEM_Mesh.TriList[i].node6));
 
-             MaxCalculixElement_ = MAX(MaxCalculixElement_, FEM_Mesh.TriList[i].element_id);
+       if ( strstr(DumChar,"*ELEMENT") != NULL && strstr(DumChar,"ELSET=ESkin") != NULL ) {
+
+          if ( Verbose_ ) printf("bFound element skin: %s \n",DumChar);
+
+  
+          Done = 0;
+          
+          while ( !Done ) {
              
-            
+             fgets(DumChar,2000,CalculixFile);
+   
+             if ( Verbose_ ) printf("DumChar: %s \n",DumChar);
+   
+             if ( strlen(DumChar) > 2 && strstr(DumChar,"*") == NULL ) {      
+                       
+                i++;
+           
+                sscanf(DumChar,"%d,%d,%d,%d,%d,%d,%d",
+                &(FEM_Mesh.TriList[i].element_id),
+                &(FEM_Mesh.TriList[i].node1),
+                &(FEM_Mesh.TriList[i].node2),
+                &(FEM_Mesh.TriList[i].node3),
+                &(FEM_Mesh.TriList[i].node4),
+                &(FEM_Mesh.TriList[i].node5),
+                &(FEM_Mesh.TriList[i].node6));
+   
+                MaxCalculixElement_ = MAX(MaxCalculixElement_, FEM_Mesh.TriList[i].element_id);
+                
+             }
+             
+             else {
+                
+                Done = 1;
+                
+             }
+                         
           }
        
        }
@@ -3243,6 +3275,15 @@ void ADBSLICER::LoadCalculixINPFileSurfaceElements(char *name)
                 
        }
        
+    }
+    
+    if ( i != NumElements ) {
+       
+       printf("Error reading in the skin/surface element lists... \n");
+       printf("i: %d \n",i);
+       printf("NumElements: %d \n",NumElements);
+       fflush(NULL);exit(1);
+              
     }
     
     fclose(CalculixFile);
@@ -4032,8 +4073,6 @@ void ADBSLICER::CreateVSPInterpMesh(void)
    
     int i;
 
-    printf("fuckme! \n");fflush(NULL);
-    
     printf("Number of VSP Nodes: %d \n",NumberOfNodes);
     printf("Number of VSP Tris: %d \n",NumberOfTris);
     
@@ -4235,6 +4274,8 @@ void ADBSLICER::WriteOutCalculixStaticAnalysisFile(char *name, int AnalysisType)
              
            }
            
+           // Element lists, 6 node tris
+           
            else if ( strstr(DumChar,"*ELEMENT") != NULL && strstr(DumChar,"S6") != NULL ) {
               
               printf("Element list! \n");
@@ -4293,6 +4334,8 @@ void ADBSLICER::WriteOutCalculixStaticAnalysisFile(char *name, int AnalysisType)
 
            }
 
+           // Element lists, 3 node beams
+
            else if ( strstr(DumChar,"*ELEMENT") != NULL && strstr(DumChar,"B32") != NULL ) {
               
               printf("Element list! \n");
@@ -4345,6 +4388,8 @@ void ADBSLICER::WriteOutCalculixStaticAnalysisFile(char *name, int AnalysisType)
 
            }
            
+           // Shell definitions
+           
            else if ( strstr(DumChar,"*SHELL SECTION") != NULL ) {
               
               printf("Shell definition! \n");
@@ -4383,6 +4428,8 @@ void ADBSLICER::WriteOutCalculixStaticAnalysisFile(char *name, int AnalysisType)
               }
               
            }
+           
+           // Orientation information
 
            else if ( strstr(DumChar,"*ORIENTATION") != NULL ) {
 
@@ -4415,6 +4462,8 @@ void ADBSLICER::WriteOutCalculixStaticAnalysisFile(char *name, int AnalysisType)
               }
 
            }
+           
+           // Material information
 
            else if ( strstr(DumChar,"*MATERIAL") != NULL ) {
               
@@ -4452,6 +4501,8 @@ void ADBSLICER::WriteOutCalculixStaticAnalysisFile(char *name, int AnalysisType)
            
        }
        
+       // Static analysis
+       
        if ( AnalysisType == CALCULIX_STATIC ) {
        
           fprintf(LoadFile,"\n");
@@ -4482,6 +4533,8 @@ void ADBSLICER::WriteOutCalculixStaticAnalysisFile(char *name, int AnalysisType)
           fprintf(LoadFile,"*END STEP\n");
 
        }
+       
+       // Buckling analysis
        
        else if ( AnalysisType == CALCULIX_BUCKLE ) {
 

@@ -210,6 +210,43 @@ enum DRAW_TYPE { GEOM_DRAW_WIRE,
                  GEOM_DRAW_NONE
                };
 
+enum ENGINE_GEOM_IO_TYPE { ENGINE_GEOM_NONE,
+                           ENGINE_GEOM_INLET,
+                           ENGINE_GEOM_INLET_OUTLET,
+                           ENGINE_GEOM_OUTLET,
+                           ENGINE_GEOM_IO_NUM_TYPES
+                         };
+
+enum ENGINE_GEOM_TYPE { ENGINE_GEOM_FLOWTHROUGH,
+                        ENGINE_GEOM_TO_LIP,
+                        ENGINE_GEOM_FLOWPATH,
+                        ENGINE_GEOM_TO_FACE,
+                        ENGINE_GEOM_NUM_TYPES
+                      };
+
+enum ENGINE_LOC_MODE { ENGINE_LOC_INDEX,
+                       ENGINE_LOC_U
+                     };
+
+enum ENGINE_LOC_INDEX { ENGINE_LOC_INLET_LIP,
+                        ENGINE_LOC_INLET_FACE,
+                        ENGINE_LOC_OUTLET_LIP,
+                        ENGINE_LOC_OUTLET_FACE,
+                        ENGINE_LOC_NUM
+                      };
+
+// For inlet, all types are valid.  However, for outlet, only NATIVE through EXTEND are valid.
+// Both inlet and outlet, NATIVE is the default.  By making NATIVE the first entry, the Parm::Init
+// can be used to enforce valid values for both inlet and outlet.
+enum ENGINE_MODE_TYPE { ENGINE_MODE_FLOWTHROUGH,
+                        ENGINE_MODE_FLOWTHROUGH_NEG,
+                        ENGINE_MODE_TO_LIP,
+                        ENGINE_MODE_TO_FACE,
+                        ENGINE_MODE_TO_FACE_NEG,
+                        ENGINE_MODE_EXTEND,
+                        ENGINE_MODE_NUM_TYPES
+                 };
+
 enum ERROR_CODE {   VSP_OK,
                     VSP_INVALID_PTR,
                     VSP_INVALID_TYPE,
@@ -329,12 +366,18 @@ enum FEA_ORIENTATION_TYPE { FEA_ORIENT_GLOBAL_X,
                             FEA_NUM_ORIENT_TYPES
                           };
 
-enum FEA_PART_ELEMENT_TYPE { FEA_SHELL = 0,
+enum FEA_PART_ELEMENT_TYPE { FEA_DEPRECATED = -1,
+                             FEA_SHELL = 0,
                              FEA_BEAM,
                              FEA_SHELL_AND_BEAM,
                              FEA_NO_ELEMENTS,
                              FEA_NUM_ELEMENT_TYPES
                            };
+
+enum FEA_SHELL_TREATMENT_TYPE { FEA_KEEP = 0,
+                                FEA_DELETE,
+                                FEA_NUM_SHELL_TREATMENT_TYPES
+                              };
 
 enum FEA_PART_TYPE { FEA_SLICE = 0,
                      FEA_RIB,
@@ -436,7 +479,8 @@ enum LEN_UNITS { LEN_MM,
                  LEN_IN,
                  LEN_FT,
                  LEN_YD,
-                 LEN_UNITLESS
+                 LEN_UNITLESS,
+                 NUM_LEN_UNIT
                };
 
 enum MASS_UNIT { MASS_UNIT_G = 0,
@@ -444,7 +488,8 @@ enum MASS_UNIT { MASS_UNIT_G = 0,
                  MASS_UNIT_TONNE,
                  MASS_UNIT_LBM,
                  MASS_UNIT_SLUG,
-                 MASS_LBFSEC2IN // lbf*sec^2/in
+                 MASS_LBFSEC2IN, // lbf*sec^2/in
+                 NUM_MASS_UNIT
                }; // Mass Units ENUM
 
 enum PARM_TYPE { PARM_DOUBLE_TYPE,
@@ -481,7 +526,8 @@ enum PRES_UNITS { PRES_UNIT_PSF = 0,
                   PRES_UNIT_MMHG,
                   PRES_UNIT_MMH20,
                   PRES_UNIT_MB,
-                  PRES_UNIT_ATM
+                  PRES_UNIT_ATM,
+                  NUM_PRES_UNIT
                 }; // Pres Units ENUM
 
 enum PROJ_BNDY_TYPE { NO_BOUNDARY,
@@ -544,8 +590,10 @@ enum RHO_UNITS { RHO_UNIT_SLUG_FT3 = 0,
                  RHO_UNIT_G_CM3,
                  RHO_UNIT_KG_M3,
                  RHO_UNIT_TONNE_MM3,
-                 RHO_UNIT_LBF_FT3,
-                 RHO_UNIT_LBFSEC2_IN4
+                 RHO_UNIT_LBM_FT3,
+                 RHO_UNIT_LBFSEC2_IN4,
+                 RHO_UNIT_LBM_IN3,
+                 NUM_RHO_UNIT
                }; // Rho Units ENUM
 
 enum SET_TYPE { SET_NONE = -1,
@@ -602,6 +650,7 @@ enum TEMP_UNITS { TEMP_UNIT_K = 0,
                   TEMP_UNIT_C,
                   TEMP_UNIT_F,
                   TEMP_UNIT_R,
+                  NUM_TEMP_UNIT
                 }; // Temp Units ENUM
 
 enum VEL_UNITS { V_UNIT_FT_S = 0,
@@ -673,13 +722,13 @@ enum VSP_SURF_CFD_TYPE { CFD_NORMAL,
                          CFD_TRANSPARENT,
                          CFD_STRUCTURE,
                          CFD_STIFFENER,
+                         CFD_MEASURE_DUCT,
                          CFD_NUM_TYPES,
                        };
 
 enum VSP_SURF_TYPE { NORMAL_SURF,
                      WING_SURF,
                      DISK_SURF,
-                     PROP_SURF,
                      NUM_SURF_TYPES,
                    };
 

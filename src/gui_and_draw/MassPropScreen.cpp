@@ -6,7 +6,7 @@
 
 #include "MassPropScreen.h"
 
-MassPropScreen::MassPropScreen( ScreenMgr *mgr ) : BasicScreen( mgr, 300, 410, "Mass Properties" )
+MassPropScreen::MassPropScreen( ScreenMgr *mgr ) : BasicScreen( mgr, 300, 440, "Mass Properties" )
 {
     int borderPaddingWidth = 5;
     int yPadding = 7;
@@ -29,6 +29,12 @@ MassPropScreen::MassPropScreen( ScreenMgr *mgr ) : BasicScreen( mgr, 300, 410, "
 
     m_BorderLayout.SetButtonWidth( smallButtonWidth );
     m_BorderLayout.AddSlider( m_NumSlicesInput, "Num Slice:", 200, "%6.0f" );
+    m_BorderLayout.AddYGap();
+
+    m_SliceDirChoice.AddItem( "X", vsp::X_DIR );
+    m_SliceDirChoice.AddItem( "Y", vsp::Y_DIR );
+    m_SliceDirChoice.AddItem( "Z", vsp::Z_DIR );
+    m_BorderLayout.AddChoice( m_SliceDirChoice, "Slice Direction:" );
     m_BorderLayout.AddYGap();
 
     m_BorderLayout.AddChoice( m_SetChoice, "Set" );
@@ -100,6 +106,7 @@ bool MassPropScreen::Update()
     LoadSetChoice();
 
     m_NumSlicesInput.Update( veh->m_NumMassSlices.GetID() );
+    m_SliceDirChoice.Update( veh->m_MassSliceDir.GetID() );
 
     m_DrawCgButton.Update( veh->m_DrawCgFlag.GetID() );
 
@@ -118,37 +125,37 @@ bool MassPropScreen::Update()
     char format[10] = " %6.3f";
 
     //Total Mass
-    sprintf( str, format, veh->m_TotalMass );
+    snprintf( str, sizeof( str ),  format, veh->m_TotalMass );
     m_TotalMassOutput.Update( str );
     //X Cg
     vec3d cg = veh->m_CG;
-    sprintf( str, format, cg.x() );
+    snprintf( str, sizeof( str ),  format, cg.x() );
     m_XCgOutput.Update( str );
     //Y Cg
-    sprintf( str, format, cg.y() );
+    snprintf( str, sizeof( str ),  format, cg.y() );
     m_YCgOutput.Update( str );
     //Z Cg
-    sprintf( str, format, cg.z() );
+    snprintf( str, sizeof( str ),  format, cg.z() );
     m_ZCgOutput.Update( str );
     //I xx
     vec3d moi = veh->m_IxxIyyIzz;
-    sprintf( str, format, moi.x() );
+    snprintf( str, sizeof( str ),  format, moi.x() );
     m_IxxOutput.Update( str );
     //I yy
-    sprintf( str, format, moi.y() );
+    snprintf( str, sizeof( str ),  format, moi.y() );
     m_IyyOutput.Update( str );
     //I zz
-    sprintf( str, format, moi.z() );
+    snprintf( str, sizeof( str ),  format, moi.z() );
     m_IzzOutput.Update( str );
     //I xy
     vec3d pmoi = veh->m_IxyIxzIyz;
-    sprintf( str, format, pmoi.x() );
+    snprintf( str, sizeof( str ),  format, pmoi.x() );
     m_IxyOutput.Update( str );
     //I xz
-    sprintf( str, format, pmoi.y() );
+    snprintf( str, sizeof( str ),  format, pmoi.y() );
     m_IxzOutput.Update( str );
     //I yz
-    sprintf( str, format, pmoi.z() );
+    snprintf( str, sizeof( str ),  format, pmoi.z() );
     m_IyzOutput.Update( str );
 
     m_FileSelect.Update( veh->getExportFileName( vsp::MASS_PROP_TXT_TYPE ).c_str() );
@@ -197,7 +204,7 @@ void MassPropScreen::GuiDeviceCallBack( GuiDevice* device )
     }
     else if ( device == &m_ComputeButton )
     {
-        veh->MassPropsAndFlatten( m_SelectedSetIndex, veh->m_NumMassSlices.Get() );
+        veh->MassPropsAndFlatten( m_SelectedSetIndex, veh->m_NumMassSlices.Get(), veh->m_MassSliceDir.Get() );
     }
     else if ( device == &m_FileTrigger )
     {

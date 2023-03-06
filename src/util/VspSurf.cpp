@@ -54,6 +54,8 @@ VspSurf::VspSurf()
     m_HalfBOR = false;
     m_SurfType = vsp::NORMAL_SURF;
     m_SurfCfdType = vsp::CFD_NORMAL;
+    m_ThickSurf = true;
+    m_PlateNum = -1;
     m_SkinType = SKIN_NONE;
 
     m_FeaOrientationType = vsp::FEA_ORIENT_OML_U;
@@ -67,6 +69,8 @@ VspSurf::VspSurf()
     m_LECluster = 1.0;
     m_TECluster = 1.0;
     m_SkinClosedFlag = 0;
+
+    m_UMapMax = -1;
 }
 
 //===== Destructor  =====//
@@ -441,10 +445,12 @@ Matrix4d VspSurf::CompRotCoordSys( const double &u, const double &w )
 {
     Matrix4d retMat; // Return Matrix
 
+    double uprm = m_UMapping.Invert( u * m_UMapMax ) / GetUMax();
+
     // Get du and norm, cross them to get the last orthonormal vector
-    vec3d du = CompTanU01( u, w );
+    vec3d du = CompTanU01( uprm, w );
     du.normalize();
-    vec3d norm = CompNorm01( u, w ); // use CompNorm01 since normals now face outward
+    vec3d norm = CompNorm01( uprm, w ); // use CompNorm01 since normals now face outward
     norm.normalize();
 
     if ( m_MagicVParm ) // Surfs with magic parameter treatment (wings) have added chances to degenerate
@@ -455,19 +461,19 @@ Matrix4d VspSurf::CompRotCoordSys( const double &u, const double &w )
         {
             if ( w <= tmagic01 ) // Near TE lower
             {
-                du = CompTanU01( u, tmagic01 + 1e-6 );
+                du = CompTanU01( uprm, tmagic01 + 1e-6 );
                 du.normalize();
             }
 
             if ( w >= ( 0.5 - tmagic01 ) && w <= ( 0.5 + tmagic01 ) ) // Near leading edge
             {
-                du = CompTanU01( u, 0.5 + tmagic01 + 1e-6 );
+                du = CompTanU01( uprm, 0.5 + tmagic01 + 1e-6 );
                 du.normalize();
             }
 
             if ( w >= ( 1.0 - tmagic01 ) ) // Near TE upper
             {
-                du = CompTanU01( u, 1.0 - ( tmagic01 + 1e-6 ) );
+                du = CompTanU01( uprm, 1.0 - ( tmagic01 + 1e-6 ) );
                 du.normalize();
             }
         }
@@ -476,19 +482,19 @@ Matrix4d VspSurf::CompRotCoordSys( const double &u, const double &w )
         {
             if ( w <= tmagic01 ) // Near TE lower
             {
-                norm = CompNorm01( u, tmagic01 + 1e-6 );
+                norm = CompNorm01( uprm, tmagic01 + 1e-6 );
                 norm.normalize();
             }
 
             if ( w >= ( 0.5 - tmagic01 ) && w <= ( 0.5 + tmagic01 ) ) // Near leading edge
             {
-                norm = CompNorm01( u, 0.5 + tmagic01 + 1e-6 );
+                norm = CompNorm01( uprm, 0.5 + tmagic01 + 1e-6 );
                 norm.normalize();
             }
 
             if ( w >= ( 1.0 - tmagic01 ) ) // Near TE upper
             {
-                norm = CompNorm01( u, 1.0 - ( tmagic01 + 1e-6 ) );
+                norm = CompNorm01( uprm, 1.0 - ( tmagic01 + 1e-6 ) );
                 norm.normalize();
             }
         }
@@ -507,8 +513,10 @@ Matrix4d VspSurf::CompTransCoordSys( const double &u, const double &w )
 {
     Matrix4d retMat; // Return Matrix
 
+    double uprm = m_UMapping.Invert( u * m_UMapMax ) / GetUMax();
+
     // Get x,y,z location of u,w coordinate and place in translation matrix
-    vec3d cartCoords = CompPnt01( u, w );
+    vec3d cartCoords = CompPnt01( uprm, w );
     retMat.translatef( cartCoords.x(), cartCoords.y(), cartCoords.z() );
     return retMat;
 }
@@ -1196,7 +1204,7 @@ void VspSurf::FlagDuplicate( const VspSurf &othersurf ) const
 
 }
 
-void VspSurf::MakeUTess( const vector<int> &num_u, vector<double> &u, const std::vector<int> & umerge ) const
+void VspSurf::MakeUTess( vector < double > &u, const vector < int > &num_u, const std::vector < int > &umerge, const int &n_cap, const int &n_default ) const
 {
     if ( umerge.size() != 0 )
     {
@@ -1240,9 +1248,8 @@ void VspSurf::MakeUTess( const vector<int> &num_u, vector<double> &u, const std:
         {
             for ( int j = 0; j < umerge[i]; j++ )
             {
-                double du, dv;
-                surface_patch_type surf;
-                m_Surface.get( surf, du, dv, iusect, 0 );
+                double du;
+                du = m_Surface.get_du( iusect );
 
                 uend += du;
                 iusect++;
@@ -1271,45 +1278,126 @@ void VspSurf::MakeUTess( const vector<int> &num_u, vector<double> &u, const std:
     }
     else
     {
-        surface_index_type nu;
-        double umin;
+        const int nusect = m_Surface.number_u_patches();
 
-        const int nusect = num_u.size();
+        vector < double > umap;
+        m_UMapping.GetTMap( umap );
 
-        assert( m_USkip.size() == nusect );
+        vector < int > num_uu( nusect );
+        vector < double > rootc( nusect );
+        vector < double > tipc( nusect );
+        vector < bool > skip( nusect );
 
-        // calculate nu
-        nu = 1;
-        for ( int ii = 0; ii < nusect; ++ii )
+        // Count nu and build up tess parameters, translating from specification to modified
+        // parameter space in the case of a GeomEngine.
+        int nu = 1;
+        for ( int isect = 0; isect < nusect; ++isect )
         {
-            if ( !m_USkip[ii] )
+            double ustart = m_UMapping.GetSegFirstPoint( isect );
+            double uend  = m_UMapping.GetSegLastPoint( isect );
+
+            // Determine original section index from mapping.
+            // I believe the operations performed on the mapping make it impossible for floor to give a wrong result
+            // in this situation.
+            int iorig = floor( ustart );
+
+            if ( iorig == -1 )        // Cap added by GeomEngine::UpdateEngine();
             {
-                nu += num_u[ii] - 1;
+                num_uu[isect] = n_cap;
+                rootc[isect] = 1.0;
+                tipc[isect] = 1.0;
+                nu += num_uu[isect] - 1;
+                skip[isect] = false;
+            }
+            else if ( iorig == -2 )   // Extension added by GeomEngine::UpdateEngine()
+            {
+                num_uu[isect] = n_default;
+                rootc[isect] = 1.0;
+                tipc[isect] = 1.0;
+                nu += num_uu[isect] - 1;
+                skip[isect] = false;
+            }
+            else                      // Maps to an original segment.
+            {
+                skip[isect] = m_USkip[iorig];
+                if ( !m_USkip[iorig] )
+                {
+                    int nuu = num_u[iorig];
+                    double rc = GetRootCluster( iorig );
+                    double tc = GetTipCluster( iorig );
+
+                    double fstart = ustart - iorig;
+                    double fend = uend - iorig;
+
+                    double tol = 1e-6;
+                    if ( fstart > tol || fend < ( 1.0 - tol ) )
+                    {
+                        // Find where points will lie for fully tessellated section.
+                        vector < double > fvec( nuu );
+                        for ( int ifv = 0; ifv < nuu; ifv++ )
+                        {
+                            fvec[ ifv ] = Cluster( static_cast<double>( ifv ) / ( nuu - 1 ), rc, tc );
+                        }
+
+                        int istart = vector_find_nearest( fvec, fstart );
+                        int iend = vector_find_nearest( fvec, fend );
+
+                        if ( istart > 0 )
+                        {
+                            if ( istart < nuu - 1 )
+                            {
+                                rc = 2.0 / ( ( fvec[ istart + 1 ] - fvec[ istart - 1 ] ) * ( nuu - 1 ) );
+                            }
+                            else
+                            {
+                                rc = 1.0 / ( ( fvec[ istart ] - fvec[ istart - 1 ] ) * ( nuu - 1 ) );
+                            }
+                        }
+
+                        if ( iend < ( nuu - 1 ))
+                        {
+                            if ( iend > 0 )
+                            {
+                                tc = 2.0 / ( ( fvec[ iend + 1 ] - fvec[ iend - 1 ] ) * ( nuu - 1 ) );
+                            }
+                            else
+                            {
+                                tc = 1.0 / ( ( fvec[ iend + 1 ] - fvec[ iend ] ) * ( nuu - 1 ) );
+                            }
+                        }
+
+                        if ( istart > 0 || iend < ( nuu - 1 ) )
+                        {
+                            nuu = iend - istart + 1;
+                        }
+                    }
+
+                    nu += nuu - 1;
+
+                    num_uu[isect] = nuu;
+                    rootc[isect] = rc;
+                    tipc[isect] = tc;
+                }
             }
         }
 
-        // calculate the u and v parameterizations
-        umin = m_Surface.get_u0();
-
+        // Construct u tessellation.
         u.resize( nu );
-        double uumin( umin );
-        size_t iusect;
-        size_t iu = 0;
-        for ( iusect = 0; iusect < (size_t)nusect; ++iusect )
+        double uumin( m_Surface.get_u0() );
+        int iu = 0;
+        for ( int isect = 0; isect < nusect; ++isect )
         {
-            double du, dv;
-            surface_patch_type surf;
-            m_Surface.get( surf, du, dv, iusect, 0 );
+            double du = m_Surface.get_du( isect );
 
-            if ( !m_USkip[ iusect] )
+            if ( !skip[ isect ] )
             {
-                for ( int isecttess = 0; isecttess < num_u[iusect] - 1; ++isecttess )
+                for ( int isecttess = 0; isecttess < num_uu[ isect ] - 1; ++isecttess )
                 {
-                    u[iu] = uumin + du * Cluster( static_cast<double>( isecttess ) / ( num_u[iusect] - 1 ), GetRootCluster( iusect ), GetTipCluster( iusect ) );
+                    u[iu] = uumin + du * Cluster( static_cast<double>( isecttess ) / ( num_uu[ isect ] - 1 ), rootc[ isect ], tipc[ isect ] );
                     iu++;
                 }
             }
-            if ( !( iusect == nusect - 1 && m_USkip[ iusect ] ) )
+            if ( !( isect == nusect - 1 && skip[ isect ] ) )
             {
                 uumin += du;
             }
@@ -1504,17 +1592,17 @@ void VspSurf::GetWakeTECurve( piecewise_curve_type & curve ) const
 
 // FeaDome::UpdateDrawObjs
 // Geom::UpdateTesselate
-void VspSurf::Tesselate( int num_u, int num_v, vector< vector< vec3d > > & pnts, vector< vector< vec3d > > & norms, vector< vector< vec3d > > & uw_pnts, const int &n_cap, bool degen ) const
+void VspSurf::Tesselate( int num_u, int num_v, vector< vector< vec3d > > & pnts, vector< vector< vec3d > > & norms, vector< vector< vec3d > > & uw_pnts, const int &n_cap, const int &n_default, bool degen ) const
 {
     vector<int> num_u_vec( GetNumSectU(), num_u );
-    Tesselate( num_u_vec, num_v, pnts, norms, uw_pnts, n_cap, degen );
+    Tesselate( num_u_vec, num_v, pnts, norms, uw_pnts, n_cap, n_default, degen );
 }
 
 // Geom::UpdateSplitTesselate
-void VspSurf::SplitTesselate( int num_u, int num_v, vector< vector< vector< vec3d > > > & pnts, vector< vector< vector< vec3d > > > & norms, const int &n_cap ) const
+void VspSurf::SplitTesselate( int num_u, int num_v, vector< vector< vector< vec3d > > > & pnts, vector< vector< vector< vec3d > > > & norms, const int &n_cap, const int &n_default ) const
 {
     vector<int> num_u_vec( GetNumSectU(), num_u );
-    SplitTesselate( num_u_vec, num_v, pnts, norms, n_cap );
+    SplitTesselate( num_u_vec, num_v, pnts, norms, n_cap, n_default );
 }
 
 // VspSurf::Tesselate
@@ -1522,7 +1610,7 @@ void VspSurf::SplitTesselate( int num_u, int num_v, vector< vector< vector< vec3
 // PropGeom::UpdateTesselate
 // StackGeom::UpdateTesselate
 // WingGeom::UpdateTesselate
-void VspSurf::Tesselate( const vector<int> &num_u, int num_v, std::vector< vector< vec3d > > & pnts,  std::vector< vector< vec3d > > & norms,  std::vector< vector< vec3d > > & uw_pnts, const int &n_cap, bool degen, const std::vector<int> & umerge ) const
+void VspSurf::Tesselate( const vector<int> &num_u, int num_v, std::vector< vector< vec3d > > & pnts,  std::vector< vector< vec3d > > & norms,  std::vector< vector< vec3d > > & uw_pnts, const int &n_cap, const int &n_default, bool degen, const std::vector<int> & umerge ) const
 {
     if( m_Surface.number_u_patches() == 0 || m_Surface.number_v_patches() == 0 )
     {
@@ -1532,7 +1620,7 @@ void VspSurf::Tesselate( const vector<int> &num_u, int num_v, std::vector< vecto
     std::vector<double> u, v;
 
     MakeVTess( num_v, v, n_cap, degen );
-    MakeUTess( num_u, u, umerge );
+    MakeUTess( u, num_u, umerge, n_cap, n_default );
 
     Tesselate( u, v, pnts, norms, uw_pnts );
 }
@@ -1542,7 +1630,7 @@ void VspSurf::Tesselate( const vector<int> &num_u, int num_v, std::vector< vecto
 // PropGeom::UpdateSplitTesselate
 // StackGeom::UpdateSplitTesselate
 // WingGeom::UpdateSplitTesselate
-void VspSurf::SplitTesselate( const vector<int> &num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap, const std::vector<int> & umerge ) const
+void VspSurf::SplitTesselate( const vector<int> &num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap, const int &n_default, const std::vector<int> & umerge ) const
 {
     if( m_Surface.number_u_patches() == 0 || m_Surface.number_v_patches() == 0 )
     {
@@ -1552,7 +1640,7 @@ void VspSurf::SplitTesselate( const vector<int> &num_u, int num_v, std::vector< 
     std::vector<double> u, v;
 
     MakeVTess( num_v, v, n_cap, false );
-    MakeUTess( num_u, u, umerge );
+    MakeUTess( u, num_u, umerge, n_cap, n_default );
 
     SplitTesselate( m_UFeature, m_WFeature, u, v, pnts, norms );
 }
@@ -1838,7 +1926,7 @@ void VspSurf::BuildFeatureLines( bool force_xsec_flag)
         m_WFeature.push_back( vmax );
 
         // If fuse-type, add .25 and .75 curves.
-        if ( GetSurfType() != vsp::WING_SURF && GetSurfType() != vsp::PROP_SURF )
+        if ( GetSurfType() != vsp::WING_SURF )
         {
             m_WFeature.push_back( vmin + 0.25 * vrng );
             m_WFeature.push_back( vmin + 0.75 * vrng );
@@ -1924,6 +2012,8 @@ bool VspSurf::CapUMin(int CapType, double len, double str, double offset, const 
 
     rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, multicap_creator_type::CAP_UMIN, len, offset, str, p, swflag );
 
+    m_UMapping.CapMin();
+
     if (!rtn_flag)
     {
       ResetUSkip();
@@ -1978,6 +2068,8 @@ bool VspSurf::CapUMax(int CapType, double len, double str, double offset, const 
 
     rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, multicap_creator_type::CAP_UMAX, len, offset, str, p, swflag );
 
+    m_UMapping.CapMax();
+
     if (!rtn_flag)
     {
       ResetUSkip();
@@ -2013,25 +2105,47 @@ bool VspSurf::CapWMax(int CapType)
     return false;
 }
 
-int VspSurf::SplitU( const double &u )
+void VspSurf::RollU( const double &u )
 {
     m_Surface.split_u( u );
+
     vector < double > pmap;
     m_Surface.get_pmap_u( pmap );
-    return vector_find_val( pmap, u );
+    int iu = vector_find_val( pmap, u );
+
+    m_Surface.roll_u( iu );
+
+    m_UMapping.Roll( u );
 }
 
-int VspSurf::SplitW( const double &w )
+void VspSurf::RollW( const double &w )
 {
     m_Surface.split_v( w );
+
     vector < double > pmap;
     m_Surface.get_pmap_v( pmap );
-    return vector_find_val( pmap, w );
+    int iw = vector_find_val( pmap, w );
+
+    m_Surface.roll_v( iw );
+}
+
+void VspSurf::SplitU( const double &u )
+{
+    m_Surface.split_u( u );
+}
+
+void VspSurf::SplitW( const double &w )
+{
+    m_Surface.split_v( w );
 }
 
 void VspSurf::JoinU( const VspSurf & sa, const VspSurf & sb )
 {
     m_Surface.join_u( sa.m_Surface, sb.m_Surface );
+
+    m_UMapping.Join( sa.m_UMapping, sb.m_UMapping );
+
+    m_UMapMax = max( sa.m_UMapMax, sb.m_UMapMax );
 }
 
 void VspSurf::JoinW( const VspSurf & sa, const VspSurf & sb )
@@ -2138,6 +2252,8 @@ void VspSurf::TrimU( double u, bool before )
         s2.set_u0( 0.0 );
         m_Surface = s2;
     }
+
+    m_UMapping.Trim( u, before );
 }
 
 void VspSurf::TrimV( double v, bool before )
@@ -2244,6 +2360,8 @@ void VspSurf::FetchXFerSurf( const std::string &geom_id, int surf_ind, int comp_
         xsurf.m_SurfCfdType = m_SurfCfdType;
         xsurf.m_FeaOrientationType = m_FeaOrientationType;
         xsurf.m_FeaOrientation = m_FeaOrientation;
+        xsurf.m_ThickSurf = m_ThickSurf;
+        xsurf.m_PlateNum = m_PlateNum;
         xsurf.m_CompIndx = comp_ind;
         xsurf.m_FeaPartSurfNum = part_surf_num;
         xfersurfs.push_back( xsurf );
@@ -2443,4 +2561,119 @@ void VspSurf::MakePlaneSurf( const vec3d &ptA, const vec3d &ptB, const vec3d &pt
 
     m_Surface.init_uv( 1, 1 );
     m_Surface.set( patch, 0, 0 );
+}
+
+void VspSurf::DegenCamberSurf( const VspSurf & parent )
+{
+    piecewise_surface_type s, s1, s2;
+    double umin, vmin, umax, vmax, vmid;
+
+    parent.m_Surface.get_parameter_min( umin, vmin );
+    parent.m_Surface.get_parameter_max( umax, vmax );
+    vmid = ( vmin + vmax ) * 0.5;
+
+    parent.m_Surface.split_v( s1, s2, vmid );
+
+    s2.reverse_v();
+    s2.set_v0( vmin );
+
+    m_Surface.sum( s1, s2);
+    m_Surface.scale( 0.5 );
+
+    m_ThickSurf = false;
+    SetSurfCfdType( vsp::CFD_TRANSPARENT );
+    FlipNormal();
+}
+
+void VspSurf::DegenPlanarSurf( const VspSurf & parent, int vhflag )
+{
+    vector < VspCurve > crvs( 2 );
+    vector < double > param( 2 );
+
+    double umin, vmin, umax, vmax, dv;
+
+    parent.m_Surface.get_parameter_min( umin, vmin );
+    parent.m_Surface.get_parameter_max( umax, vmax );
+    dv = vmax - vmin;
+
+    double vstart, vend;
+    if ( vhflag ) // vertical.
+    {
+        vstart = vmin + 0.25 * dv;
+        vend = vmin + 0.75 * dv;
+    }
+    else // horizontal.
+    {
+        vstart = vmin;
+        vend = vmin + 0.5 * dv;
+    }
+
+    parent.GetWConstCurve( crvs[0], vstart );
+    parent.GetWConstCurve( crvs[1], vend );
+
+    param[ 0 ] = vstart;
+    param[ 1 ] = vend;
+
+    SkinC0( crvs, param, false );
+    SwapUWDirections();
+    FlipNormal();
+    m_ThickSurf = false;
+    SetSurfCfdType( vsp::CFD_TRANSPARENT );
+}
+
+void VspSurf::InitUMapping()
+{
+    m_UMapMax = GetUMax();
+    int n = round( m_UMapMax ) + 1;
+
+    vector < double > uvals( n );
+    for ( int i = 0; i < n; i++ )
+    {
+        uvals[i] = 1.0 * i;
+    }
+
+    m_UMapping.InterpolateLinear( uvals, uvals, false );
+}
+
+void VspSurf::InitUMapping( double val )
+{
+    double m_UMapMax = GetUMax();
+    int n = round( m_UMapMax ) + 1;
+
+    vector < double > uvals( n, val );
+    vector < double > tvals( n );
+    for ( int i = 0; i < n; i++ )
+    {
+        tvals[i] = 1.0 * i;
+    }
+
+    m_UMapping.InterpolateLinear( uvals, tvals, false );
+}
+
+void VspSurf::PrintUMapping()
+{
+    m_UMapping.GetCurve().print();
+}
+
+void VspSurf::ParmReport()
+{
+    m_Surface.parameter_report();
+}
+
+double VspSurf::InvertUMapping( double u ) const
+{
+    if ( m_UMapMax >= 0 )
+    {
+        return m_UMapping.Invert( u );
+    }
+    return u;
+}
+
+double VspSurf::EvalUMapping( double u ) const
+{
+    if ( m_UMapMax >= 0 )
+    {
+        return m_UMapping.CompPnt( u );
+    }
+    return u;
 }

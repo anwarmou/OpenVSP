@@ -28,15 +28,15 @@ class NameValData
 public:
     NameValData();
     NameValData( const string & name );
-    NameValData( const string & name, const int & i_data );
-    NameValData( const string & name, const double & d_data );
-    NameValData( const string & name, const string & s_data );
-    NameValData( const string & name, const vec3d & v_data );
-    NameValData( const string & name, const vector< int > & i_data );
-    NameValData( const string & name, const vector< double > & d_data );
-    NameValData( const string & name, const vector< string > & s_data );
-    NameValData( const string & name, const vector< vec3d > & v_data );
-    NameValData( const string & name, const vector< vector< double > > &dmat_data );
+    NameValData( const string & name, const int & i_data, const string & doc );
+    NameValData( const string & name, const double & d_data, const string & doc );
+    NameValData( const string & name, const string & s_data, const string & doc );
+    NameValData( const string & name, const vec3d & v_data, const string & doc );
+    NameValData( const string & name, const vector< int > & i_data, const string & doc );
+    NameValData( const string & name, const vector< double > & d_data, const string & doc );
+    NameValData( const string & name, const vector< string > & s_data, const string & doc );
+    NameValData( const string & name, const vector< vec3d > & v_data, const string & doc );
+    NameValData( const string & name, const vector< vector< double > > &dmat_data, const string & doc );
 
     void Init( const string & name, int type = 0, int index = 0 );
 
@@ -47,6 +47,12 @@ public:
     int GetType() const
     {
         return m_Type;
+    }
+    string GetTypeName() const;
+
+    string GetDoc() const
+    {
+        return m_Doc;
     }
 
     const vector<int> & GetIntData() const
@@ -101,6 +107,7 @@ protected:
 
     string m_Name;
     int m_Type;
+    string m_Doc;
     vector< int > m_IntData;
     vector< double > m_DoubleData;
     vector< string > m_StringData;
@@ -120,7 +127,13 @@ class NameValCollection
 {
 public:
     NameValCollection() {};
-    NameValCollection( const string & name, const string & id );
+    NameValCollection( const string & name, const string & id, const string & doc  );
+
+    void Init( const char *name, const char *doc = "" )
+    {
+        m_Name = name;
+        m_Doc = doc;
+    }
 
     string GetName()
     {
@@ -130,9 +143,13 @@ public:
     {
         return m_ID;
     }
+    string GetDoc() const
+    {
+        return m_Doc;
+    }
 
     void Add( const NameValData & d );
-    void Add( const vector< vector< vec3d > > & d, string prefix );
+    void Add( const vector< vector< vec3d > > & d, string prefix, const string &doc );
 
     int GetNumData( const string & name );
     vector< string > GetAllDataNames();
@@ -143,6 +160,7 @@ protected:
 
     string m_Name;
     string m_ID;
+    string m_Doc;
 
     //==== All The Data For This Computation Result =====//
     map< string, vector< NameValData > > m_DataMap;
@@ -154,7 +172,7 @@ class Results : public NameValCollection
 {
 public:
 
-    Results( const string & name, const string & id );
+    Results( const string & name, const string & id, const string & doc );
 
     void SetDateTime();
 
@@ -202,7 +220,7 @@ public:
     }
 
 
-    Results* CreateResults( const string & name );                      // Return Results Ptr
+    Results* CreateResults( const string & name, const string & doc );                      // Return Results Ptr
 
     string CreateGeomResults( const string & geom_id, const string & name );
 
@@ -217,6 +235,8 @@ public:
     int GetNumData( const string & results_id, const string & data_name );
 
     int GetResultsType( const string & results_id, const string & data_name );
+    string GetResultsTypeName( const string & results_id, const string & data_name );
+    string GetResultsEntryDoc( const string & results_id, const string & data_name );
 
     vector< string > GetAllResultsNames();
     vector< string > GetAllDataNames( const string & results_id );
@@ -224,6 +244,10 @@ public:
     void PrintResults( const string &fname, const std::string &results_id );
     void PrintResults( const std::string &results_id );
     void PrintResults( FILE * outputStream, const std::string &results_id );
+
+    void PrintResultsDocs( const string &fname, const std::string &results_id );
+    void PrintResultsDocs( const std::string &results_id );
+    void PrintResultsDocs( FILE * outputStream, const std::string &results_id );
 
     const vector<int> & GetIntResults( const string & id, const string & name, int index = 0 );
     const vector<double> & GetDoubleResults( const string & id, const string & name, int index = 0 );

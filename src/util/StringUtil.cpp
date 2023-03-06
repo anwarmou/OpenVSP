@@ -67,12 +67,12 @@ void StringUtil::remove_all( string& str, const char& c )
 }
 
 //==== Change All "_" Characters -> " " Characters ====//
-void StringUtil::chance_underscore_to_space( string & str )
+void StringUtil::change_underscore_to_space( string & str )
 {
     StringUtil::change_from_to( str, '_', ' ' );
 }
 
-void StringUtil::chance_space_to_underscore( string & str )
+void StringUtil::change_space_to_underscore( string & str )
 {
     StringUtil::change_from_to( str, ' ', '_' );
 }
@@ -123,7 +123,7 @@ void StringUtil::remove_leading_trailing( string & str, char c )
 string StringUtil::int_to_string( int i, const char* format )
 {
     char str[256];
-    sprintf( str, format, i );
+    snprintf( str, sizeof( str ), format, i );
     return string( str );
 }
 
@@ -131,16 +131,16 @@ string StringUtil::int_to_string( int i, const char* format )
 string StringUtil::double_to_string( double v, const char* format  )
 {
     char str[256];
-    sprintf( str, format, v );
+    snprintf( str, sizeof( str ), format, v );
     return string( str );
 }
 
 //==== Convert Vec3d to a string with values separated by spaces ====//
 string StringUtil::vec3d_to_string(const vec3d & vec, const char* format)
 {
-    char buff[256];
-    sprintf(buff,format,vec[0],vec[1],vec[2]);
-    return string(buff);
+    char str[256];
+    snprintf( str, sizeof( str ), format, vec[0], vec[1], vec[2] );
+    return string( str );
 }
 
 //==== Count Number of Chars that match c =====//
@@ -212,7 +212,11 @@ string StringUtil::NasFmt( double input )
     double ainput = std::abs( input );
     if ( input > 0 )  // Positive branch
     {
-        if ( ainput < 0.001 )  // Small magnitude, scientific notation
+        if ( ainput == 0.0 )
+        {
+            return string( "%08.2e" );
+        }
+        else if ( ainput < 0.001 )  // Small magnitude, scientific notation
         {
             return string( "%8.2e" );
         }
@@ -251,7 +255,11 @@ string StringUtil::NasFmt( double input )
     }
     else
     {
-        if ( ainput < 0.001 )  // Small magnitude, scientific notation
+        if ( ainput == 0.0 )
+        {
+            return string( "%08.1e" );
+        }
+        else if ( ainput < 0.001 )  // Small magnitude, scientific notation
         {
             return string( "%8.1e" );
         }

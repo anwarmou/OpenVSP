@@ -182,7 +182,7 @@ TetraMassProp::TetraMassProp( const string& id, double denIn, const vec3d& p0, c
     m_CG = ( m_CG * 0.25 ) + p0;
 
     m_Vol  = tetra_volume( m_v1, m_v2, m_v3 );
-    m_Mass = m_Density * std::abs( m_Vol );
+    m_Mass = m_Density * m_Vol;
 
     double Ix = m_Mass / 10.0 * ( m_v1.x() * m_v1.x() + m_v2.x() * m_v2.x() + m_v3.x() * m_v3.x() +
                                   m_v1.x() * m_v2.x() + m_v1.x() * m_v3.x() + m_v2.x() * m_v3.x() );
@@ -278,91 +278,6 @@ TriShellMassProp::TriShellMassProp( const string& id, double mass_area_in, const
 
 }
 
-//===========================================================================================================//
-//================================================ DegenGeom ================================================//
-//===========================================================================================================//
-
-DegenGeomTetraMassProp::DegenGeomTetraMassProp( const string& id, const vec3d& p0, const vec3d& p1, const vec3d& p2, const vec3d& p3 )
-{
-    m_CompId = id;
-
-    m_v0 = vec3d( 0, 0, 0 );
-    m_v1 = p1 - p0;
-    m_v2 = p2 - p0;
-    m_v3 = p3 - p0;
-
-    m_CG = m_v1 + m_v2 + m_v3;
-    m_CG = ( m_CG * 0.25 ) + p0;
-
-    m_Vol  = std::abs( tetra_volume( m_v1, m_v2, m_v3 ) );
-
-    double Ix = m_Vol / 10.0 * ( m_v1.x() * m_v1.x() + m_v2.x() * m_v2.x() + m_v3.x() * m_v3.x() +
-                                 m_v1.x() * m_v2.x() + m_v1.x() * m_v3.x() + m_v2.x() * m_v3.x() );
-
-    double Iy = m_Vol / 10.0 * ( m_v1.y() * m_v1.y() + m_v2.y() * m_v2.y() + m_v3.y() * m_v3.y() +
-                                 m_v1.y() * m_v2.y() + m_v1.y() * m_v3.y() + m_v2.y() * m_v3.y() );
-
-    double Iz = m_Vol / 10.0 * ( m_v1.z() * m_v1.z() + m_v2.z() * m_v2.z() + m_v3.z() * m_v3.z() +
-                                 m_v1.z() * m_v2.z() + m_v1.z() * m_v3.z() + m_v2.z() * m_v3.z() );
-
-    m_Ixx = Iy + Iz;
-    m_Iyy = Ix + Iz;
-    m_Izz = Ix + Iy;
-
-    m_Ixy = m_Vol / 20.0 * ( 2.0 * ( m_v1.x() * m_v1.y() + m_v2.x() * m_v2.y() + m_v3.x() * m_v3.y() ) +
-                             m_v1.x() * m_v2.y() + m_v2.x() * m_v1.y() + m_v1.x() * m_v3.y() + m_v3.x() * m_v1.y() + m_v2.x() * m_v3.y() + m_v3.x() * m_v2.y() );
-
-    m_Iyz = m_Vol / 20.0 * ( 2.0 * ( m_v1.y() * m_v1.z() + m_v2.y() * m_v2.z() + m_v3.y() * m_v3.z() ) +
-                             m_v1.y() * m_v2.z() + m_v2.y() * m_v1.z() + m_v1.y() * m_v3.z() + m_v3.y() * m_v1.z() + m_v2.y() * m_v3.z() + m_v3.y() * m_v2.z() );
-
-    m_Ixz = m_Vol / 20.0 * ( 2.0 * ( m_v1.x() * m_v1.z() + m_v2.x() * m_v2.z() + m_v3.x() * m_v3.z() ) +
-                             m_v1.x() * m_v2.z() + m_v2.x() * m_v1.z() + m_v1.x() * m_v3.z() + m_v3.x() * m_v1.z() + m_v2.x() * m_v3.z() + m_v3.x() * m_v2.z() );
-
-}
-
-
-DegenGeomTriShellMassProp::DegenGeomTriShellMassProp( const string& id, const vec3d& p0, const vec3d& p1, const vec3d& p2 )
-{
-    m_CompId = id;
-
-    m_CG = ( p0 + p1 + p2 ) * ( 1.0 / 3.0 );
-
-    m_v0 = p0 - m_CG;
-    m_v1 = p1 - m_CG;
-    m_v2 = p2 - m_CG;
-
-    m_TriArea = area( m_v0, m_v1, m_v2 );
-
-    double Ix = m_TriArea / 10.0 * ( m_v0.x() * m_v0.x() + m_v1.x() * m_v1.x() + m_v2.x() * m_v2.x() +
-                                     m_v0.x() * m_v1.x() + m_v0.x() * m_v2.x() + m_v1.x() * m_v2.x() );
-
-    double Iy = m_TriArea / 10.0 * ( m_v0.y() * m_v0.y() + m_v1.y() * m_v1.y() + m_v2.y() * m_v2.y() +
-                                     m_v0.y() * m_v1.y() + m_v0.y() * m_v2.y() + m_v1.y() * m_v2.y() );
-
-    double Iz = m_TriArea / 10.0 * ( m_v0.z() * m_v0.z() + m_v1.z() * m_v1.z() + m_v2.z() * m_v2.z() +
-                                     m_v0.z() * m_v1.z() + m_v0.z() * m_v2.z() + m_v1.z() * m_v2.z() );
-
-    m_Ixx = Iy + Iz;
-    m_Iyy = Ix + Iz;
-    m_Izz = Ix + Iy;
-
-    m_Ixy = m_TriArea / 20.0 * ( 2.0 * ( m_v0.x() * m_v0.y() + m_v1.x() * m_v1.y() + m_v2.x() * m_v2.y() ) +
-                                 m_v0.x() * m_v1.y() + m_v1.x() * m_v0.y() + m_v0.x() * m_v2.y() + m_v2.x() * m_v0.y() + m_v1.x() * m_v2.y() + m_v2.x() * m_v1.y() );
-
-    m_Iyz = m_TriArea / 20.0 * ( 2.0 * ( m_v0.y() * m_v0.z() + m_v1.y() * m_v1.z() + m_v2.y() * m_v2.z() ) +
-                                 m_v0.y() * m_v1.z() + m_v1.y() * m_v0.z() + m_v0.y() * m_v2.z() + m_v2.y() * m_v0.z() + m_v1.y() * m_v2.z() + m_v2.y() * m_v1.z() );
-
-    m_Ixz = m_TriArea / 20.0 * ( 2.0 * ( m_v0.x() * m_v0.z() + m_v1.x() * m_v1.z() + m_v2.x() * m_v2.z() ) +
-                                 m_v0.x() * m_v1.z() + m_v1.x() * m_v0.z() + m_v0.x() * m_v2.z() + m_v2.x() * m_v0.z() + m_v1.x() * m_v2.z() + m_v2.x() * m_v1.z() );
-
-}
-
-
-
-//===========================================================================================================//
-//============================================== END DegenGeom ==============================================//
-//===========================================================================================================//
-
 
 //===============================================//
 //===============================================//
@@ -386,6 +301,7 @@ TMesh::TMesh()
     m_TheoArea = m_WetArea = 0.0;
     m_TheoVol    = m_WetVol = 0.0;
     m_SurfNum = 0;
+    m_PlateNum = -1;
     m_AreaCenter = vec3d(0,0,0);
     m_GuessVol = 0;
 }
@@ -474,8 +390,9 @@ void TMesh::CopyFlatten( TMesh* m )
 
 void TMesh::CopyAttributes( TMesh* m )
 {
-    m_PtrID     = m->m_PtrID;
+    m_OriginGeomID     = m->m_OriginGeomID;
     m_SurfNum   = m->m_SurfNum;
+    m_PlateNum = m->m_PlateNum;
     m_NameStr   = m->m_NameStr;
     m_MaterialID = m->m_MaterialID;
     m_Color      = m->m_Color;
@@ -589,7 +506,7 @@ void TMesh::LoadGeomAttributes( const Geom* geomPtr )
 {
     /*color       = geomPtr->getColor();
     materialID    = geomPtr->getMaterialID();*/
-    m_PtrID        = geomPtr->GetID();
+    m_OriginGeomID        = geomPtr->GetID();
 
     m_MassPrior     = geomPtr->m_MassPrior();
     m_Density       = geomPtr->m_Density();
@@ -802,6 +719,8 @@ bool TMesh::DecideIgnoreTri( int aType, const vector < int > & bTypes, const vec
         return true;
     }
 
+    bool aInOneNormal = false;
+
     for ( int b = 0 ; b < ( int )aInB.size() ; b++ )
     {
         bool aInThisB = aInB[b];
@@ -811,6 +730,11 @@ bool TMesh::DecideIgnoreTri( int aType, const vector < int > & bTypes, const vec
         // Can make absolute decisions about deleting a triangle or not in the cases below
         if ( aInThisB && bThick )
         {
+            if( bType == vsp::CFD_NORMAL )
+            {
+                aInOneNormal = true;
+            }
+
             // Normal(Positive) inside another Normal, or Negative inside another Negative
             if ( aType == bType && ( aType != vsp::CFD_TRANSPARENT && aType != vsp::CFD_STRUCTURE ) )
             {
@@ -844,7 +768,8 @@ bool TMesh::DecideIgnoreTri( int aType, const vector < int > & bTypes, const vec
     // Flip sense of default value.  These things do not exist in 'free space'.
     if ( aType == vsp::CFD_NEGATIVE ||
          aType == vsp::CFD_STRUCTURE ||
-         aType == vsp::CFD_STIFFENER )   // Stiffener is special case -- always true previously.
+         aType == vsp::CFD_STIFFENER ||  // Stiffener is special case -- always true previously.
+         aType == vsp::CFD_MEASURE_DUCT )
     {
         ignoretri = true;
     }
@@ -865,6 +790,10 @@ bool TMesh::DecideIgnoreTri( int aType, const vector < int > & bTypes, const vec
             else if ( aType == vsp::CFD_TRANSPARENT && bType == vsp::CFD_NORMAL )
             {
                 return true;
+            }
+            if ( aType == vsp::CFD_MEASURE_DUCT && aInOneNormal && bType == vsp::CFD_NEGATIVE )
+            {
+                return false;
             }
         }
     }
@@ -969,7 +898,7 @@ void TMesh::DeterIntExtTri( TTri* tri, vector< TMesh* >& meshVec )
                 // Priority assignment for wave drag.  Mass prop may need some adjustments.
                 if ( meshVec[m]->m_MassPrior > prior ) // Should possibly check that priority is only for vsp::CFD_NORMAL
                 {
-                    tri->m_ID = meshVec[m]->m_PtrID;
+                    tri->m_ID = meshVec[m]->m_OriginGeomID;
                     tri->m_Density = meshVec[m]->m_Density;
                     prior = meshVec[m]->m_MassPrior;
                 }
@@ -2333,8 +2262,7 @@ int TTri::WakeEdge()
     double tol = 1e-12;
     if ( m_TMesh )
     {
-        int type = m_TMesh->m_SurfType;
-        if ( type == vsp::WING_SURF || type == vsp::PROP_SURF )
+        if ( m_TMesh->m_SurfType == vsp::WING_SURF )
         {
             bool n0 = m_N0->m_UWPnt.y() <= ( TMAGIC + tol );
             bool n1 = m_N1->m_UWPnt.y() <= ( TMAGIC + tol );
@@ -3856,7 +3784,7 @@ void TMesh::SubTag( int part_num, bool tag_subs )
     // Subtag all triangles in a given TMesh
     // Split tris will be subtagged the same as their parent
     vector<SubSurface*> sub_surfs;
-    if ( tag_subs ) sub_surfs = SubSurfaceMgr.GetSubSurfs( m_PtrID, m_SurfNum );
+    if ( tag_subs ) sub_surfs = SubSurfaceMgr.GetSubSurfs( m_OriginGeomID, m_SurfNum );
     int ss_num = ( int )sub_surfs.size();
 
     for ( int t = 0 ; t < ( int )m_TVec.size(); t ++ )
@@ -3956,7 +3884,7 @@ void CreateTMeshVecFromPts( const Geom * geom,
                             const vector< vector<vec3d> > & pnts,
                             const vector< vector<vec3d> > & norms,
                             const vector< vector<vec3d> > & uw_pnts,
-                            int indx, int surftype, int cfdsurftype, bool thicksurf, bool flipnormal, double wmax )
+                            int indx, int platenum, int surftype, int cfdsurftype, bool thicksurf, bool flipnormal, double wmax )
 {
     double tol=1.0e-12;
 
@@ -3967,6 +3895,7 @@ void CreateTMeshVecFromPts( const Geom * geom,
     TMeshVec[itmesh]->m_ThickSurf = thicksurf;
     TMeshVec[itmesh]->m_SurfType = surftype;
     TMeshVec[itmesh]->m_SurfNum = indx;
+    TMeshVec[itmesh]->m_PlateNum = platenum;
     TMeshVec[itmesh]->m_UWPnts = uw_pnts;
     TMeshVec[itmesh]->m_XYZPnts = pnts;
 

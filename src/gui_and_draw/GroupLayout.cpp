@@ -116,10 +116,14 @@ void GroupLayout::NewLineX()
 }
 
 //==== Set X And Y For NewLine Ignore Flags ====//
-void GroupLayout::ForceNewLine()
+void GroupLayout::ForceNewLine( int dy )
 {
     m_X = m_Group->x();
-    m_Y += m_StdHeight;
+
+    if ( dy < 0 )
+        dy = m_StdHeight;
+
+    m_Y += dy;
 }
 
 //==== Add To Y Position ======//
@@ -782,7 +786,7 @@ void AddPoint( const vector < double > & x, const vector < double > & y, Fl_Colo
 }
 
 //==== Create & Init Text Input  ====//
-void GroupLayout::AddInput( StringInput& text_input, const char* label, int used_w )
+void GroupLayout::AddInput( StringInput& string_input, const char* label, int used_w, double nline )
 {
     assert( m_Group && m_Screen );
 
@@ -794,7 +798,7 @@ void GroupLayout::AddInput( StringInput& text_input, const char* label, int used
 
     //==== Add Text Input ====//
     int iw = FitWidth( m_ButtonWidth + used_w, m_InputWidth );
-    Fl_Input* input = new Fl_Input( m_X, m_Y, iw, m_StdHeight );
+    Fl_Input* input = new Fl_Input( m_X, m_Y, iw, m_StdHeight * nline );
 #ifdef NOREGEXP
     input->type( FL_FLOAT_INPUT );
 #endif
@@ -804,10 +808,10 @@ void GroupLayout::AddInput( StringInput& text_input, const char* label, int used
     m_Group->add( input );
     AddX( iw );
 
-    AddY( m_StdHeight );
+    AddY( m_StdHeight * nline );
     NewLineX();
 
-    text_input.Init( m_Screen, input );
+    string_input.Init( m_Screen, input );
 }
 
 //==== Create & Init Text Output without label ====//

@@ -54,7 +54,7 @@ extern std::string GetVSPFileName();
 extern void ClearVSPModel();
 extern void InsertVSPFile( const std::string & file_name, const std::string & parent_geom_id );
 
-extern std::string ExportFile( const std::string & file_name, int thick_set, int file_type, int thin_set = vsp::SET_NONE );
+extern std::string ExportFile( const std::string & file_name, int thick_set, int file_type, int subsFlag = 1, int thin_set = vsp::SET_NONE );
 extern std::string ImportFile( const std::string & file_name, int file_type, const std::string & parent );
 
 extern void SetBEMPropID( const string & prop_id );
@@ -73,12 +73,12 @@ extern int GetDesignVarType( int index );
 
 //======================== Computations ================================//
 extern void SetComputationFileName( int file_type, const std::string & file_name );
-extern std::string ComputeMassProps( int set, int num_slices );
+extern std::string ComputeMassProps( int set, int num_slices, int idir );
 extern std::string ComputeCompGeom( int set, bool half_mesh, int file_export_types );
 extern std::string ComputePlaneSlice( int set, int num_slices, const vec3d & norm, bool auto_bnd,
-                                 double start_bnd = 0, double end_bnd = 0 );
+                                 double start_bnd = 0, double end_bnd = 0, bool measureduct = false );
 extern void ComputeDegenGeom( int set, int file_export_types );
-extern void ComputeCFDMesh( int set, int file_export_types );
+extern void ComputeCFDMesh( int set, int degenset, int file_export_types );
 extern void SetCFDMeshVal( int type, double val );
 extern void SetCFDWakeFlag( const std::string & geom_id, bool flag );
 extern void DeleteAllCFDSources();
@@ -95,6 +95,8 @@ extern string SetVSPAERORefWingID( const std::string & geom_id );
 extern int GetNumAnalysis();
 extern std::vector<std::string> ListAnalysis();
 extern std::vector<std::string> GetAnalysisInputNames( const std::string & analysis );
+extern std::string GetAnalysisDoc( const std::string & analysis );
+extern std::string GetAnalysisInputDoc( const std::string & analysis, const std::string & name );
 extern std::string ExecAnalysis( const std::string & analysis );
 
 extern int GetNumAnalysisInputData( const std::string & analysis, const std::string & name );
@@ -111,12 +113,15 @@ extern void SetStringAnalysisInput( const std::string & analysis, const std::str
 extern void SetVec3dAnalysisInput( const std::string & analysis, const std::string & name, const std::vector< vec3d > & indata, int index = 0 );
 
 extern void PrintAnalysisInputs( const std::string & analysis_name );
+extern void PrintAnalysisDocs( const std::string & analysis_name );
 
 //======================== Results ================================//
 extern std::vector<std::string> GetAllResultsNames();
 extern std::vector<std::string> GetAllDataNames( const std::string & results_id );
 extern int GetNumResults( const std::string & name );
 extern std::string GetResultsName(const std::string & results_id );
+extern std::string GetResultsSetDoc( const std::string & results_id );
+extern std::string GetResultsEntryDoc( const std::string & results_id, const std::string & data_name );
 extern std::string FindResultsID( const std::string & name, int index = 0 );
 extern std::string FindLatestResultsID( const std::string & name );
 extern int GetNumData( const std::string & results_id, const std::string & data_name );
@@ -131,6 +136,7 @@ extern void DeleteAllResults();
 extern void DeleteResult( const std::string & id );
 extern void WriteResultsCSVFile( const std::string & id, const std::string & file_name );
 extern void PrintResults( const std::string &results_id );
+extern void PrintResultsDocs( const std::string &results_id );
 
 //======================== GUI Functions ================================//
 extern void StartGui( );

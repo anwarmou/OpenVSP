@@ -168,7 +168,7 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
     // CG
     m_LeftColumnLayout.AddSubGroupLayout( m_MomentRefLayout,
         m_LeftColumnLayout.GetW(),
-        6 * m_LeftColumnLayout.GetStdHeight() );
+        7 * m_LeftColumnLayout.GetStdHeight() );
     m_LeftColumnLayout.AddY( m_MomentRefLayout.GetH() );
 
     m_MomentRefLayout.AddDividerBox( "Moment Reference Position" );
@@ -186,7 +186,13 @@ VSPAEROScreen::VSPAEROScreen( ScreenMgr* mgr ) : TabScreen( mgr, VSPAERO_SCREEN_
 
     m_MomentRefLayout.InitWidthHeightVals();
 
+    m_MassSliceDirChoice.AddItem( "X", vsp::X_DIR );
+    m_MassSliceDirChoice.AddItem( "Y", vsp::Y_DIR );
+    m_MassSliceDirChoice.AddItem( "Z", vsp::Z_DIR );
+    m_MomentRefLayout.AddChoice( m_MassSliceDirChoice, "Slice Direction:" );
+
     m_MomentRefLayout.AddSlider( m_NumSliceSlider, "Num Slices", 100, "%4.0f" );
+
     m_MomentRefLayout.AddSlider( m_XcgSlider, "Xref", 100.0, "%7.3f" );
     m_MomentRefLayout.AddSlider( m_YcgSlider, "Yref", 100.0, "%7.3f" );
     m_MomentRefLayout.AddSlider( m_ZcgSlider, "Zref", 100.0, "%7.3f" );
@@ -1105,7 +1111,7 @@ void VSPAEROScreen::GuiDeviceCallBack( GuiDevice* device )
         }
         else if( device == &m_MassPropButton )
         {
-            string id = veh->MassPropsAndFlatten( m_CGSetChoice.GetVal(), VSPAEROMgr.m_NumMassSlice(), false, false );
+            string id = veh->MassPropsAndFlatten( m_CGSetChoice.GetVal(), VSPAEROMgr.m_NumMassSlice(), VSPAEROMgr.m_MassSliceDir(), false, false );
             veh->DeleteGeom( id );
 
             VSPAEROMgr.m_Xcg = veh->m_CG.x();
@@ -1292,7 +1298,7 @@ void VSPAEROScreen::UpdateRefWing()
             Geom* g = veh->FindGeom(geomVec[i]);
             if (g)
             {
-                sprintf(str, "%d_%s", i, g->GetName().c_str());
+                snprintf( str, sizeof( str ),  "%d_%s", i, g->GetName().c_str());
 
                 if (g->GetType().m_Type == MS_WING_GEOM_TYPE)
                 {
@@ -1382,6 +1388,7 @@ void VSPAEROScreen::UpdateReferenceQuantitiesDevices()
 void VSPAEROScreen::UpdateCGDevices()
 {
     m_NumSliceSlider.Update(VSPAEROMgr.m_NumMassSlice.GetID());
+    m_MassSliceDirChoice.Update(VSPAEROMgr.m_MassSliceDir.GetID());
     m_XcgSlider.Update(VSPAEROMgr.m_Xcg.GetID());
     m_YcgSlider.Update(VSPAEROMgr.m_Ycg.GetID());
     m_ZcgSlider.Update(VSPAEROMgr.m_Zcg.GetID());
@@ -1639,14 +1646,14 @@ void VSPAEROScreen::UpdatePropElemBrowser()
 
     m_PropElemBrowser->column_char(':');         // use : as the column character
 
-    sprintf(str, "@b@.INDX:@b@.NAME:@b@.DIA:@b@.HUB DIA:@b@.RPM:@b@.CP:@b@.CT");
+    snprintf( str, sizeof( str ),  "@b@.INDX:@b@.NAME:@b@.DIA:@b@.HUB DIA:@b@.RPM:@b@.CP:@b@.CT");
     m_PropElemBrowser->add(str);
     for (size_t i = 0; i < VSPAEROMgr.GetRotorDiskVec().size(); ++i)
     {
         RotorDisk* curr_rot = VSPAEROMgr.GetRotorDiskVec()[i];
         if (curr_rot)
         {
-            sprintf(str, "%i:%s:%4.2f:%4.2f:%6.1f:%4.2f:%4.2f", curr_rot->m_GroupSuffix,
+            snprintf( str, sizeof( str ),  "%i:%s:%4.2f:%4.2f:%6.1f:%4.2f:%4.2f", curr_rot->m_GroupSuffix,
                 curr_rot->GetName().c_str(),
                 curr_rot->m_Diameter(), curr_rot->m_HubDiameter(),
                 curr_rot->m_RPM(), curr_rot->m_CP(), curr_rot->m_CT());
@@ -1670,7 +1677,7 @@ void VSPAEROScreen::UpdateControlSurfaceBrowsers()
         ControlSurfaceGroup* curr_cs_group = cs_group_vec[i];
         if (curr_cs_group)
         {
-            sprintf( str, "%i %s", curr_cs_group->m_GroupSuffix, curr_cs_group->GetName().c_str());
+            snprintf( str, sizeof( str ),  "%i %s", curr_cs_group->m_GroupSuffix, curr_cs_group->GetName().c_str());
             m_CSGroupBrowser->add( str );
         }
     }
@@ -1837,7 +1844,7 @@ void VSPAEROScreen::UpdateControlSurfaceGroupNames()
     {
         if (cs_group_vec[i]->GetName().size() >= 20)
         {
-            sprintf(str, "%s...", cs_group_vec[i]->GetName().substr(0, 20).c_str());
+            snprintf( str, sizeof( str ),  "%s...", cs_group_vec[i]->GetName().substr(0, 20).c_str());
             m_DeflectionAngleSliderVec[i].SetButtonName(str);
         }
         else
@@ -2109,7 +2116,7 @@ void VSPAEROScreen::UpdateCpSliceBrowser()
         {
             char type = 88 + slice->m_CutType(); // ASCII X: 88; Y: 89; Z: 90
 
-            sprintf( str, "%s:%c:%4.2f", slice->GetName().c_str(), type, slice->m_CutPosition() );
+            snprintf( str, sizeof( str ),  "%s:%c:%4.2f", slice->GetName().c_str(), type, slice->m_CutPosition() );
             m_CpSliceBrowser->add( str );
         }
     }
@@ -2222,7 +2229,7 @@ void VSPAEROScreen::UpdateUnsteadyGroupBrowser()
             char str[256];
 
             int surf_index = group->GetCompSurfPairVec()[0].second; // Only 1 component in rotor groups
-            sprintf( str, "%s:%d:%4.3f", group->GetName().c_str(), surf_index, group->m_RPM.Get() );
+            snprintf( str, sizeof( str ), "%s:%d:%4.3f", group->GetName().c_str(), surf_index, group->m_RPM.Get() );
             m_UnsteadyGroupBrowser->add( str );
 
             int jump = 0;

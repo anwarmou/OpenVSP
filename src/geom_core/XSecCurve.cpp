@@ -250,7 +250,7 @@ string XSecCurve::GetName()
     if ( pc )
     {
         char str[256];
-        sprintf( str, "_%d", m_GroupSuffix );
+        snprintf( str, sizeof( str ),  "_%d", m_GroupSuffix );
 
         ParmContainer* ppc = pc->GetParentContainerPtr();
         if ( ppc )
@@ -322,6 +322,9 @@ void XSecCurve::OffsetCurve( double offset_val )
 {
     double w = GetWidth();
     double h = GetHeight();
+
+    m_DriverGroup->SetChoice( 0, WIDTH_XSEC_DRIVER );
+    m_DriverGroup->SetChoice( 1, HEIGHT_XSEC_DRIVER );
 
     SetWidthHeight( w - offset_val*2.0, h - offset_val*2.0 );
 
@@ -1789,7 +1792,7 @@ void XSecCurve::Chevron()
     }
 
     // Set up chevron curve as if start is always at 0.0.
-    // This simplifies some of the logic including determing how many points are needed to define curve.
+    // This simplifies some of the logic including determining how many points are needed to define curve.
     int ptpercycle = 2;
     int peakpercycle = 1;
     int valleypercycle = 1;
@@ -3383,7 +3386,7 @@ void EditCurveXSec::AddPt( double default_u, double default_x, double default_y,
     {
         int i = (int)m_UParmVec.size();
         char str[15];
-        sprintf( str, "U_%d", i );
+        snprintf( str, sizeof( str ),  "U_%d", i );
         p->Init( string( str ), m_GroupName, this, default_u, 0, 1.0 );
         p->SetDescript( "Curve point parameter (0-1)" );
         m_UParmVec.push_back( p );
@@ -3394,7 +3397,7 @@ void EditCurveXSec::AddPt( double default_u, double default_x, double default_y,
     {
         int i = (int)m_XParmVec.size();
         char str[15];
-        sprintf( str, "X_%d", i );
+        snprintf( str, sizeof( str ),  "X_%d", i );
         fp->Init( string( str ), m_GroupName, this, default_x, -1.0e12, 1.0e12 );
         fp->SetDescript( "Control Point 2D X Location" );
         m_XParmVec.push_back( fp );
@@ -3405,7 +3408,7 @@ void EditCurveXSec::AddPt( double default_u, double default_x, double default_y,
     {
         int i = (int)m_YParmVec.size();
         char str[15];
-        sprintf( str, "Y_%d", i );
+        snprintf( str, sizeof( str ),  "Y_%d", i );
         fp->Init( string( str ), m_GroupName, this, default_y, -1.0e12, 1.0e12 );
         fp->SetDescript( "Control Point 2D Y Location" );
         m_YParmVec.push_back( fp );
@@ -3416,7 +3419,7 @@ void EditCurveXSec::AddPt( double default_u, double default_x, double default_y,
     {
         int i = (int)m_ZParmVec.size();
         char str[15];
-        sprintf( str, "Z_%d", i );
+        snprintf( str, sizeof( str ),  "Z_%d", i );
         fp->Init( string( str ), m_GroupName, this, default_z, -1.0e12, 1.0e12 );
         fp->SetDescript( "Control Point 2D Z Location" );
         m_ZParmVec.push_back( fp );
@@ -3427,7 +3430,7 @@ void EditCurveXSec::AddPt( double default_u, double default_x, double default_y,
     {
         int i = (int)m_RParmVec.size();
         char str[15];
-        sprintf( str, "R_%d", i );
+        snprintf( str, sizeof( str ),  "R_%d", i );
         p->Init( string( str ), m_GroupName, this, default_r, 0.0, 1e12 );
         p->SetDescript( "Corner radius parameter" );
         m_RParmVec.push_back( p );
@@ -3438,7 +3441,7 @@ void EditCurveXSec::AddPt( double default_u, double default_x, double default_y,
     {
         int i = (int)m_EnforceG1Vec.size();
         char str[15];
-        sprintf( str, "G1_%d", i );
+        snprintf( str, sizeof( str ),  "G1_%d", i );
         bp->Init( string( str ), m_GroupName, this, default_g1, false, true );
         bp->SetDescript( "G1 Enforcement Flag" );
         m_EnforceG1Vec.push_back( bp );
@@ -3449,7 +3452,7 @@ void EditCurveXSec::AddPt( double default_u, double default_x, double default_y,
     {
         int i = (int)m_FixedUVec.size();
         char str[20];
-        sprintf( str, "FixedU_%d", i );
+        snprintf( str, sizeof( str ),  "FixedU_%d", i );
         bp->Init( string( str ), m_GroupName, this, default_fix_u, false, true );
         bp->SetDescript( "Fixed U Flag" );
         m_FixedUVec.push_back( bp );
@@ -4959,25 +4962,25 @@ void EditCurveXSec::RenameParms()
     for ( int i = 0; i < m_XParmVec.size(); i++ )
     {
         char str[15];
-        sprintf( str, "X_%d", i );
+        snprintf( str, sizeof( str ),  "X_%d", i );
         m_XParmVec[i]->SetName( string( str ) );
 
-        sprintf( str, "Y_%d", i );
+        snprintf( str, sizeof( str ),  "Y_%d", i );
         m_YParmVec[i]->SetName( string( str ) );
 
-        sprintf( str, "Z_%d", i );
+        snprintf( str, sizeof( str ),  "Z_%d", i );
         m_ZParmVec[i]->SetName( string( str ) );
 
-        sprintf( str, "R_%d", i );
+        snprintf( str, sizeof( str ),  "R_%d", i );
         m_RParmVec[i]->SetName( string( str ) );
 
-        sprintf( str, "U_%d", i );
+        snprintf( str, sizeof( str ),  "U_%d", i );
         m_UParmVec[i]->SetName( string( str ) );
 
-        sprintf( str, "G1_%d", i );
+        snprintf( str, sizeof( str ),  "G1_%d", i );
         m_EnforceG1Vec[i]->SetName( string( str ) );
 
-        sprintf( str, "FixedU_%d", i );
+        snprintf( str, sizeof( str ),  "FixedU_%d", i );
         m_FixedUVec[i]->SetName( string( str ) );
     }
 }

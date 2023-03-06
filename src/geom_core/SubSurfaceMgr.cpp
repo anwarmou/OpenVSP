@@ -10,6 +10,7 @@
 
 #include "SubSurfaceMgr.h"
 #include "Vehicle.h"
+#include "StlHelper.h"
 
 using std::vector;
 using std::string;
@@ -183,6 +184,7 @@ void SubSurfaceMgrSingleton::ClearTagMaps()
     m_TagIDs.clear();
     m_CompNames.clear();
     m_CompIDs.clear();
+    m_ThickMap.clear();
 
     // Add Dummy tag combo for meshes with no tags
     // so there will a draw object for them
@@ -294,6 +296,7 @@ int SubSurfaceMgrSingleton::FindGNum( const string &gid )
 //==== Write Key File ====//
 void SubSurfaceMgrSingleton::WriteVSPGEOMKeyFile( const string & file_name )
 {
+    bool writethickthin = false;
     // figure out basename
     string base_name = file_name;
     std::string::size_type loc = base_name.find_last_of( "." );
@@ -314,7 +317,14 @@ void SubSurfaceMgrSingleton::WriteVSPGEOMKeyFile( const string & file_name )
     fprintf( fid, "%s\n", file_name.c_str() ); // Write out the file that this key information is for
     fprintf( fid, "%lu\n", m_SingleTagMap.size() - 1 ); // Total number of tags ( the minus 1 is from the dummy tags )
     fprintf( fid, "\n" );
-    fprintf( fid, "# tag#,geom#,surf#,gname,gid,ssname1,ssname2,...,ssid1,ssid2,...\n" );
+    if ( writethickthin )
+    {
+        fprintf( fid, "# tag#,geom#,surf#,gname,gid,thick,ssname1,ssname2,...,ssid1,ssid2,...\n" );
+    }
+    else
+    {
+        fprintf( fid, "# tag#,geom#,surf#,gname,gid,ssname1,ssname2,...,ssid1,ssid2,...\n" );
+    }
 
     // Build GeomID set to have unique integer index instead of GeomID.
     std::set< string, greater< string > > gids;
@@ -356,6 +366,7 @@ void SubSurfaceMgrSingleton::WriteVSPGEOMKeyFile( const string & file_name )
         // Find position of token _Surf
         spos = id_list.find( "_Surf" );
         string gid = id_list.substr( 0, spos );
+        string gid_bare = gid.substr( 0, 10 );
 
         // Find position of first comma
         cpos = id_list.find( "," );
@@ -367,8 +378,23 @@ void SubSurfaceMgrSingleton::WriteVSPGEOMKeyFile( const string & file_name )
         // Lookup Geom number
         int gnum = distance( gids.begin(), gids.find( gid ) );
 
+        int thickthin = -1;
+        map<string,int>::iterator it;
+        it = m_ThickMap.find( gid_bare );
+        if ( it != m_ThickMap.end() )
+        {
+            thickthin = m_ThickMap[ gid ];
+        }
+
         // Write tag number and surface list to file
-        fprintf( fid, "%d,%d,%s,%s,%s", tag , gnum, snum.c_str(), gname.c_str(), gid.c_str() );
+        if ( writethickthin )
+        {
+            fprintf( fid, "%d,%d,%s,%s,%s,%d", tag , gnum, snum.c_str(), gname.c_str(), gid_bare.c_str(), thickthin );
+        }
+        else
+        {
+            fprintf( fid, "%d,%d,%s,%s,%s", tag , gnum, snum.c_str(), gname.c_str(), gid_bare.c_str() );
+        }
 
         // Write subsurface information if there is any
         if( !ssnames.empty() )

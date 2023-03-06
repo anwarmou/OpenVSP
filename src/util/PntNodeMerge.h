@@ -51,8 +51,9 @@ struct PntNode
         m_Pnt = p;
     }
     vec3d m_Pnt;
-    int m_Index;
-    int m_UsedIndex;
+    long long int m_Index;
+    long long int m_UsedIndex;
+    vector < long long int > m_Matches;
 };
 
 // The data source fed into the KD-tree library must adhere to an interface.  The following
@@ -60,10 +61,16 @@ struct PntNode
 
 struct PntNodeCloud
 {
+    PntNodeCloud();
+    ~PntNodeCloud();
+
+    void Cleanup();
+
     // Underlying storage a vector.
     vector< PntNode > m_PntNodes;
+    PNTree *m_index;
 
-    unsigned int m_NumUsedPts;
+    long long int m_NumUsedPts;
 
     // Must return the number of data points
     inline size_t kdtree_get_point_count() const
@@ -87,11 +94,15 @@ struct PntNodeCloud
     }
 
     void AddPntNodes( const vector< vec3d > & pnts );
-    void ReserveMorePntNodes( int n );
+    void ReserveMorePntNodes( long long int n );
     void AddPntNode( const vec3d & pnt );
-    bool UsedNode( int i );
-    int GetNodeUsedIndex( int i );
-    int GetNodeBaseIndex( int i );
+    bool UsedNode( long long int i );
+    long long int GetNodeUsedIndex( long long int i );
+    long long int GetNodeBaseIndex( long long int i );
+    vector < long long int > GetMatches( long long int i );
+
+    long long int LookupPntUsed( const vec3d & pnt );
+    long long int LookupPntBase( const vec3d & pnt );
 
 };
 

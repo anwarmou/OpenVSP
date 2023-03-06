@@ -388,7 +388,7 @@ bool ManageMeasureScreen::Update()
             char str[256];
             for ( int i = 0; i < nsurf; ++i )
             {
-                sprintf( str, "Surf_%d", i );
+                snprintf( str, sizeof( str ),  "Surf_%d", i );
                 m_StartSurfChoice.AddItem( str );
             }
             m_StartSurfChoice.UpdateItems();
@@ -407,7 +407,7 @@ bool ManageMeasureScreen::Update()
         m_EndWSlider.Update( ruler->m_EndW.GetID() );
 
         char str[255];
-        sprintf( str, "%%.%df", ruler->m_Precision() );
+        snprintf( str, sizeof( str ),  "%%.%df", ruler->m_Precision() );
 
         m_DeltaXOutput.SetFormat( str );
         m_DeltaYOutput.SetFormat( str );
@@ -433,7 +433,7 @@ bool ManageMeasureScreen::Update()
             char str[256];
             for ( int i = 0; i < nsurf; ++i )
             {
-                sprintf( str, "Surf_%d", i );
+                snprintf( str, sizeof( str ),  "Surf_%d", i );
                 m_EndSurfChoice.AddItem( str );
             }
             m_EndSurfChoice.UpdateItems();
@@ -514,7 +514,7 @@ bool ManageMeasureScreen::Update()
             char str[256];
             for ( int i = 0; i < nsurf; ++i )
             {
-                sprintf( str, "Surf_%d", i );
+                snprintf( str, sizeof( str ),  "Surf_%d", i );
                 m_ProbeSurfChoice.AddItem( str );
             }
             m_ProbeSurfChoice.UpdateItems();
@@ -528,7 +528,7 @@ bool ManageMeasureScreen::Update()
         }
 
         char str[255];
-        sprintf( str, "%%.%df", probe->m_Precision() );
+        snprintf( str, sizeof( str ),  "%%.%df", probe->m_Precision() );
 
         m_XOutput.SetFormat( str );
         m_YOutput.SetFormat( str );
@@ -549,7 +549,7 @@ bool ManageMeasureScreen::Update()
         m_ZOutput.SetSuffix( lenunit );
 
         char curvunit[255];
-        sprintf( curvunit, "1/%s", lenunit.c_str() );
+        snprintf( curvunit, sizeof( curvunit ), "1/%s", lenunit.c_str() );
 
         m_K1Output.SetSuffix( string( curvunit ) );
         m_K2Output.SetSuffix( string( curvunit ) );
@@ -639,7 +639,7 @@ bool ManageMeasureScreen::Update()
             char str[256];
             for ( int i = 0; i < nsurf; ++i )
             {
-                sprintf( str, "Surf_%d", i );
+                snprintf( str, sizeof( str ),  "Surf_%d", i );
                 m_RSTProbeSurfChoice.AddItem( str );
             }
             m_RSTProbeSurfChoice.UpdateItems();
@@ -653,7 +653,7 @@ bool ManageMeasureScreen::Update()
         }
 
         char str[255];
-        sprintf( str, "%%.%df", RSTprobe->m_Precision() );
+        snprintf( str, sizeof( str ),  "%%.%df", RSTprobe->m_Precision() );
 
         m_RSTXOutput.SetFormat( str );
         m_RSTYOutput.SetFormat( str );
@@ -665,7 +665,7 @@ bool ManageMeasureScreen::Update()
         m_RSTZOutput.SetSuffix( lenunit );
 
         char curvunit[255];
-        sprintf( curvunit, "1/%s", lenunit.c_str() );
+        snprintf( curvunit, sizeof( curvunit ), "1/%s", lenunit.c_str() );
 
         m_RSTXOutput.Update( RSTprobe->m_X.GetID() );
         m_RSTYOutput.Update( RSTprobe->m_Y.GetID() );
@@ -904,36 +904,17 @@ void ManageMeasureScreen::Set( vec3d placement, std::string targetGeomId )
 {
     Vehicle* veh = VehicleMgr.GetVehicle();
 
-    Ruler * ruler = MeasureMgr.GetCurrentRuler();
-    if( ruler && veh )
+    Geom * geom = NULL;
+
+    if ( veh )
     {
-        if( ruler->m_Stage == STAGE_ZERO )
-        {
-            ruler->m_Stage = STAGE_ONE;
-            ruler->m_OriginGeomID = targetGeomId;
+        geom = veh->FindGeom( targetGeomId );
+    }
 
-            int index;
-            double u, w;
-            veh->ProjPnt01I(targetGeomId, placement, index, u, w);
-
-            ruler->m_OriginU = u;
-            ruler->m_OriginW = w;
-            ruler->m_OriginIndx = index;
-        }
-        else if( ruler->m_Stage == STAGE_ONE )
-        {
-            ruler->m_Stage = STAGE_TWO;
-            ruler->m_EndGeomID = targetGeomId;
-
-            int index;
-            double u, w;
-            veh->ProjPnt01I(targetGeomId, placement, index, u, w);
-
-            ruler->m_EndU = u;
-            ruler->m_EndW = w;
-            ruler->m_EndIndx = index;
-        }
-        else if( ruler->m_Stage == STAGE_TWO )
+    Ruler * ruler = MeasureMgr.GetCurrentRuler();
+    if ( ruler )
+    {
+        if( ruler->m_Stage == STAGE_TWO )
         {
             ruler->m_Stage = STAGE_COMPLETE;
 
@@ -943,23 +924,64 @@ void ManageMeasureScreen::Set( vec3d placement, std::string targetGeomId )
         }
     }
 
-    Probe * probe = MeasureMgr.GetCurrentProbe();
-    if( probe && veh )
+    if( ruler && geom )
     {
-        if( probe->m_Stage == STAGE_ZERO )
+        if ( ruler->m_Stage == STAGE_ZERO )
         {
-            probe->m_Stage = STAGE_ONE;
-            probe->m_OriginGeomID = targetGeomId;
+            ruler->m_Stage = STAGE_ONE;
+            ruler->m_OriginGeomID = targetGeomId;
 
             int index;
             double u, w;
-            veh->ProjPnt01I(targetGeomId, placement, index, u, w);
+            geom->ProjPnt01I( placement, index, u, w );
 
-            probe->m_OriginU = u;
-            probe->m_OriginW = w;
-            probe->m_OriginIndx = index;
+            VspSurf * surf = geom->GetSurfPtr( index );
+
+            double umapmax = surf->GetUMapMax();
+            double umax = surf->GetUMax();
+
+            double uprm = surf->EvalUMapping( u * umax ) / umapmax;
+
+            if ( uprm < 0 )
+            {
+                uprm = u;
+            }
+
+            ruler->m_OriginU = uprm;
+            ruler->m_OriginW = w;
+            ruler->m_OriginIndx = index;
         }
-        else if( probe->m_Stage == STAGE_ONE )
+        else if ( ruler->m_Stage == STAGE_ONE )
+        {
+            ruler->m_Stage = STAGE_TWO;
+            ruler->m_EndGeomID = targetGeomId;
+
+            int index;
+            double u, w;
+            geom->ProjPnt01I( placement, index, u, w );
+
+            VspSurf * surf = geom->GetSurfPtr( index );
+
+            double umapmax = surf->GetUMapMax();
+            double umax = surf->GetUMax();
+
+            double uprm = surf->EvalUMapping( u * umax ) / umapmax;
+
+            if ( uprm < 0 )
+            {
+                uprm = u;
+            }
+
+            ruler->m_EndU = uprm;
+            ruler->m_EndW = w;
+            ruler->m_EndIndx = index;
+        }
+    }
+
+    Probe * probe = MeasureMgr.GetCurrentProbe();
+    if ( probe )
+    {
+        if( probe->m_Stage == STAGE_ONE )
         {
             probe->m_Stage = STAGE_COMPLETE;
 
@@ -967,20 +989,71 @@ void ManageMeasureScreen::Set( vec3d placement, std::string targetGeomId )
         }
     }
 
-    RSTProbe * RSTprobe = MeasureMgr.GetCurrentRSTProbe();
-    if( RSTprobe && veh )
+    if( probe && geom )
     {
-        if( RSTprobe->m_Stage == STAGE_ZERO )
+        if ( probe->m_Stage == STAGE_ZERO )
+        {
+            probe->m_Stage = STAGE_ONE;
+            probe->m_OriginGeomID = targetGeomId;
+
+            int index;
+            double u, w;
+            geom->ProjPnt01I( placement, index, u, w );
+
+            VspSurf * surf = geom->GetSurfPtr( index );
+
+            double umapmax = surf->GetUMapMax();
+            double umax = surf->GetUMax();
+
+            double uprm = surf->EvalUMapping( u * umax ) / umapmax;
+
+            if ( uprm < 0 )
+            {
+                uprm = u;
+            }
+
+            probe->m_OriginU = uprm;
+            probe->m_OriginW = w;
+            probe->m_OriginIndx = index;
+        }
+    }
+
+    RSTProbe * RSTprobe = MeasureMgr.GetCurrentRSTProbe();
+    if ( RSTprobe )
+    {
+        if( RSTprobe->m_Stage == STAGE_ONE )
+        {
+            RSTprobe->m_Stage = STAGE_COMPLETE;
+
+            RSTprobe->SetLenFromPlacement( placement );
+        }
+    }
+
+    if( RSTprobe && geom )
+    {
+        if ( RSTprobe->m_Stage == STAGE_ZERO )
         {
             RSTprobe->m_Stage = STAGE_ONE;
             RSTprobe->m_OriginGeomID = targetGeomId;
 
             int index;
             double u, w;
-            veh->ProjPnt01I( targetGeomId, placement, index, u, w );
+            geom->ProjPnt01I( placement, index, u, w );
+
+            VspSurf * surf = geom->GetSurfPtr( index );
+
+            double umapmax = surf->GetUMapMax();
+            double umax = surf->GetUMax();
+
+            double uprm = surf->EvalUMapping( u * umax ) / umapmax;
+
+            if ( uprm < 0 )
+            {
+                uprm = u;
+            }
 
             double r, s, t;
-            r = u;
+            r = uprm;
             s = w;
             t = 0.0;
             if ( w > 0.5 )
@@ -994,14 +1067,7 @@ void ManageMeasureScreen::Set( vec3d placement, std::string targetGeomId )
             RSTprobe->m_OriginT = t;
             RSTprobe->m_OriginIndx = index;
         }
-        else if( RSTprobe->m_Stage == STAGE_ONE )
-        {
-            RSTprobe->m_Stage = STAGE_COMPLETE;
-
-            RSTprobe->SetLenFromPlacement( placement );
-        }
     }
-
 }
 
 std::string ManageMeasureScreen::getFeedbackGroupName()

@@ -173,8 +173,8 @@ void UtilTestSuite::StringUtilTest()
     string str( "What_Up_This_Is_A_Test" );
     StringUtil::change_from_to( str, '_', ' ' );
     TEST_ASSERT( str.compare( "What Up This Is A Test" ) == 0 );
-    StringUtil::chance_space_to_underscore( str );
-    StringUtil::chance_underscore_to_space( str );
+    StringUtil::change_space_to_underscore( str );
+    StringUtil::change_underscore_to_space( str );
     TEST_ASSERT( str.compare( "What Up This Is A Test" ) == 0 );
 
     str.assign( "    Leading_Trailing_Spaces      " );
@@ -670,6 +670,8 @@ void UtilTestSuite::FormatWidthTest()
 {
     double v = 1234567890.1234567890;
 
+    bool print = true;
+
     int len = 8;
     string fmt;
     char buf[50];
@@ -677,17 +679,17 @@ void UtilTestSuite::FormatWidthTest()
     for ( int i = 0; i < 20; i++ )
     {
         fmt = StringUtil::NasFmt( v ) + "\n";
-        // printf( fmt.c_str(), v );
+        if ( print ) printf( fmt.c_str(), v );
 
-        sprintf( buf, fmt.c_str(), v );
+        snprintf( buf, sizeof( buf ), fmt.c_str(), v );
         sbuf = string( buf );
         StringUtil::remove_leading_trailing( sbuf, ' ' );
         TEST_ASSERT( sbuf.length() == len + 1 );
 
         fmt = StringUtil::NasFmt( -v ) + "\n";
-        // printf( fmt.c_str(), -v );
+        if ( print ) printf( fmt.c_str(), -v );
 
-        sprintf( buf, fmt.c_str(), -v );
+        snprintf( buf, sizeof( buf ), fmt.c_str(), -v );
         sbuf = string( buf );
         StringUtil::remove_leading_trailing( sbuf, ' ' );
         TEST_ASSERT( sbuf.length() == len + 1);
@@ -695,6 +697,35 @@ void UtilTestSuite::FormatWidthTest()
         v = v / 10;
     }
 
+    v = 0.0;
+
+    fmt = StringUtil::NasFmt( v ) + "\n";
+    if ( print ) printf( fmt.c_str(), v );
+
+    snprintf( buf, sizeof( buf ), fmt.c_str(), v );
+    sbuf = string( buf );
+    StringUtil::remove_leading_trailing( sbuf, ' ' );
+    TEST_ASSERT( sbuf.length() == len + 1 );
+
+    v = -0.0;
+
+    fmt = StringUtil::NasFmt( v ) + "\n";
+    if ( print ) printf( fmt.c_str(), v );
+
+    snprintf( buf, sizeof( buf ), fmt.c_str(), v );
+    sbuf = string( buf );
+    StringUtil::remove_leading_trailing( sbuf, ' ' );
+    TEST_ASSERT( sbuf.length() == len + 1);
+
+    v += 0.0;
+
+    fmt = StringUtil::NasFmt( v ) + "\n";
+    if ( print ) printf( fmt.c_str(), v );
+
+    snprintf( buf, sizeof( buf ), fmt.c_str(), v );
+    sbuf = string( buf );
+    StringUtil::remove_leading_trailing( sbuf, ' ' );
+    TEST_ASSERT( sbuf.length() == len + 1);
 }
 
 void UtilTestSuite::NumbersTest()

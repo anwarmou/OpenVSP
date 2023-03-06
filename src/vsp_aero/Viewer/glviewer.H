@@ -44,8 +44,6 @@
 #include "glf.H"
 #include "binaryio.H"
 #include "viewerUI.H"
-#include "TagList.H"
-#include "TagListGroup.H"
 #include "surfIDs.H"
 #include "RotorDisk.H"
 #include "PropElement.H"
@@ -206,6 +204,7 @@ public:
     float ny[6];
     float nz[6];
     
+    float Area;
     float Pressure;
     float Stress;
     float Thickness;
@@ -230,13 +229,6 @@ class CALCULIX_BOUNDARY {
 private:
 
 public:
-
-    CALCULIX_BOUNDARY()
-    {
-        Node = -1;
-        StartDOF = -1;
-        StopDOF = -1;
-    }
 
     int Node;
     int StartDOF;
@@ -756,10 +748,6 @@ private:
     
     Fl_Browser *CuttingPlanesBrowser;
     
-    // Comgeom II panel data
-
-    TAG_LIST PanelTagList;
-
     int *ComGeom2PanelTag;
 
     // OpengGL code

@@ -11,10 +11,11 @@
 #include <cstdio>
 
 #include "Vsp1DCurve.h"
-
+#include "StlHelper.h"
 
 #include "eli/geom/curve/length.hpp"
 #include "eli/geom/curve/piecewise_creator.hpp"
+#include "eli/geom/intersect/one_d_curve_solver.hpp"
 
 typedef oned_piecewise_curve_type::index_type oned_curve_index_type;
 typedef oned_piecewise_curve_type::point_type oned_curve_point_type;
@@ -293,7 +294,7 @@ void Vsp1DCurve::InterpolateCSpline( vector< double > & input_pnt_vec, const dou
     }
 }
 
-void Vsp1DCurve::BinCubicTMap( vector < double > &tmap, vector < double > &tdisc )
+void Vsp1DCurve::BinCubicTMap( vector < double > &tmap, vector < double > &tdisc ) const
 {
     oned_piecewise_binary_cubic_creator pbcc;
 
@@ -313,13 +314,19 @@ void Vsp1DCurve::BinCubicTMap( vector < double > &tmap, vector < double > &tdisc
     c.get_pmap( tmap );
 }
 
-void Vsp1DCurve::GetTMap( vector < double > &tmap, vector < double > &tdisc )
+void Vsp1DCurve::GetTMap( vector < double > &tmap, vector < double > &tdisc ) const
 {
     // Pick off discontinuities because we want to return them as well
     // as use them in corner_create
     m_Curve.find_discontinuities( 0.01, tdisc );
     tdisc.push_back( m_Curve.get_tmax() );
 
+    // Get parameter map
+    m_Curve.get_pmap( tmap );
+}
+
+void Vsp1DCurve::GetTMap( vector < double > &tmap ) const
+{
     // Get parameter map
     m_Curve.get_pmap( tmap );
 }
@@ -535,7 +542,7 @@ void Vsp1DCurve::AppendCurveSegment( oned_curve_segment_type &c )
 }
 
 //===== Compute Point  =====//
-double Vsp1DCurve::CompPnt( double u )
+double Vsp1DCurve::CompPnt( double u ) const
 {
     oned_curve_point_type v( m_Curve.f( u ) );
 
@@ -543,7 +550,7 @@ double Vsp1DCurve::CompPnt( double u )
 }
 
 //===== Compute Tangent  =====//
-double Vsp1DCurve::CompTan( double u )
+double Vsp1DCurve::CompTan( double u ) const
 {
     oned_curve_point_type v( m_Curve.fp( u ) );
 
@@ -551,14 +558,14 @@ double Vsp1DCurve::CompTan( double u )
 }
 
 //===== Compute Point U 0.0 -> 1.0 =====//
-double Vsp1DCurve::CompPnt01( double u )
+double Vsp1DCurve::CompPnt01( double u ) const
 {
     return CompPnt( u * m_Curve.get_tmax() );
 }
 
 
 //===== Compute Tan U 0.0 -> 1.0 =====//
-double Vsp1DCurve::CompTan01( double u )
+double Vsp1DCurve::CompTan01( double u ) const
 {
     return CompTan( u * m_Curve.get_tmax() );
 }
@@ -645,6 +652,134 @@ void Vsp1DCurve::Scale( double s )
 void Vsp1DCurve::Reverse()
 {
     m_Curve.reverse();
+}
+
+void Vsp1DCurve::Roll( double u )
+{
+    if ( GetNumSections() <= 0 )
+    {
+        return;
+    }
+
+    m_Curve.split( u );
+
+    vector < double > pmap;
+    m_Curve.get_pmap( pmap );
+    int iu = vector_find_val( pmap, u );
+
+    m_Curve.roll( iu );
+}
+
+void Vsp1DCurve::Trim( double u, bool before )
+{
+    if ( GetNumSections() <= 0 )
+    {
+        return;
+    }
+
+    oned_piecewise_curve_type c1, c2;
+
+    m_Curve.split( c1, c2, u );
+
+    if ( before )
+    {
+        m_Curve = c1;
+    }
+    else
+    {
+        c2.set_t0( 0.0 );
+        m_Curve = c2;
+    }
+}
+
+void Vsp1DCurve::Join( const Vsp1DCurve &a, const Vsp1DCurve &b )
+{
+    if ( a.GetNumSections() <= 0 || b.GetNumSections() <= 0)
+    {
+        return;
+    }
+
+    m_Curve = a.GetCurve();
+    m_Curve.push_back( b.GetCurve() );
+}
+
+void Vsp1DCurve::CapMax()
+{
+    if ( GetNumSections() <= 0 )
+    {
+        return;
+    }
+
+    vector < double > val( 2, -1.0 );
+    vector < double > u( 2, 0.0 );
+    u[1] = 1.0;
+
+    Vsp1DCurve cap;
+    cap.InterpolateLinear( val, u, false );
+
+    m_Curve.push_back( cap.GetCurve() );
+}
+
+void Vsp1DCurve::CapMin()
+{
+    if ( GetNumSections() <= 0 )
+    {
+        return;
+    }
+
+    vector < double > val( 2, -1.0 );
+    vector < double > u( 2, 0.0 );
+    u[1] = 1.0;
+
+    Vsp1DCurve cap;
+    cap.InterpolateLinear( val, u, false );
+
+    cap.m_Curve.push_back( m_Curve );
+    m_Curve = cap.GetCurve();
+}
+
+double Vsp1DCurve::Invert( double f ) const
+{
+    oned_curve_point_type p0;
+    p0 << -f;
+
+    oned_piecewise_curve_type shifted = m_Curve;
+    shifted.translate( p0 );
+
+    int n = shifted.number_segments();
+    oned_curve_segment_type c;
+    oned_curve_point_type p;
+
+    vector < double > tmap;
+    m_Curve.get_pmap( tmap );
+
+    for ( int i = 0; i < n; i++ )
+    {
+        shifted.get( c, i );
+
+        int ncross = c.numzerocrossings();
+
+        if ( ncross < 0 )
+        {
+            // function is zero everywhere.
+            double tmin = tmap[i];
+            double tmax = tmap[i+1];
+            return ( tmin + tmax ) * 0.5;
+        }
+        if ( ncross > 0 )
+        {
+            // function crosses zero ncross times.
+            double t;
+            double val;
+            val = eli::geom::intersect::find_zero( t, c, 0.5, 0, 1 );
+
+            double tmin = tmap[i];
+            double dt = tmap[i+1] - tmin;
+            return tmin + t * dt;
+        }
+    }
+
+    return f; // target value not found, return input value.
 }
 
 void Vsp1DCurve::product( Vsp1DCurve c1, Vsp1DCurve c2 )
@@ -840,4 +975,24 @@ double Vsp1DCurve::IntegrateCrv_rcub( double r0 )
     eli::mutil::quad::simpson< double > quad;
 
     return quad( fun, r0, 1.0 );
+}
+
+double Vsp1DCurve::GetSegFirstPoint( int i ) const
+{
+    oned_curve_segment_type c;
+    m_Curve.get( c, i );
+
+    oned_curve_point_type p;
+    p = c.get_control_point( 0 );
+    return p[0];
+}
+
+double Vsp1DCurve::GetSegLastPoint( int i ) const
+{
+    oned_curve_segment_type c;
+    m_Curve.get( c, i );
+
+    oned_curve_point_type p;
+    p = c.get_control_point( c.degree() );
+    return p[0];
 }

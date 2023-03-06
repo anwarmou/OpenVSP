@@ -63,10 +63,12 @@ private:
     Choice m_ShellPropertyChoice;
     Choice m_OrientationChoice;
     Choice m_CapPropertyChoice;
-    ToggleButton m_ShellToggle;
-    ToggleButton m_CapToggle;
-    ToggleButton m_ShellCapToggle;
-    ToggleRadioGroup m_ShellCapToggleGroup;
+    ToggleButton m_CreateBeamElementsToggle;
+    vector < string > m_FeaPropertyIDVec;
+
+    ToggleButton m_KeepShellElementsToggle;
+    ToggleButton m_DelShellElementsToggle;
+    ToggleRadioGroup m_KeepDelShellElementsToggleGroup;
 
     //===== Skin =====//
     ToggleButton m_RemoveSkinToggle;
@@ -127,8 +129,10 @@ private:
     SliderAdjRangeInput m_FixPointULocSlider;
     SliderAdjRangeInput m_FixPointWLocSlider;
     ToggleButton m_FixPointMassToggle;
-    SliderAdjRangeInput m_FixPointMassSlider;
-    TriggerButton m_FixPointMassUnit;
+    Input m_FixPointMassInput;
+    Choice m_FixPointMassUnitChoice;
+    Output m_FixPointMass_FEMOutput;
+    TriggerButton m_FixPointMassUnit_FEM;
 
     vector < string > m_FixPointParentIDVec;
 

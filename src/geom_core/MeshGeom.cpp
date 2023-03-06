@@ -635,7 +635,7 @@ void MeshGeom::InitIndexedMesh( const vector < TMesh* > &meshvec, int & offset )
                     if ( !tri->m_SplitVec[s]->m_IgnoreTriFlag )
                     {
                         char str[80];
-                        sprintf( str, "%d", offset );
+                        snprintf( str, sizeof( str ),  "%d", offset );
                         tri->m_SplitVec[s]->m_ID = string( str );
                         m_IndexedTriVec.push_back( tri->m_SplitVec[s] );
                     }
@@ -644,7 +644,7 @@ void MeshGeom::InitIndexedMesh( const vector < TMesh* > &meshvec, int & offset )
             else if ( !tri->m_IgnoreTriFlag )
             {
                 char str[80];
-                sprintf( str, "%d", offset );
+                snprintf( str, sizeof( str ),  "%d", offset );
                 tri->m_ID = string( str );
                 m_IndexedTriVec.push_back( tri );
             }
@@ -922,7 +922,7 @@ void MeshGeom::WriteFacetTriParts( FILE* fp, int &offset, int &tri_count, int &p
 
     for ( unsigned int i = 0; i < m_TMeshVec.size(); i++ )
     {
-        geom_ID_vec[i] = m_TMeshVec[i]->m_PtrID;
+        geom_ID_vec[i] = m_TMeshVec[i]->m_OriginGeomID;
     }
 
     vector < int > tri_offset; // vector of number of tris for each tag
@@ -1201,7 +1201,7 @@ void MeshGeom::WritePovRay( FILE* fid, int comp_num )
 {
     // Make Sure FlattenTMeshVec has been called first
     string name = GetName();
-    StringUtil::chance_space_to_underscore( name );
+    StringUtil::change_space_to_underscore( name );
     Matrix4d transMat = GetTotalTransMat();
 
     fprintf( fid, "#declare %s_%d = mesh { \n", name.c_str(), comp_num );
@@ -1259,10 +1259,10 @@ void MeshGeom::WriteX3D( xmlNodePtr node )
 
             if ( d21.mag() > 0.000001 )
             {
-                sprintf( numstr, "%lf %lf %lf %lf %lf %lf %lf %lf %lf ", v0.x(), v0.y(), v0.z(),
+                snprintf( numstr, sizeof( numstr ), "%lf %lf %lf %lf %lf %lf %lf %lf %lf ", v0.x(), v0.y(), v0.z(),
                          v1.x(), v1.y(), v1.z(), v2.x(), v2.y(), v2.z() );
                 crdstr += numstr;
-                sprintf( numstr, "%d %d %d -1 ", offset, offset + 1, offset + 2 );
+                snprintf( numstr, sizeof( numstr ), "%d %d %d -1 ", offset, offset + 1, offset + 2 );
                 offset += 3;
                 indstr += numstr;
             }
@@ -1597,18 +1597,20 @@ void MeshGeom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
 //==== Create And Load Tris into Results Data Structures ====//
 void MeshGeom::CreateGeomResults( Results* res )
 {
+    int restype = -1;
     if ( m_TMeshVec.size() && m_SliceVec.size() )
     {
-        res->Add( NameValData( "Type", vsp::MESH_INDEX_AND_SLICE_TRI ) );
+        restype = vsp::MESH_INDEX_AND_SLICE_TRI;
     }
     else if ( m_TMeshVec.size() )
     {
-        res->Add( NameValData( "Type", vsp::MESH_INDEXED_TRI ) );
+        restype = vsp::MESH_INDEXED_TRI;
     }
     else if ( m_SliceVec.size() )
     {
-        res->Add( NameValData( "Type", vsp::MESH_SLICE_TRI ) );
+        restype = vsp::MESH_SLICE_TRI;
     }
+    res->Add( NameValData( "Type", restype, "Mesh results geom type flag." ) );
 
     //==== Add Index Tris =====//
     if ( m_TMeshVec.size() )
@@ -1623,8 +1625,8 @@ void MeshGeom::CreateGeomResults( Results* res )
             TNode* tnode = m_IndexedNodeVec[i];
             pvec.push_back( XFormMat.xform( tnode->m_Pnt ) );
         }
-        res->Add( NameValData( "Num_Pnts", ( int )m_IndexedNodeVec.size() ) );
-        res->Add( NameValData( "Tri_Pnts", pvec ) );
+        res->Add( NameValData( "Num_Pnts", ( int )m_IndexedNodeVec.size(), "Number of indexed points." ) );
+        res->Add( NameValData( "Tri_Pnts", pvec, "Coordinates of indexed points." ) );
 
         //==== Write Out Tris ====//
         vector< int > id0_vec;
@@ -1638,20 +1640,20 @@ void MeshGeom::CreateGeomResults( Results* res )
             id1_vec.push_back( ttri->m_N1->m_ID );
             id2_vec.push_back( ttri->m_N2->m_ID );
         }
-        res->Add( NameValData( "Num_Tris", ( int )m_IndexedTriVec.size() ) );
-        res->Add( NameValData( "Tri_Index0", id0_vec ) );
-        res->Add( NameValData( "Tri_Index1", id1_vec ) );
-        res->Add( NameValData( "Tri_Index2", id2_vec ) );
+        res->Add( NameValData( "Num_Tris", ( int )m_IndexedTriVec.size(), "Number of indexed tris." ) );
+        res->Add( NameValData( "Tri_Index0", id0_vec, "Index of triangle node zero." ) );
+        res->Add( NameValData( "Tri_Index1", id1_vec, "Index of triangle node one." ) );
+        res->Add( NameValData( "Tri_Index2", id2_vec, "Index of triangle node two." ) );
     }
 
     //==== Add Slices =====//
     if ( m_SliceVec.size() )
     {
         //==== Load m_SliceVec ====//
-        res->Add( NameValData( "Num_Slices", ( int )m_SliceVec.size() ) );
+        res->Add( NameValData( "Num_Slices", ( int )m_SliceVec.size(), "Number of slices." ) );
         for ( int i = 0; i < ( int )m_SliceVec.size(); i++ )
         {
-            res->Add( NameValData( "Num_Slice_Tris", ( int )( int )m_SliceVec[i]->m_TVec.size() ) );
+            res->Add( NameValData( "Num_Slice_Tris", ( int )( int )m_SliceVec[i]->m_TVec.size(), "Number of tris in this slice." ) );
             vector< vec3d > slice_tri_n0_vec;
             vector< vec3d > slice_tri_n1_vec;
             vector< vec3d > slice_tri_n2_vec;
@@ -1662,9 +1664,9 @@ void MeshGeom::CreateGeomResults( Results* res )
                 slice_tri_n1_vec.push_back( tri->m_N1->m_Pnt );
                 slice_tri_n2_vec.push_back( tri->m_N2->m_Pnt );
             }
-            res->Add( NameValData( "Slice_Tris_Pnt_0", slice_tri_n0_vec ) );
-            res->Add( NameValData( "Slice_Tris_Pnt_1", slice_tri_n1_vec ) );
-            res->Add( NameValData( "Slice_Tris_Pnt_2", slice_tri_n2_vec ) );
+            res->Add( NameValData( "Slice_Tris_Pnt_0", slice_tri_n0_vec, "Coordinates of triangle in slice node zero." ) );
+            res->Add( NameValData( "Slice_Tris_Pnt_1", slice_tri_n1_vec, "Coordinates of triangle in slice node one." ) );
+            res->Add( NameValData( "Slice_Tris_Pnt_2", slice_tri_n2_vec, "Coordinates of triangle in slice node two." ) );
         }
     }
 }
@@ -1852,7 +1854,7 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
     vector< string > compIdVec;
     for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
     {
-        string id = m_TMeshVec[i]->m_PtrID;
+        string id = m_TMeshVec[i]->m_OriginGeomID;
         vector<string>::iterator iter;
 
         iter = find( compIdVec.begin(), compIdVec.end(), id );
@@ -1867,11 +1869,11 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
     if ( !degen )
     {
         //==== Create Results ====//
-        res = ResultsMgr.CreateResults( "Comp_Geom" );
-        res->Add( NameValData( "Num_Comps", ( int )compIdVec.size() ) );
-        res->Add( NameValData( "Total_Num_Meshes", ( int )m_TMeshVec.size() ) );
-        res->Add( NameValData( "Total_Num_Tris", numTris ) );
-        res->Add( NameValData( "Mesh_GeomID", this->GetID() ) );
+        res = ResultsMgr.CreateResults( "Comp_Geom", "CompGeom CSG mesh generation results." );
+        res->Add( NameValData( "Num_Comps", ( int )compIdVec.size(), "Number of starting components." ) );
+        res->Add( NameValData( "Total_Num_Meshes", ( int )m_TMeshVec.size(), "Number of starting meshes." ) );
+        res->Add( NameValData( "Total_Num_Tris", numTris, "Number of starting tris." ) );
+        res->Add( NameValData( "Mesh_GeomID", this->GetID(), "GeomID of MeshGeom created." ) );
     }
 
     //==== Scale To 10 Units ====//
@@ -1888,7 +1890,7 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
             for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
             {
                 vector< TMesh* > sub_surf_meshes;
-                vector< SubSurface* > sub_surf_vec = SubSurfaceMgr.GetSubSurfs( m_TMeshVec[i]->m_PtrID, m_TMeshVec[i]->m_SurfNum );
+                vector< SubSurface* > sub_surf_vec = SubSurfaceMgr.GetSubSurfs( m_TMeshVec[i]->m_OriginGeomID, m_TMeshVec[i]->m_SurfNum );
                 int ss;
                 for ( ss = 0 ; ss < ( int )sub_surf_vec.size() ; ss++ )
                 {
@@ -1933,8 +1935,6 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
                 sub_surf_meshes.clear();
             }
         }
-        // Tag meshes before regular intersection
-        SubTagTris( (bool)intSubsFlag );
 
         MergeRemoveOpenMeshes( &info, deleteopen );
     }
@@ -2081,7 +2081,7 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
                 if ( matchVec[j] == false )
                 {
                     // If its pointer id matches the current degenGeom
-                    if ( degenGeom[i].getParentGeom()->GetID() == m_TMeshVec[j]->m_PtrID &&
+                    if ( degenGeom[i].getParentGeom()->GetID() == m_TMeshVec[j]->m_OriginGeomID &&
                          degenGeom[i].getSurfNum() == m_TMeshVec[j]->m_SurfNum )
                     {
                         degenPoint.area.push_back( m_TMeshVec[j]->m_TheoArea );
@@ -2151,7 +2151,7 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
         vector< double > theo_vol_vec;
         vector< double > wet_vol_vec;
 
-        res->Add( NameValData( "Num_Meshes", ( int )m_TMeshVec.size() ) );
+        res->Add( NameValData( "Num_Meshes", ( int )m_TMeshVec.size(), "Number of components." ) );
         for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
         {
             TMesh* tmsh = m_TMeshVec[i];
@@ -2162,28 +2162,28 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
             wet_vol_vec.push_back( tmsh->m_WetVol );
         }
 
-        res->Add( NameValData( "Comp_Name", name_vec ) );
-        res->Add( NameValData( "Theo_Area", theo_area_vec ) );
-        res->Add( NameValData( "Wet_Area", wet_area_vec ) );
-        res->Add( NameValData( "Theo_Vol", theo_vol_vec ) );
-        res->Add( NameValData( "Wet_Vol", wet_vol_vec ) );
+        res->Add( NameValData( "Comp_Name", name_vec, "Component names." ) );
+        res->Add( NameValData( "Theo_Area", theo_area_vec, "Un-trimmed surface areas." ) );
+        res->Add( NameValData( "Wet_Area", wet_area_vec, "Trimmed contribution to combined surface area." ) );
+        res->Add( NameValData( "Theo_Vol", theo_vol_vec, "Un-trimmed volume." ) );
+        res->Add( NameValData( "Wet_Vol", wet_vol_vec, "Trimmed contribution to combined volume." ) );
 
-        res->Add( NameValData( "Num_Tags", ntags ) );
-        res->Add( NameValData( "Tag_Name", tagNameVec ) );
-        res->Add( NameValData( "Tag_ID", tagIDVec ) );
-        res->Add( NameValData( "Tag_Theo_Area", tagTheoAreaVec ) );
-        res->Add( NameValData( "Tag_Wet_Area", tagWetAreaVec ) );
+        res->Add( NameValData( "Num_Tags", ntags, "Number of tags." ) );
+        res->Add( NameValData( "Tag_Name", tagNameVec, "Tag names." ) );
+        res->Add( NameValData( "Tag_ID", tagIDVec, "Tag IDs." ) );
+        res->Add( NameValData( "Tag_Theo_Area", tagTheoAreaVec, "Un-trimmed surface area for tag." ) );
+        res->Add( NameValData( "Tag_Wet_Area", tagWetAreaVec, "Trimmed surface area for tag." ) );
 
-        res->Add( NameValData( "Total_Theo_Area", m_TotalTheoArea ) );
-        res->Add( NameValData( "Total_Wet_Area", m_TotalWetArea ) );
-        res->Add( NameValData( "Total_Theo_Vol", m_TotalTheoVol ) );
-        res->Add( NameValData( "Total_Wet_Vol", m_TotalWetVol ) );
+        res->Add( NameValData( "Total_Theo_Area", m_TotalTheoArea, "Sum of component surface areas." ) );
+        res->Add( NameValData( "Total_Wet_Area", m_TotalWetArea, "Trimmed combined wetted surface area." ) );
+        res->Add( NameValData( "Total_Theo_Vol", m_TotalTheoVol, "Sum of component volumes." ) );
+        res->Add( NameValData( "Total_Wet_Vol", m_TotalWetVol, "Trimmed combined volume." ) );
 
-        res->Add( NameValData( "Num_Degen_Tris_Removed", info.m_NumDegenerateTriDeleted ) );
-        res->Add( NameValData( "Num_Open_Meshes_Removed", info.m_NumOpenMeshedDeleted ) );
-        res->Add( NameValData( "Num_Open_Meshes_Merged", info.m_NumOpenMeshesMerged ) );
-        res->Add( NameValData( "Meshes_Removed_Names", info.m_DeletedMeshes ) );
-        res->Add( NameValData( "Meshes_Merged_Names", info.m_MergedMeshes ) );
+        res->Add( NameValData( "Num_Degen_Tris_Removed", info.m_NumDegenerateTriDeleted, "Number of degenerate triangles removed during process." ) );
+        res->Add( NameValData( "Num_Open_Meshes_Removed", info.m_NumOpenMeshedDeleted, "Number of open meshes removed at start of process." ) );
+        res->Add( NameValData( "Num_Open_Meshes_Merged", info.m_NumOpenMeshesMerged, "Number of open meshes merged at start of process." ) );
+        res->Add( NameValData( "Meshes_Removed_Names", info.m_DeletedMeshes, "Names of removed meshes." ) );
+        res->Add( NameValData( "Meshes_Merged_Names", info.m_MergedMeshes, "Names of merged meshes." ) );
 
         string txtfn = m_Vehicle->getExportFileName( vsp::COMP_GEOM_TXT_TYPE );
         res->WriteCompGeomTxtFile( txtfn );
@@ -2200,9 +2200,8 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
 
 //==== Call After BndBoxes Have Been Create But Before Intersect ====//
 void MeshGeom::AreaSlice( int numSlices , vec3d norm_axis,
-                          bool autoBounds, double start, double end )
+                          bool autoBounds, double start, double end, bool measureduct )
 {
-    int tesselate = 0; // WARNING: Always false
     int i, j, s;
 
     //==== Transform mesh geoms to align with cutting plane normal vector ====//
@@ -2271,13 +2270,13 @@ void MeshGeom::AreaSlice( int numSlices , vec3d norm_axis,
     MergeRemoveOpenMeshes( &info, false );
 
     //==== Create Results ====//
-    Results* res = ResultsMgr.CreateResults( "Slice" );
-    res->Add( NameValData( "Num_Degen_Triangles_Removed", info.m_NumDegenerateTriDeleted ) );
-    res->Add( NameValData( "Num_Open_Meshes_Removed", info.m_NumOpenMeshedDeleted ) );
-    res->Add( NameValData( "Num_Open_Meshes_Merged", info.m_NumOpenMeshesMerged ) );
-    res->Add( NameValData( "Meshes_Removed_Names", info.m_DeletedMeshes ) );
-    res->Add( NameValData( "Meshes_Merged_Names", info.m_MergedMeshes ) );
-    res->Add( NameValData( "Mesh_GeomID", this->GetID() ) );
+    Results* res = ResultsMgr.CreateResults( "Slice", "Planar slicing results." );
+    res->Add( NameValData( "Num_Degen_Triangles_Removed", info.m_NumDegenerateTriDeleted, "Number of degenerate triangles removed during process." ) );
+    res->Add( NameValData( "Num_Open_Meshes_Removed", info.m_NumOpenMeshedDeleted, "Number of open meshes removed at start of process." ) );
+    res->Add( NameValData( "Num_Open_Meshes_Merged", info.m_NumOpenMeshesMerged, "Number of open meshes merged at start of process." ) );
+    res->Add( NameValData( "Meshes_Removed_Names", info.m_DeletedMeshes, "Names of removed meshes." ) );
+    res->Add( NameValData( "Meshes_Merged_Names", info.m_MergedMeshes, "Names of merged meshes." ) );
+    res->Add( NameValData( "Mesh_GeomID", this->GetID(), "GeomID of MeshGeom created." ) );
 
 
     //==== Count Tris ====//
@@ -2291,7 +2290,7 @@ void MeshGeom::AreaSlice( int numSlices , vec3d norm_axis,
     vector< string > compIdVec;
     for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
     {
-        string id = m_TMeshVec[i]->m_PtrID;
+        string id = m_TMeshVec[i]->m_OriginGeomID;
         vector<string>::iterator iter;
 
         iter = find( compIdVec.begin(), compIdVec.end(), id );
@@ -2302,10 +2301,10 @@ void MeshGeom::AreaSlice( int numSlices , vec3d norm_axis,
         }
     }
 
-    res->Add( NameValData( "Num_Comps", ( int )compIdVec.size() ) );
-    res->Add( NameValData( "Num_Meshes", ( int )m_TMeshVec.size() ) );
-    res->Add( NameValData( "Num_Tris", numTris ) );
-    res->Add( NameValData( "Axis_Vector", norm_axis ) );
+    res->Add( NameValData( "Num_Comps", ( int )compIdVec.size(), "Number of starting components." ) );
+    res->Add( NameValData( "Num_Meshes", ( int )m_TMeshVec.size(), "Number of starting meshes." ) );
+    res->Add( NameValData( "Num_Tris", numTris, "Number of starting tris.") );
+    res->Add( NameValData( "Axis_Vector", norm_axis, "Normal vector for slice generation." ) );
 
     //==== Create Bnd Box for  Mesh Geoms ====//
     for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
@@ -2321,67 +2320,16 @@ void MeshGeom::AreaSlice( int numSlices , vec3d norm_axis,
     }
     m_BBox = b;
 
-    double xMin;
-    double xMax;
-    if ( autoBounds )
+    int slctype = vsp::CFD_STRUCTURE;
+    if ( measureduct )
     {
-        xMin = m_BBox.GetMin( 0 ) - 0.0001;
-        xMax = m_BBox.GetMax( 0 ) + 0.0001;
-    }
-    else
-    {
-        xMin = start - 0.0001;
-        xMax = end + 0.0001;
-    }
-
-    vec3d norm( 1, 0, 0 );
-
-    double dxSlice = 1.0;
-    if ( numSlices > 1 )
-    {
-        dxSlice = ( xMax - xMin ) / ( double )( numSlices - 1 );
+        slctype = vsp::CFD_MEASURE_DUCT;
     }
 
     vector< double > loc_vec;
-    for ( s = 0 ; s < numSlices ; s++ )
-    {
-        TMesh* tm = new TMesh();
-        m_SliceVec.push_back( tm );
-
-        tm->m_ThickSurf = false;
-        tm->m_SurfCfdType = vsp::CFD_STRUCTURE;
-
-        double x = xMin + ( double )s * dxSlice;
-        loc_vec.push_back( x );
-
-        double ydel = 1.02 * ( m_BBox.GetMax( 1 ) - m_BBox.GetMin( 1 ) );
-        double ys   = m_BBox.GetMin( 1 ) - 0.01 * ydel;
-        double zdel = 1.02 * ( m_BBox.GetMax( 2 ) - m_BBox.GetMin( 2 ) );
-        double zs   = m_BBox.GetMin( 2 ) - 0.01 * zdel;
-
-        if ( tesselate )
-        {
-            for ( i = 0 ; i < 10 ; i++ )
-            {
-                double y0 = ys + ydel * 0.1 * ( double )i;
-                double y1 = ys + ydel * 0.1 * ( double )( i + 1 );
-
-                for ( j = 0 ; j < 10 ; j++ )
-                {
-                    double z0 = zs + zdel * 0.1 * ( double )j;
-                    double z1 = zs + zdel * 0.1 * ( double )( j + 1 );
-
-                    tm->AddTri( vec3d( x, y0, z0 ), vec3d( x, y1, z0 ), vec3d( x, y1, z1 ), norm );
-                    tm->AddTri( vec3d( x, y0, z0 ), vec3d( x, y1, z1 ), vec3d( x, y0, z1 ), norm );
-                }
-            }
-        }
-        else
-        {
-            tm->AddTri( vec3d( x, ys, zs ), vec3d( x, ys + ydel, zs ), vec3d( x, ys + ydel, zs + zdel ), norm );
-            tm->AddTri( vec3d( x, ys, zs ), vec3d( x, ys + ydel, zs + zdel ), vec3d( x, ys, zs + zdel ), norm );
-        }
-    }
+    bool mpslice = false; // Do counting for mass properties slicing.
+    bool tesselate = false; // Sub-tessellate slice into smaller triangles.
+    double dxSlice = MakeSlices( numSlices, vsp::X_DIR, loc_vec, mpslice, tesselate, autoBounds, start, end, slctype );
 
     // Fill vector of cfdtypes so we don't have to pass TMeshVec all the way down.
     vector < int > bTypes( m_TMeshVec.size() );
@@ -2427,10 +2375,10 @@ void MeshGeom::AreaSlice( int numSlices , vec3d norm_axis,
         area_vec.push_back( m_SliceVec[s]->m_WetArea );
         AreaCenter.push_back( TransMat.xform( m_SliceVec[s]->m_AreaCenter ) );
     }
-    res->Add( NameValData( "Slice_Area_Center", AreaCenter ) );
-    res->Add( NameValData( "Num_Slices", ( int )m_SliceVec.size() ) );
-    res->Add( NameValData( "Slice_Loc", loc_vec ) );
-    res->Add( NameValData( "Slice_Area", area_vec ) );
+    res->Add( NameValData( "Slice_Area_Center", AreaCenter, "Slice center of area." ) );
+    res->Add( NameValData( "Num_Slices", ( int )m_SliceVec.size(), "Number of slices." ) );
+    res->Add( NameValData( "Slice_Loc", loc_vec, "Position along slice axis." ) );
+    res->Add( NameValData( "Slice_Area", area_vec, "Area of slice." ) );
 
     string filename = m_Vehicle->getExportFileName( vsp::SLICE_TXT_TYPE );
     res->WriteSliceFile( filename );
@@ -2535,7 +2483,7 @@ void MeshGeom::WaveDragSlice( int numSlices, double sliceAngle, int coneSections
     for ( int i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
     {
         // Get vector of all subsurface pointers in current TMesh
-        vector< SubSurface* > sub_surf_vec = SubSurfaceMgr.GetSubSurfs( m_TMeshVec[i]->m_PtrID, m_TMeshVec[i]->m_SurfNum );
+        vector< SubSurface* > sub_surf_vec = SubSurfaceMgr.GetSubSurfs( m_TMeshVec[i]->m_OriginGeomID, m_TMeshVec[i]->m_SurfNum );
 
         for ( int ssv = 0 ; ssv < ( int )sub_surf_vec.size(); ssv++ )
         {
@@ -2725,7 +2673,7 @@ void MeshGeom::WaveDragSlice( int numSlices, double sliceAngle, int coneSections
     vector< string > compIdVec;
     for ( int i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
     {
-        string id = m_TMeshVec[i]->m_PtrID;
+        string id = m_TMeshVec[i]->m_OriginGeomID;
         vector<string>::iterator iter;
 
         iter = find( compIdVec.begin(), compIdVec.end(), id );
@@ -2955,7 +2903,7 @@ void MeshGeom::WaveDragSlice( int numSlices, double sliceAngle, int coneSections
 }
 
 //==== Call After BndBoxes Have Been Create But Before Intersect ====//
-void MeshGeom::MassSliceX( int numSlices, bool writefile )
+void MeshGeom::MassSlice( vector < DegenGeom > &degenGeom, bool degen, int numSlices, int idir, bool writefile )
 {
     int i, j, s;
 
@@ -2964,49 +2912,48 @@ void MeshGeom::MassSliceX( int numSlices, bool writefile )
     MergeRemoveOpenMeshes( &info );
 
     //==== Create Results ====//
-    Results* res = ResultsMgr.CreateResults( "Mass_Properties" );
-    res->Add( NameValData( "Num_Degen_Triangles_Removed", info.m_NumDegenerateTriDeleted ) );
-    res->Add( NameValData( "Num_Open_Meshes_Removed", info.m_NumOpenMeshedDeleted ) );
-    res->Add( NameValData( "Num_Open_Meshes_Merged", info.m_NumOpenMeshesMerged ) );
-    res->Add( NameValData( "Meshes_Removed_Names", info.m_DeletedMeshes ) );
-    res->Add( NameValData( "Meshes_Merged_Names", info.m_MergedMeshes ) );
-    res->Add( NameValData( "Mesh_GeomID", this->GetID() ) );
-
-    //==== Count Tris ====//
+    Results *res = NULL;
     int numTris = 0;
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+
+    if ( !degen )
     {
-        numTris += m_TMeshVec[i]->m_TVec.size();
+        res = ResultsMgr.CreateResults( "Mass_Properties", "Mass properties results." );
+        res->Add( NameValData( "Num_Degen_Triangles_Removed", info.m_NumDegenerateTriDeleted, "Number of degenerate triangles removed during process." ) );
+        res->Add( NameValData( "Num_Open_Meshes_Removed", info.m_NumOpenMeshedDeleted, "Number of open meshes removed at start of process."  ) );
+        res->Add( NameValData( "Num_Open_Meshes_Merged", info.m_NumOpenMeshesMerged, "Number of open meshes merged at start of process." ) );
+        res->Add( NameValData( "Meshes_Removed_Names", info.m_DeletedMeshes, "Names of removed meshes." ) );
+        res->Add( NameValData( "Meshes_Merged_Names", info.m_MergedMeshes, "Names of merged meshes." ) );
+        res->Add( NameValData( "Mesh_GeomID", this->GetID(), "GeomID of MeshGeom created." ) );
+        res->Add( NameValData( "Num_Total_Meshes", ( int )m_TMeshVec.size(), "Number of starting meshes." ) );
+
+        //==== Count Tris ====//
+        for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
+        {
+            numTris += m_TMeshVec[ i ]->m_TVec.size();
+        }
+        res->Add( NameValData( "Num_Total_Tris", numTris, "Number of starting tris." ) );
+
     }
 
     //==== Augment ID with index to make symmetric copies unique. ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
     {
-        m_TMeshVec[i]->m_PtrID.append( std::to_string( (long long) i ) );
+        m_TMeshVec[ i ]->m_OriginGeomID.append( std::to_string(( long long ) i ));
     }
 
-    res->Add( NameValData( "Num_Total_Meshes", ( int )m_TMeshVec.size() ) );
-    res->Add( NameValData( "Num_Total_Tris", numTris ) );
-
     //==== Create Bnd Box for  Mesh Geoms ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
     {
-        m_TMeshVec[i]->LoadBndBox();
+        m_TMeshVec[ i ]->LoadBndBox();
     }
 
     //==== Update Bnd Box for  Combined ====//
     BndBox b;
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
     {
-        b.Update( m_TMeshVec[i]->m_TBox.m_Box );
+        b.Update( m_TMeshVec[ i ]->m_TBox.m_Box );
     }
     m_BBox = b;
-    //update_xformed_bbox();            // Load Xform BBox
-
-    double xMin = m_BBox.GetMin( 0 );
-    double xMax = m_BBox.GetMax( 0 );
-
-    double sliceW = ( xMax - xMin ) / ( double )( numSlices );
 
     //==== Build Slice Mesh Object =====//
     if ( numSlices < 3 )
@@ -3014,58 +2961,31 @@ void MeshGeom::MassSliceX( int numSlices, bool writefile )
         numSlices = 3;
     }
 
-    for ( s = 0 ; s < numSlices ; s++ )
-    {
-        TMesh* tm = new TMesh();
-        m_SliceVec.push_back( tm );
+    vector < double > slice_fill_vec;
 
-        tm->m_ThickSurf = false;
-        tm->m_SurfCfdType = vsp::CFD_STRUCTURE;
-
-        double x = xMin + ( double )s * sliceW + 0.5 * sliceW;
-
-        double ydel = 1.02 * ( m_BBox.GetMax( 1 ) - m_BBox.GetMin( 1 ) );
-        double ys   = m_BBox.GetMin( 1 ) - 0.01 * ydel;
-        double zdel = 1.02 * ( m_BBox.GetMax( 2 ) - m_BBox.GetMin( 2 ) );
-        double zs   = m_BBox.GetMin( 2 ) - 0.01 * zdel;
-
-        for ( i = 0 ; i < 10 ; i++ )
-        {
-            double y0 = ys + ydel * 0.1 * ( double )i;
-            double y1 = ys + ydel * 0.1 * ( double )( i + 1 );
-
-            for ( j = 0 ; j < 10 ; j++ )
-            {
-                double z0 = zs + zdel * 0.1 * ( double )j;
-                double z1 = zs + zdel * 0.1 * ( double )( j + 1 );
-
-                tm->AddTri( vec3d( x, y0, z0 ), vec3d( x, y1, z0 ), vec3d( x, y1, z1 ), vec3d( 1, 0, 0 ) );
-                tm->AddTri( vec3d( x, y0, z0 ), vec3d( x, y1, z1 ), vec3d( x, y0, z1 ), vec3d( 1, 0, 0 ) );
-            }
-        }
-    }
+    double sliceW = MakeSlices( numSlices, idir, slice_fill_vec );
 
     // Fill vector of cfdtypes so we don't have to pass TMeshVec all the way down.
-    vector < int > bTypes( m_TMeshVec.size() );
-    vector < bool > thicksurf( m_TMeshVec.size() );
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    vector < int > bTypes( m_TMeshVec.size());
+    vector < bool > thicksurf( m_TMeshVec.size());
+    for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
     {
-        bTypes[i] = m_TMeshVec[i]->m_SurfCfdType;
-        thicksurf[i] = m_TMeshVec[i]->m_ThickSurf;
+        bTypes[ i ] = m_TMeshVec[ i ]->m_SurfCfdType;
+        thicksurf[ i ] = m_TMeshVec[ i ]->m_ThickSurf;
     }
 
-    //==== Load Bnding Box ====//
-    for ( s = 0 ; s < ( int )m_SliceVec.size() ; s++ )
+    //==== Load Bounding Box ====//
+    for ( s = 0; s < ( int ) m_SliceVec.size(); s++ )
     {
-        TMesh* tm = m_SliceVec[s];
+        TMesh *tm = m_SliceVec[ s ];
         tm->LoadBndBox();
 
         //==== Intersect All Mesh Geoms ====//
-        for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+        for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
         {
-            tm->Intersect( m_TMeshVec[i] );
+            tm->Intersect( m_TMeshVec[ i ] );
 
-            m_TMeshVec[i]->RemoveIsectEdges();
+            m_TMeshVec[ i ]->RemoveIsectEdges();
         }
 
         //==== Split Intersected Tri in Mesh ====//
@@ -3080,60 +3000,65 @@ void MeshGeom::MassSliceX( int numSlices, bool writefile )
     }
 
     //==== Intersect All Mesh Geoms ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
     {
-        for ( j = i + 1 ; j < ( int )m_TMeshVec.size() ; j++ )
+        for ( j = i + 1; j < ( int ) m_TMeshVec.size(); j++ )
         {
-            m_TMeshVec[i]->Intersect( m_TMeshVec[j] );
+            m_TMeshVec[ i ]->Intersect( m_TMeshVec[ j ] );
         }
     }
 
     //==== Split Intersected Tri in Mesh ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
     {
-        m_TMeshVec[i]->Split();
+        m_TMeshVec[ i ]->Split();
     }
 
     //==== Determine Which Triangle Are Interior/Exterior ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
     {
-        m_TMeshVec[i]->DeterIntExt( m_TMeshVec );
+        m_TMeshVec[ i ]->DeterIntExt( m_TMeshVec );
     }
 
     //==== Mark which triangles to ignore ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
     {
-        m_TMeshVec[i]->SetIgnoreTriFlag( m_TMeshVec, bTypes, thicksurf );
+        m_TMeshVec[ i ]->SetIgnoreTriFlag( m_TMeshVec, bTypes, thicksurf );
     }
 
     //==== Do Shell Calcs ====//
-    vector< TriShellMassProp* > triShellVec;
-    for ( s = 0 ; s < ( int )m_TMeshVec.size() ; s++ )
+    vector < TriShellMassProp * > triShellVec;
+    for ( s = 0; s < ( int ) m_TMeshVec.size(); s++ )
     {
-        TMesh* tm = m_TMeshVec[s];
-        if ( tm->m_ShellFlag )
+        TMesh *tm = m_TMeshVec[ s ];
+        if ( tm->m_ShellFlag || degen )
         {
-            for ( i = 0 ; i < ( int )tm->m_TVec.size() ; i++ )
+            if ( degen )
             {
-                TTri* tri = tm->m_TVec[i];
-                if ( tri->m_SplitVec.size() )
+                tm->m_ShellMassArea = 1.0;
+            }
+            for ( i = 0; i < ( int ) tm->m_TVec.size(); i++ )
+            {
+                TTri *tri = tm->m_TVec[ i ];
+                if ( tri->m_SplitVec.size())
                 {
-                    for ( j = 0 ; j < ( int )tri->m_SplitVec.size() ; j++ )
+                    for ( j = 0; j < ( int ) tri->m_SplitVec.size(); j++ )
                     {
-                        if ( !tri->m_SplitVec[j]->m_IgnoreTriFlag )
+                        if ( !tri->m_SplitVec[ j ]->m_IgnoreTriFlag )
                         {
-                            TriShellMassProp* tsmp = new TriShellMassProp( tm->m_PtrID, tm->m_ShellMassArea,
-                                    tri->m_SplitVec[j]->m_N0->m_Pnt,
-                                    tri->m_SplitVec[j]->m_N1->m_Pnt,
-                                    tri->m_SplitVec[j]->m_N2->m_Pnt );
+                            TriShellMassProp *tsmp = new TriShellMassProp( tm->m_OriginGeomID, tm->m_ShellMassArea,
+                                                                           tri->m_SplitVec[ j ]->m_N0->m_Pnt,
+                                                                           tri->m_SplitVec[ j ]->m_N1->m_Pnt,
+                                                                           tri->m_SplitVec[ j ]->m_N2->m_Pnt );
                             triShellVec.push_back( tsmp );
                         }
                     }
                 }
                 else if ( !tri->m_IgnoreTriFlag )
                 {
-                    TriShellMassProp* tsmp = new TriShellMassProp( tm->m_PtrID, tm->m_ShellMassArea,
-                            tri->m_N0->m_Pnt, tri->m_N1->m_Pnt, tri->m_N2->m_Pnt );
+                    TriShellMassProp *tsmp = new TriShellMassProp( tm->m_OriginGeomID, tm->m_ShellMassArea,
+                                                                   tri->m_N0->m_Pnt, tri->m_N1->m_Pnt,
+                                                                   tri->m_N2->m_Pnt );
                     triShellVec.push_back( tsmp );
                 }
             }
@@ -3142,144 +3067,272 @@ void MeshGeom::MassSliceX( int numSlices, bool writefile )
 
     //==== Build Tetrahedrons ====//
     double prismLength = sliceW;
-    vector< TetraMassProp* > tetraVec;
+    vector < vector < TetraMassProp * > > tetraVecVec( m_SliceVec.size());
 
-    for ( s = 0 ; s < ( int )m_SliceVec.size() ; s++ )
+    for ( s = 0; s < ( int ) m_SliceVec.size(); s++ )
     {
-        TMesh* tm = m_SliceVec[s];
-        for ( i = 0 ; i < ( int )tm->m_TVec.size() ; i++ )
+        TMesh *tm = m_SliceVec[ s ];
+        for ( i = 0; i < ( int ) tm->m_TVec.size(); i++ )
         {
-            TTri* tri = tm->m_TVec[i];
+            TTri *tri = tm->m_TVec[ i ];
 
-            if ( tri->m_SplitVec.size() )
+            if ( tri->m_SplitVec.size())
             {
-                for ( j = 0 ; j < ( int )tri->m_SplitVec.size() ; j++ )
+                for ( j = 0; j < ( int ) tri->m_SplitVec.size(); j++ )
                 {
-                    if ( !tri->m_SplitVec[j]->m_IgnoreTriFlag )
+                    if ( !tri->m_SplitVec[ j ]->m_IgnoreTriFlag )
                     {
-                        CreatePrism( tetraVec, tri->m_SplitVec[j], prismLength );
+                        if ( degen )
+                        {
+                            tri->m_SplitVec[ j ]->m_Density = 1.0;
+                        }
+                        CreatePrism( tetraVecVec[ s ], tri->m_SplitVec[ j ], prismLength, idir );
                     }
                 }
             }
             else if ( !tri->m_IgnoreTriFlag )
             {
-                CreatePrism( tetraVec, tri, prismLength );
+                if ( degen )
+                {
+                    tri->m_Density = 1.0;
+                }
+                CreatePrism( tetraVecVec[ s ], tri, prismLength, idir );
             }
         }
-    }
-
-    //==== Add in Point Masses ====//
-    for ( i = 0 ; i < ( int )m_PointMassVec.size() ; i++ )
-    {
-        tetraVec.push_back( m_PointMassVec[i] );
     }
 
     double totalVol = 0.0;
-    for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
-    {
-        totalVol += std::abs( tetraVec[i]->m_Vol );
-    }
-
     vec3d cg( 0, 0, 0 );
-    m_TotalMass = 0.0;
-    for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
+
+    vector < double > mass_fill_vec;
+    vector < vec3d > cg_fill_vec;
+    vector < double > ixx_fill_vec;
+    vector < double > iyy_fill_vec;
+    vector < double > izz_fill_vec;
+    vector < double > ixy_fill_vec;
+    vector < double > ixz_fill_vec;
+    vector < double > iyz_fill_vec;
+    vector < double > vol_fill_vec;
+
+    if ( !degen )
     {
-        m_TotalMass += tetraVec[i]->m_Mass;
-        cg = cg + tetraVec[i]->m_CG * tetraVec[i]->m_Mass;
+
+        // Filling mass calcs
+        double fillVol = 0.0;
+        vec3d fillMoment( 0, 0, 0 );
+        vec3d fillCG( 0, 0, 0 );
+        double fillMass = 0.0;
+        double fillIxx, fillIyy, fillIzz;
+        double fillIxy, fillIxz, fillIyz;
+        fillIxx = fillIyy = fillIzz = 0.0;
+        fillIxy = fillIxz = fillIyz = 0.0;
+
+        for ( j = 0; j < tetraVecVec.size(); j++ )
+        {
+            double sliceVol = 0.0;
+            vec3d sliceMoment( 0, 0, 0 );
+            vec3d sliceCG( 0, 0, 0 );
+            double sliceMass = 0.0;
+
+            vec3d oldCG = fillCG;
+            double oldMass = fillMass;
+
+            for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
+            {
+                sliceVol += tetraVecVec[ j ][ i ]->m_Vol;
+            }
+            fillVol += sliceVol;
+
+            for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
+            {
+                sliceMass += tetraVecVec[ j ][ i ]->m_Mass;
+                sliceMoment = sliceMoment + tetraVecVec[ j ][ i ]->m_CG * tetraVecVec[ j ][ i ]->m_Mass;
+            }
+
+            if ( sliceMass )
+            {
+                sliceCG = sliceMoment * ( 1.0 / sliceMass );
+            }
+
+            fillMoment = fillMoment + sliceMoment;
+            fillMass += sliceMass;
+
+            if ( fillMass )
+            {
+                fillCG = fillMoment * ( 1.0 / fillMass );
+            }
+
+            // Transform running total to new CG location
+            fillIxx = fillIxx + oldMass * (( fillCG.y() - oldCG.y()) * ( fillCG.y() - oldCG.y()) +
+                                           ( fillCG.z() - oldCG.z()) * ( fillCG.z() - oldCG.z()));
+            fillIyy = fillIyy + oldMass * (( fillCG.x() - oldCG.x()) * ( fillCG.x() - oldCG.x()) +
+                                           ( fillCG.z() - oldCG.z()) * ( fillCG.z() - oldCG.z()));
+            fillIzz = fillIzz + oldMass * (( fillCG.x() - oldCG.x()) * ( fillCG.x() - oldCG.x()) +
+                                           ( fillCG.y() - oldCG.y()) * ( fillCG.y() - oldCG.y()));
+
+            fillIxy = fillIxy + oldMass * (( fillCG.x() - oldCG.x()) * ( fillCG.y() - oldCG.y()));
+            fillIxz = fillIxz + oldMass * (( fillCG.x() - oldCG.x()) * ( fillCG.z() - oldCG.z()));
+            fillIyz = fillIyz + oldMass * (( fillCG.y() - oldCG.y()) * ( fillCG.z() - oldCG.z()));
+
+            // Add in all tets, no need to form slice subtotal.
+            for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
+            {
+                TetraMassProp *tet = tetraVecVec[ j ][ i ];
+                fillIxx += tet->m_Ixx + tet->m_Mass * (( fillCG.y() - tet->m_CG.y()) * ( fillCG.y() - tet->m_CG.y()) +
+                                                       ( fillCG.z() - tet->m_CG.z()) * ( fillCG.z() - tet->m_CG.z()));
+                fillIyy += tet->m_Iyy + tet->m_Mass * (( fillCG.x() - tet->m_CG.x()) * ( fillCG.x() - tet->m_CG.x()) +
+                                                       ( fillCG.z() - tet->m_CG.z()) * ( fillCG.z() - tet->m_CG.z()));
+                fillIzz += tet->m_Izz + tet->m_Mass * (( fillCG.x() - tet->m_CG.x()) * ( fillCG.x() - tet->m_CG.x()) +
+                                                       ( fillCG.y() - tet->m_CG.y()) * ( fillCG.y() - tet->m_CG.y()));
+
+                fillIxy += tet->m_Ixy + tet->m_Mass * (( fillCG.x() - tet->m_CG.x()) * ( fillCG.y() - tet->m_CG.y()));
+                fillIxz += tet->m_Ixz + tet->m_Mass * (( fillCG.x() - tet->m_CG.x()) * ( fillCG.z() - tet->m_CG.z()));
+                fillIyz += tet->m_Iyz + tet->m_Mass * (( fillCG.y() - tet->m_CG.y()) * ( fillCG.z() - tet->m_CG.z()));
+            }
+
+            vol_fill_vec.push_back( fillVol );
+            mass_fill_vec.push_back( fillMass );
+            cg_fill_vec.push_back( fillCG );
+            ixx_fill_vec.push_back( fillIxx );
+            iyy_fill_vec.push_back( fillIyy );
+            izz_fill_vec.push_back( fillIzz );
+            ixy_fill_vec.push_back( fillIxy );
+            ixz_fill_vec.push_back( fillIxz );
+            iyz_fill_vec.push_back( fillIyz );
+        }
+
+        // Normal mass calcs below.
+
+        int jpointmass = tetraVecVec.size();
+        tetraVecVec.resize( jpointmass + 1 );
+
+        //==== Add in Point Masses ====//
+        for ( i = 0; i < ( int ) m_PointMassVec.size(); i++ )
+        {
+            tetraVecVec[ jpointmass ].push_back( m_PointMassVec[ i ] );
+        }
+
+        for ( j = 0; j < tetraVecVec.size(); j++ )
+        {
+            for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
+            {
+                totalVol += tetraVecVec[ j ][ i ]->m_Vol;
+            }
+        }
+
+
+        m_TotalMass = 0.0;
+        for ( j = 0; j < tetraVecVec.size(); j++ )
+        {
+            for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
+            {
+                m_TotalMass += tetraVecVec[ j ][ i ]->m_Mass;
+                cg = cg + tetraVecVec[ j ][ i ]->m_CG * tetraVecVec[ j ][ i ]->m_Mass;
+            }
+        }
+        for ( i = 0; i < ( int ) triShellVec.size(); i++ )
+        {
+            m_TotalMass += triShellVec[ i ]->m_Mass;
+            cg = cg + triShellVec[ i ]->m_CG * triShellVec[ i ]->m_Mass;
+        }
+
+        if ( m_TotalMass )
+        {
+            cg = cg * ( 1.0 / m_TotalMass );
+        }
+
+        m_CenterOfGrav = cg;
+
+        m_TotalIxx = m_TotalIyy = m_TotalIzz = 0.0;
+        m_TotalIxy = m_TotalIxz = m_TotalIyz = 0.0;
+        for ( j = 0; j < tetraVecVec.size(); j++ )
+        {
+            for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
+            {
+                TetraMassProp *tet = tetraVecVec[ j ][ i ];
+                m_TotalIxx += tet->m_Ixx + tet->m_Mass * (( cg.y() - tet->m_CG.y()) * ( cg.y() - tet->m_CG.y()) +
+                                                          ( cg.z() - tet->m_CG.z()) * ( cg.z() - tet->m_CG.z()));
+                m_TotalIyy += tet->m_Iyy + tet->m_Mass * (( cg.x() - tet->m_CG.x()) * ( cg.x() - tet->m_CG.x()) +
+                                                          ( cg.z() - tet->m_CG.z()) * ( cg.z() - tet->m_CG.z()));
+                m_TotalIzz += tet->m_Izz + tet->m_Mass * (( cg.x() - tet->m_CG.x()) * ( cg.x() - tet->m_CG.x()) +
+                                                          ( cg.y() - tet->m_CG.y()) * ( cg.y() - tet->m_CG.y()));
+
+                m_TotalIxy += tet->m_Ixy + tet->m_Mass * (( cg.x() - tet->m_CG.x()) * ( cg.y() - tet->m_CG.y()));
+                m_TotalIxz += tet->m_Ixz + tet->m_Mass * (( cg.x() - tet->m_CG.x()) * ( cg.z() - tet->m_CG.z()));
+                m_TotalIyz += tet->m_Iyz + tet->m_Mass * (( cg.y() - tet->m_CG.y()) * ( cg.z() - tet->m_CG.z()));
+            }
+        }
+        for ( i = 0; i < ( int ) triShellVec.size(); i++ )
+        {
+            TriShellMassProp *trs = triShellVec[ i ];
+            m_TotalIxx += trs->m_Ixx + trs->m_Mass * (( cg.y() - trs->m_CG.y()) * ( cg.y() - trs->m_CG.y()) +
+                                                      ( cg.z() - trs->m_CG.z()) * ( cg.z() - trs->m_CG.z()));
+            m_TotalIyy += trs->m_Iyy + trs->m_Mass * (( cg.x() - trs->m_CG.x()) * ( cg.x() - trs->m_CG.x()) +
+                                                      ( cg.z() - trs->m_CG.z()) * ( cg.z() - trs->m_CG.z()));
+            m_TotalIzz += trs->m_Izz + trs->m_Mass * (( cg.x() - trs->m_CG.x()) * ( cg.x() - trs->m_CG.x()) +
+                                                      ( cg.y() - trs->m_CG.y()) * ( cg.y() - trs->m_CG.y()));
+
+            m_TotalIxy += trs->m_Ixy + trs->m_Mass * (( cg.x() - trs->m_CG.x()) * ( cg.y() - trs->m_CG.y()));
+            m_TotalIxz += trs->m_Ixz + trs->m_Mass * (( cg.x() - trs->m_CG.x()) * ( cg.z() - trs->m_CG.z()));
+            m_TotalIyz += trs->m_Iyz + trs->m_Mass * (( cg.y() - trs->m_CG.y()) * ( cg.z() - trs->m_CG.z()));
+        }
     }
-    for ( i = 0 ; i < ( int )triShellVec.size() ; i++ )
+
+    vector < string > name_vec;
+    vector < string > id_vec;
+    vector < double > mass_vec;
+    vector < vec3d > cg_vec;
+    vector < double > ixx_vec;
+    vector < double > iyy_vec;
+    vector < double > izz_vec;
+    vector < double > ixy_vec;
+    vector < double > ixz_vec;
+    vector < double > iyz_vec;
+    vector < double > vol_vec;
+
+    //==== Calculate Properties on a Per Component Basis ====//
+    vector < vec3d > compSolidCg, compShellCg;
+    vector < vector < double > > compSolidI, compShellI;
+
+    for ( s = 0; s < ( int ) m_TMeshVec.size(); s++ )
     {
-        m_TotalMass += triShellVec[i]->m_Mass;
-        cg = cg + triShellVec[i]->m_CG * triShellVec[i]->m_Mass;
-    }
-
-    if ( m_TotalMass )
-    {
-        cg = cg * ( 1.0 / m_TotalMass );
-    }
-
-    m_CenterOfGrav = cg;
-
-    m_TotalIxx = m_TotalIyy = m_TotalIzz = 0.0;
-    m_TotalIxy = m_TotalIxz = m_TotalIyz = 0.0;
-    for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
-    {
-        TetraMassProp* tet = tetraVec[i];
-        m_TotalIxx += tet->m_Ixx +
-                      tet->m_Mass * ( ( cg.y() - tet->m_CG.y() ) * ( cg.y() - tet->m_CG.y() ) + ( cg.z() - tet->m_CG.z() ) * ( cg.z() - tet->m_CG.z() ) );
-        m_TotalIyy += tet->m_Iyy +
-                      tet->m_Mass * ( ( cg.x() - tet->m_CG.x() ) * ( cg.x() - tet->m_CG.x() ) + ( cg.z() - tet->m_CG.z() ) * ( cg.z() - tet->m_CG.z() ) );
-        m_TotalIzz += tet->m_Izz +
-                      tet->m_Mass * ( ( cg.x() - tet->m_CG.x() ) * ( cg.x() - tet->m_CG.x() ) + ( cg.y() - tet->m_CG.y() ) * ( cg.y() - tet->m_CG.y() ) );
-
-        m_TotalIxy += tet->m_Ixy +
-                      tet->m_Mass * ( ( cg.x() - tet->m_CG.x() ) * ( cg.y() - tet->m_CG.y() ) );
-        m_TotalIxz += tet->m_Ixz +
-                      tet->m_Mass * ( ( cg.x() - tet->m_CG.x() ) * ( cg.z() - tet->m_CG.z() ) );
-        m_TotalIyz += tet->m_Iyz +
-                      tet->m_Mass * ( ( cg.y() - tet->m_CG.y() ) * ( cg.z() - tet->m_CG.z() ) );
-    }
-    for ( i = 0 ; i < ( int )triShellVec.size() ; i++ )
-    {
-        TriShellMassProp* trs = triShellVec[i];
-        m_TotalIxx += trs->m_Ixx +
-                      trs->m_Mass * ( ( cg.y() - trs->m_CG.y() ) * ( cg.y() - trs->m_CG.y() ) + ( cg.z() - trs->m_CG.z() ) * ( cg.z() - trs->m_CG.z() ) );
-        m_TotalIyy += trs->m_Iyy +
-                      trs->m_Mass * ( ( cg.x() - trs->m_CG.x() ) * ( cg.x() - trs->m_CG.x() ) + ( cg.z() - trs->m_CG.z() ) * ( cg.z() - trs->m_CG.z() ) );
-        m_TotalIzz += trs->m_Izz +
-                      trs->m_Mass * ( ( cg.x() - trs->m_CG.x() ) * ( cg.x() - trs->m_CG.x() ) + ( cg.y() - trs->m_CG.y() ) * ( cg.y() - trs->m_CG.y() ) );
-
-        m_TotalIxy += trs->m_Ixy +
-                      trs->m_Mass * ( ( cg.x() - trs->m_CG.x() ) * ( cg.y() - trs->m_CG.y() ) );
-        m_TotalIxz += trs->m_Ixz +
-                      trs->m_Mass * ( ( cg.x() - trs->m_CG.x() ) * ( cg.z() - trs->m_CG.z() ) );
-        m_TotalIyz += trs->m_Iyz +
-                      trs->m_Mass * ( ( cg.y() - trs->m_CG.y() ) * ( cg.z() - trs->m_CG.z() ) );
-    }
-
-    vector< string > name_vec;
-    vector< string > id_vec;
-    vector< double > mass_vec;
-    vector< vec3d > cg_vec;
-    vector< double > ixx_vec;
-    vector< double > iyy_vec;
-    vector< double > izz_vec;
-    vector< double > ixy_vec;
-    vector< double > ixz_vec;
-    vector< double > iyz_vec;
-    vector< double > vol_vec;
-
-    for ( s = 0 ; s < ( int )m_TMeshVec.size() ; s++ )
-    {
-        TMesh* tm = m_TMeshVec[s];
-        string id = tm->m_PtrID;
+        TMesh *tm = m_TMeshVec[ s ];
+        string id = tm->m_OriginGeomID;
         id_vec.push_back( id );
 
         double compVol = 0.0;
-        for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
+        cg = vec3d( 0, 0, 0 );
+        double compMass = 0.0;
+        vec3d cgSolid( 0, 0, 0 ), cgShell( 0, 0, 0 );
+        double compVolSolid = 0.0, compAreaShell = 0.0;
+
+        id_vec.push_back( id );
+
+        for ( j = 0; j < tetraVecVec.size(); j++ )
         {
-            if ( !tetraVec[i]->m_CompId.compare( id ) )
+            for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
             {
-                compVol += std::abs( tetraVec[i]->m_Vol );
+                if ( !tetraVecVec[ j ][ i ]->m_CompId.compare( id ))
+                {
+                    compVol += tetraVecVec[ j ][ i ]->m_Vol;
+                    compMass += tetraVecVec[ j ][ i ]->m_Mass;
+                    cg = cg + tetraVecVec[ j ][ i ]->m_CG * tetraVecVec[ j ][ i ]->m_Mass;
+
+                    compVolSolid += tetraVecVec[ j ][ i ]->m_Vol;
+                    cgSolid = cgSolid + tetraVecVec[ j ][ i ]->m_CG * tetraVecVec[ j ][ i ]->m_Vol;
+                }
             }
         }
 
-        cg = vec3d( 0, 0, 0 );
-        double compMass = 0.0;
-        for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
+        for ( i = 0; i < ( int ) triShellVec.size(); i++ )
         {
-            if ( !tetraVec[i]->m_CompId.compare( id ) )
+            if ( !triShellVec[ i ]->m_CompId.compare( id ))
             {
-                compMass += tetraVec[i]->m_Mass;
-                cg = cg + tetraVec[i]->m_CG * tetraVec[i]->m_Mass;
-            }
-        }
-        for ( i = 0 ; i < ( int )triShellVec.size() ; i++ )
-        {
-            if ( !triShellVec[i]->m_CompId.compare( id ) )
-            {
-                compMass += triShellVec[i]->m_Mass;
-                cg = cg + triShellVec[i]->m_CG * triShellVec[i]->m_Mass;
+                compMass += triShellVec[ i ]->m_Mass;
+                cg = cg + triShellVec[ i ]->m_CG * triShellVec[ i ]->m_Mass;
+
+                compAreaShell += triShellVec[ i ]->m_TriArea;
+                cgShell = cgShell + triShellVec[ i ]->m_CG * triShellVec[ i ]->m_TriArea;
             }
         }
 
@@ -3287,6 +3340,19 @@ void MeshGeom::MassSliceX( int numSlices, bool writefile )
         {
             cg = cg * ( 1.0 / compMass );
         }
+        if ( compVolSolid )
+        {
+            cgSolid = cgSolid * ( 1.0 / compVolSolid );
+        }
+        if ( compAreaShell )
+        {
+            cgShell = cgShell * ( 1.0 / compAreaShell );
+        }
+
+        compSolidCg.push_back( cgSolid );
+        compShellCg.push_back( cgShell );
+
+
 
         double compIxx = 0.0;
         double compIyy = 0.0;
@@ -3294,44 +3360,78 @@ void MeshGeom::MassSliceX( int numSlices, bool writefile )
         double compIxy = 0.0;
         double compIxz = 0.0;
         double compIyz = 0.0;
-        for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
-        {
-            TetraMassProp* tet = tetraVec[i];
-            if ( !tet->m_CompId.compare( id ) )
-            {
-                compIxx += tet->m_Ixx +
-                           tet->m_Mass * ( ( cg.y() - tet->m_CG.y() ) * ( cg.y() - tet->m_CG.y() ) + ( cg.z() - tet->m_CG.z() ) * ( cg.z() - tet->m_CG.z() ) );
-                compIyy += tet->m_Iyy +
-                           tet->m_Mass * ( ( cg.x() - tet->m_CG.x() ) * ( cg.x() - tet->m_CG.x() ) + ( cg.z() - tet->m_CG.z() ) * ( cg.z() - tet->m_CG.z() ) );
-                compIzz += tet->m_Izz +
-                           tet->m_Mass * ( ( cg.x() - tet->m_CG.x() ) * ( cg.x() - tet->m_CG.x() ) + ( cg.y() - tet->m_CG.y() ) * ( cg.y() - tet->m_CG.y() ) );
 
-                compIxy += tet->m_Ixy +
-                           tet->m_Mass * ( ( cg.x() - tet->m_CG.x() ) * ( cg.y() - tet->m_CG.y() ) );
-                compIxz += tet->m_Ixz +
-                           tet->m_Mass * ( ( cg.x() - tet->m_CG.x() ) * ( cg.z() - tet->m_CG.z() ) );
-                compIyz += tet->m_Iyz +
-                           tet->m_Mass * ( ( cg.y() - tet->m_CG.y() ) * ( cg.z() - tet->m_CG.z() ) );
+        double compSolidIxx = 0.0;
+        double compSolidIyy = 0.0;
+        double compSolidIzz = 0.0;
+        double compSolidIxy = 0.0;
+        double compSolidIxz = 0.0;
+        double compSolidIyz = 0.0;
+
+        double compShellIxx = 0.0;
+        double compShellIyy = 0.0;
+        double compShellIzz = 0.0;
+        double compShellIxy = 0.0;
+        double compShellIxz = 0.0;
+        double compShellIyz = 0.0;
+
+        for ( j = 0; j < tetraVecVec.size(); j++ )
+        {
+            for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
+            {
+                TetraMassProp *tet = tetraVecVec[ j ][ i ];
+                if ( !tet->m_CompId.compare( id ))
+                {
+                    compIxx += tet->m_Ixx + tet->m_Mass * (( cg.y() - tet->m_CG.y()) * ( cg.y() - tet->m_CG.y()) +
+                                                           ( cg.z() - tet->m_CG.z()) * ( cg.z() - tet->m_CG.z()));
+                    compIyy += tet->m_Iyy + tet->m_Mass * (( cg.x() - tet->m_CG.x()) * ( cg.x() - tet->m_CG.x()) +
+                                                           ( cg.z() - tet->m_CG.z()) * ( cg.z() - tet->m_CG.z()));
+                    compIzz += tet->m_Izz + tet->m_Mass * (( cg.x() - tet->m_CG.x()) * ( cg.x() - tet->m_CG.x()) +
+                                                           ( cg.y() - tet->m_CG.y()) * ( cg.y() - tet->m_CG.y()));
+
+                    compIxy += tet->m_Ixy + tet->m_Mass * (( cg.x() - tet->m_CG.x()) * ( cg.y() - tet->m_CG.y()));
+                    compIxz += tet->m_Ixz + tet->m_Mass * (( cg.x() - tet->m_CG.x()) * ( cg.z() - tet->m_CG.z()));
+                    compIyz += tet->m_Iyz + tet->m_Mass * (( cg.y() - tet->m_CG.y()) * ( cg.z() - tet->m_CG.z()));
+
+                    compSolidIxx += tet->m_Ixx + tet->m_Vol * (( cgSolid.y() - tet->m_CG.y()) * ( cgSolid.y() - tet->m_CG.y()) +
+                                                               ( cgSolid.z() - tet->m_CG.z()) * ( cgSolid.z() - tet->m_CG.z()));
+                    compSolidIyy += tet->m_Iyy + tet->m_Vol * (( cgSolid.x() - tet->m_CG.x()) * ( cgSolid.x() - tet->m_CG.x()) +
+                                                               ( cgSolid.z() - tet->m_CG.z()) * ( cgSolid.z() - tet->m_CG.z()));
+                    compSolidIzz += tet->m_Izz + tet->m_Vol * (( cgSolid.x() - tet->m_CG.x()) * ( cgSolid.x() - tet->m_CG.x()) +
+                                                               ( cgSolid.y() - tet->m_CG.y()) * ( cgSolid.y() - tet->m_CG.y()));
+
+                    compSolidIxy += tet->m_Ixy + tet->m_Vol * (( cgSolid.x() - tet->m_CG.x()) * ( cgSolid.y() - tet->m_CG.y()));
+                    compSolidIxz += tet->m_Ixz + tet->m_Vol * (( cgSolid.x() - tet->m_CG.x()) * ( cgSolid.z() - tet->m_CG.z()));
+                    compSolidIyz += tet->m_Iyz + tet->m_Vol * (( cgSolid.y() - tet->m_CG.y()) * ( cgSolid.z() - tet->m_CG.z()));
+                }
             }
         }
-        for ( i = 0 ; i < ( int )triShellVec.size() ; i++ )
+        for ( i = 0; i < ( int ) triShellVec.size(); i++ )
         {
-            TriShellMassProp* trs = triShellVec[i];
-            if ( !trs->m_CompId.compare( id ) )
+            TriShellMassProp *trs = triShellVec[ i ];
+            if ( !trs->m_CompId.compare( id ))
             {
-                compIxx += trs->m_Ixx +
-                           trs->m_Mass * ( ( cg.y() - trs->m_CG.y() ) * ( cg.y() - trs->m_CG.y() ) + ( cg.z() - trs->m_CG.z() ) * ( cg.z() - trs->m_CG.z() ) );
-                compIyy += trs->m_Iyy +
-                           trs->m_Mass * ( ( cg.x() - trs->m_CG.x() ) * ( cg.x() - trs->m_CG.x() ) + ( cg.z() - trs->m_CG.z() ) * ( cg.z() - trs->m_CG.z() ) );
-                compIzz += trs->m_Izz +
-                           trs->m_Mass * ( ( cg.x() - trs->m_CG.x() ) * ( cg.x() - trs->m_CG.x() ) + ( cg.y() - trs->m_CG.y() ) * ( cg.y() - trs->m_CG.y() ) );
+                compIxx += trs->m_Ixx + trs->m_Mass * (( cg.y() - trs->m_CG.y()) * ( cg.y() - trs->m_CG.y()) +
+                                                       ( cg.z() - trs->m_CG.z()) * ( cg.z() - trs->m_CG.z()));
+                compIyy += trs->m_Iyy + trs->m_Mass * (( cg.x() - trs->m_CG.x()) * ( cg.x() - trs->m_CG.x()) +
+                                                       ( cg.z() - trs->m_CG.z()) * ( cg.z() - trs->m_CG.z()));
+                compIzz += trs->m_Izz + trs->m_Mass * (( cg.x() - trs->m_CG.x()) * ( cg.x() - trs->m_CG.x()) +
+                                                       ( cg.y() - trs->m_CG.y()) * ( cg.y() - trs->m_CG.y()));
 
-                compIxy += trs->m_Ixy +
-                           trs->m_Mass * ( ( cg.x() - trs->m_CG.x() ) * ( cg.y() - trs->m_CG.y() ) );
-                compIxz += trs->m_Ixz +
-                           trs->m_Mass * ( ( cg.x() - trs->m_CG.x() ) * ( cg.z() - trs->m_CG.z() ) );
-                compIyz += trs->m_Iyz +
-                           trs->m_Mass * ( ( cg.y() - trs->m_CG.y() ) * ( cg.z() - trs->m_CG.z() ) );
+                compIxy += trs->m_Ixy + trs->m_Mass * (( cg.x() - trs->m_CG.x()) * ( cg.y() - trs->m_CG.y()));
+                compIxz += trs->m_Ixz + trs->m_Mass * (( cg.x() - trs->m_CG.x()) * ( cg.z() - trs->m_CG.z()));
+                compIyz += trs->m_Iyz + trs->m_Mass * (( cg.y() - trs->m_CG.y()) * ( cg.z() - trs->m_CG.z()));
+
+                compShellIxx += trs->m_Ixx + trs->m_TriArea * (( cgShell.y() - trs->m_CG.y()) * ( cgShell.y() - trs->m_CG.y()) +
+                                                               ( cgShell.z() - trs->m_CG.z()) * ( cgShell.z() - trs->m_CG.z()));
+                compShellIyy += trs->m_Iyy + trs->m_TriArea * (( cgShell.x() - trs->m_CG.x()) * ( cgShell.x() - trs->m_CG.x()) +
+                                                               ( cgShell.z() - trs->m_CG.z()) * ( cgShell.z() - trs->m_CG.z()));
+                compShellIzz += trs->m_Izz + trs->m_TriArea * (( cgShell.x() - trs->m_CG.x()) * ( cgShell.x() - trs->m_CG.x()) +
+                                                               ( cgShell.y() - trs->m_CG.y()) * ( cgShell.y() - trs->m_CG.y()));
+
+                compShellIxy += trs->m_Ixy + trs->m_TriArea * (( cgShell.x() - trs->m_CG.x()) * ( cgShell.y() - trs->m_CG.y()));
+                compShellIxz += trs->m_Ixz + trs->m_TriArea * (( cgShell.x() - trs->m_CG.x()) * ( cgShell.z() - trs->m_CG.z()));
+                compShellIyz += trs->m_Iyz + trs->m_TriArea * (( cgShell.y() - trs->m_CG.y()) * ( cgShell.z() - trs->m_CG.z()));
             }
         }
 
@@ -3346,502 +3446,334 @@ void MeshGeom::MassSliceX( int numSlices, bool writefile )
         ixz_vec.push_back( compIxz );
         iyz_vec.push_back( compIyz );
         vol_vec.push_back( compVol );
-    }
-    
-    for ( int i = 0; i < m_PointMassVec.size(); i++ )
-    {
-        id_vec.push_back( m_PointMassVec[i]->m_CompId );
 
-        Geom* geom = m_Vehicle->FindGeom( m_PointMassVec[i]->m_CompId );
-        if ( geom )
-        {
-            name_vec.push_back( geom->GetName() );
-        }
-        else
-        {
-            name_vec.push_back( "" );
-        }
-
-        mass_vec.push_back( m_PointMassVec[i]->m_Mass );
-        cg_vec.push_back( m_PointMassVec[i]->m_CG );
-        ixx_vec.push_back( m_PointMassVec[i]->m_Ixx );
-        iyy_vec.push_back( m_PointMassVec[i]->m_Iyy );
-        izz_vec.push_back( m_PointMassVec[i]->m_Izz );
-        ixy_vec.push_back( m_PointMassVec[i]->m_Ixy );
-        ixz_vec.push_back( m_PointMassVec[i]->m_Ixz );
-        iyz_vec.push_back( m_PointMassVec[i]->m_Iyz );
-        vol_vec.push_back( m_PointMassVec[i]->m_Vol );
-    }
-
-    res->Add( NameValData( "Num_Comps", (int)name_vec.size() ) );
-    res->Add( NameValData( "Comp_Name", name_vec ) );
-    res->Add( NameValData( "Comp_ID", id_vec ) );
-    res->Add( NameValData( "Comp_Mass", mass_vec ) );
-    res->Add( NameValData( "Comp_CG", cg_vec ) );
-    res->Add( NameValData( "Comp_Ixx", ixx_vec ) );
-    res->Add( NameValData( "Comp_Iyy", iyy_vec ) );
-    res->Add( NameValData( "Comp_Izz", izz_vec ) );
-    res->Add( NameValData( "Comp_Ixy", ixy_vec ) );
-    res->Add( NameValData( "Comp_Ixz", ixz_vec ) );
-    res->Add( NameValData( "Comp_Iyz", iyz_vec ) );
-    res->Add( NameValData( "Comp_Vol", vol_vec ) );
-
-    //==== Totals ====//
-    res->Add( NameValData( "Total_Mass", m_TotalMass ) );
-    res->Add( NameValData( "Total_CG", m_CenterOfGrav ) );
-    res->Add( NameValData( "Total_Ixx", m_TotalIxx ) );
-    res->Add( NameValData( "Total_Iyy", m_TotalIyy ) );
-    res->Add( NameValData( "Total_Izz", m_TotalIzz ) );
-    res->Add( NameValData( "Total_Ixy", m_TotalIxy ) );
-    res->Add( NameValData( "Total_Ixz", m_TotalIxz ) );
-    res->Add( NameValData( "Total_Iyz", m_TotalIyz ) );
-    res->Add( NameValData( "Total_Volume", totalVol ) );
-
-    //==== Clean Up Mess ====//
-    for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
-    {
-        delete tetraVec[i];
-    }
-
-    for ( i = 0 ; i < ( int )triShellVec.size() ; i++ )
-    {
-        delete triShellVec[i];
-    }
-
-    //==== Get Rid of TMeshes  that are not shells ====//
-    vector<TMesh*> newTMeshVec;
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        if ( m_TMeshVec[i]->m_ShellFlag )
-        {
-            newTMeshVec.push_back( m_TMeshVec[i] );
-        }
-        else
-        {
-            delete m_TMeshVec[i];
-        }
-    }
-    m_TMeshVec = newTMeshVec;
-
-//  res->WriteCSVFile("junk.txt");
-
-    if( writefile )
-    {
-        string f_name = m_Vehicle->getExportFileName( vsp::MASS_PROP_TXT_TYPE );
-        res->WriteMassProp( f_name );
-    }
-}
-
-void MeshGeom::degenGeomMassSliceX( vector< DegenGeom > &degenGeom )
-{
-    int i, j, s, numSlices = 250;
-
-    //==== Check For Open Meshes and Merge or Delete Them ====//
-    MeshInfo info;
-    MergeRemoveOpenMeshes( &info );
-
-    //==== Augment ID with index to make symmetric copies unique. ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        m_TMeshVec[i]->m_PtrID.append( std::to_string( (long long) i ) );
-    }
-
-    //==== Create Bnd Box for  Mesh Geoms ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        m_TMeshVec[i]->LoadBndBox();
-    }
-
-    //==== Update Bnd Box for  Combined ====//
-    BndBox b;
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        b.Update( m_TMeshVec[i]->m_TBox.m_Box );
-    }
-    m_BBox = b;
-    //update_xformed_bbox();          // Load Xform BBox
-
-    double xMin = m_BBox.GetMin( 0 );
-    double xMax = m_BBox.GetMax( 0 );
-
-    double sliceW = ( xMax - xMin ) / ( double )( numSlices );
-
-
-    //==== Build Slice Mesh Object =====//
-    for ( s = 0 ; s < numSlices ; s++ )
-    {
-        TMesh* tm = new TMesh();
-        m_SliceVec.push_back( tm );
-
-        tm->m_ThickSurf = false;
-        tm->m_SurfCfdType = vsp::CFD_STRUCTURE;
-
-        double x = xMin + ( double )s * sliceW + 0.5 * sliceW;
-
-        double ydel = 1.02 * ( m_BBox.GetMax( 1 ) - m_BBox.GetMin( 1 ) );
-        double ys   = m_BBox.GetMin( 1 ) - 0.01 * ydel;
-        double zdel = 1.02 * ( m_BBox.GetMax( 2 ) - m_BBox.GetMin( 2 ) );
-        double zs   = m_BBox.GetMin( 2 ) - 0.01 * zdel;
-
-        for ( i = 0 ; i < 10 ; i++ )
-        {
-            double y0 = ys + ydel * 0.1 * ( double )i;
-            double y1 = ys + ydel * 0.1 * ( double )( i + 1 );
-
-            for ( j = 0 ; j < 10 ; j++ )
-            {
-                double z0 = zs + zdel * 0.1 * ( double )j;
-                double z1 = zs + zdel * 0.1 * ( double )( j + 1 );
-
-                tm->AddTri( vec3d( x, y0, z0 ), vec3d( x, y1, z0 ), vec3d( x, y1, z1 ), vec3d( 1, 0, 0 ) );
-                tm->AddTri( vec3d( x, y0, z0 ), vec3d( x, y1, z1 ), vec3d( x, y0, z1 ), vec3d( 1, 0, 0 ) );
-            }
-        }
-    }
-
-    // Fill vector of cfdtypes so we don't have to pass TMeshVec all the way down.
-    vector < int > bTypes( m_TMeshVec.size() );
-    vector < bool > thicksurf( m_TMeshVec.size() );
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        bTypes[i] = m_TMeshVec[i]->m_SurfCfdType;
-        thicksurf[i] = m_TMeshVec[i]->m_ThickSurf;
-    }
-
-    //==== Load Bounding Box ====//
-    for ( s = 0 ; s < ( int )m_SliceVec.size() ; s++ )
-    {
-        TMesh* tm = m_SliceVec[s];
-        tm->LoadBndBox();
-
-        //==== Intersect All Mesh Geoms ====//
-        for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-        {
-            tm->Intersect( m_TMeshVec[i] );
-
-            m_TMeshVec[i]->RemoveIsectEdges();
-        }
-
-        //==== Split Intersected Tri in Mesh ====//
-        tm->Split();
-
-        //==== Determine Which Triangle Are Interior/Exterior ====//
-        tm->DeterIntExt( m_TMeshVec );
-
-        //==== Mark which triangles to ignore ====//
-        tm->SetIgnoreTriFlag( m_TMeshVec, bTypes, thicksurf );
-
-    }
-
-
-    //==== Intersect All Mesh Geoms ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        for ( j = i + 1 ; j < ( int )m_TMeshVec.size() ; j++ )
-        {
-            m_TMeshVec[i]->Intersect( m_TMeshVec[j] );
-        }
-    }
-
-    //==== Split Intersected Tri in Mesh ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        m_TMeshVec[i]->Split();
-    }
-
-    //==== Determine Which Triangle Are Interior/Exterior ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        m_TMeshVec[i]->DeterIntExt( m_TMeshVec );
-    }
-
-    //==== Mark which triangles to ignore ====//
-    for ( i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
-    {
-        m_TMeshVec[i]->SetIgnoreTriFlag( m_TMeshVec, bTypes, thicksurf );
-    }
-
-    //==== Do Shell Calcs ====//
-    vector< DegenGeomTriShellMassProp* > triShellVec;
-    for ( s = 0 ; s < ( int )m_TMeshVec.size() ; s++ )
-    {
-        TMesh* tm = m_TMeshVec[s];
-        for ( i = 0 ; i < ( int )tm->m_TVec.size() ; i++ )
-        {
-            TTri* tri = tm->m_TVec[i];
-            if ( tri->m_SplitVec.size() )
-            {
-                for ( j = 0 ; j < ( int )tri->m_SplitVec.size() ; j++ )
-                {
-                    if ( !tri->m_SplitVec[j]->m_IgnoreTriFlag )
-                    {
-                        DegenGeomTriShellMassProp* tsmp = new DegenGeomTriShellMassProp( tm->m_PtrID, tri->m_SplitVec[j]->m_N0->m_Pnt,
-                                tri->m_SplitVec[j]->m_N1->m_Pnt,
-                                tri->m_SplitVec[j]->m_N2->m_Pnt );
-                        triShellVec.push_back( tsmp );
-                    }
-                }
-            }
-            else if ( !tri->m_IgnoreTriFlag )
-            {
-                DegenGeomTriShellMassProp* tsmp = new DegenGeomTriShellMassProp( tm->m_PtrID, tri->m_N0->m_Pnt, tri->m_N1->m_Pnt, tri->m_N2->m_Pnt );
-                triShellVec.push_back( tsmp );
-            }
-        }
-    }
-
-    //==== Build Tetrahedrons ====//
-    double prismLength = sliceW;
-    vector< DegenGeomTetraMassProp* > tetraVec;
-
-    for ( s = 0 ; s < ( int )m_SliceVec.size() ; s++ )
-    {
-        TMesh* tm = m_SliceVec[s];
-        for ( i = 0 ; i < ( int )tm->m_TVec.size() ; i++ )
-        {
-            TTri* tri = tm->m_TVec[i];
-
-            if ( tri->m_SplitVec.size() )
-            {
-                for ( j = 0 ; j < ( int )tri->m_SplitVec.size() ; j++ )
-                {
-                    if ( !tri->m_SplitVec[j]->m_IgnoreTriFlag )
-                    {
-                        createDegenGeomPrism( tetraVec, tri->m_SplitVec[j], prismLength );
-                    }
-                }
-            }
-            else if ( !tri->m_IgnoreTriFlag )
-            {
-                createDegenGeomPrism( tetraVec, tri, prismLength );
-            }
-        }
-    }
-
-    //==== Calculate Properties on a Per Component Basis ====//
-
-    vector<vec3d> compSolidCg, compShellCg;
-    vector< vector<double> > compSolidI, compShellI;
-
-    for ( s = 0 ; s < ( int )m_TMeshVec.size() ; s++ )
-    {
-        TMesh* tm = m_TMeshVec[s];
-        string id = tm->m_PtrID;
-
-        vec3d cgSolid( 0, 0, 0 ), cgShell( 0, 0, 0 );
-        double compMassSolid = 0.0, compMassShell = 0.0;
-        for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
-        {
-            if ( !tetraVec[i]->m_CompId.compare( id ) )
-            {
-                compMassSolid += tetraVec[i]->m_Vol;
-                cgSolid = cgSolid + tetraVec[i]->m_CG * tetraVec[i]->m_Vol;
-            }
-        }
-        for ( i = 0 ; i < ( int )triShellVec.size() ; i++ )
-        {
-            if ( !triShellVec[i]->m_CompId.compare( id ) )
-            {
-                compMassShell += triShellVec[i]->m_TriArea;
-                cgShell = cgShell + triShellVec[i]->m_CG * triShellVec[i]->m_TriArea;
-            }
-        }
-
-        if ( compMassSolid )
-        {
-            cgSolid = cgSolid * ( 1.0 / compMassSolid );
-        }
-        if ( compMassShell )
-        {
-            cgShell = cgShell * ( 1.0 / compMassShell );
-        }
-
-        compSolidCg.push_back( cgSolid );
-        compShellCg.push_back( cgShell );
-
-        double compIxx = 0.0;
-        double compIyy = 0.0;
-        double compIzz = 0.0;
-        double compIxy = 0.0;
-        double compIxz = 0.0;
-        double compIyz = 0.0;
-        for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
-        {
-            DegenGeomTetraMassProp* tet = tetraVec[i];
-            if ( !tet->m_CompId.compare( id ) )
-            {
-                compIxx += tet->m_Ixx +
-                           tet->m_Vol * ( ( cgSolid.y() - tet->m_CG.y() ) * ( cgSolid.y() - tet->m_CG.y() ) + ( cgSolid.z() - tet->m_CG.z() ) * ( cgSolid.z() - tet->m_CG.z() ) );
-                compIyy += tet->m_Iyy +
-                           tet->m_Vol * ( ( cgSolid.x() - tet->m_CG.x() ) * ( cgSolid.x() - tet->m_CG.x() ) + ( cgSolid.z() - tet->m_CG.z() ) * ( cgSolid.z() - tet->m_CG.z() ) );
-                compIzz += tet->m_Izz +
-                           tet->m_Vol * ( ( cgSolid.x() - tet->m_CG.x() ) * ( cgSolid.x() - tet->m_CG.x() ) + ( cgSolid.y() - tet->m_CG.y() ) * ( cgSolid.y() - tet->m_CG.y() ) );
-
-                compIxy += tet->m_Ixy +
-                           tet->m_Vol * ( ( cgSolid.x() - tet->m_CG.x() ) * ( cgSolid.y() - tet->m_CG.y() ) );
-                compIxz += tet->m_Ixz +
-                           tet->m_Vol * ( ( cgSolid.x() - tet->m_CG.x() ) * ( cgSolid.z() - tet->m_CG.z() ) );
-                compIyz += tet->m_Iyz +
-                           tet->m_Vol * ( ( cgSolid.y() - tet->m_CG.y() ) * ( cgSolid.z() - tet->m_CG.z() ) );
-            }
-        }
-        vector<double> tempSolidI;
-        tempSolidI.push_back( compIxx );
-        tempSolidI.push_back( compIyy );
-        tempSolidI.push_back( compIzz );
-        tempSolidI.push_back( compIxy );
-        tempSolidI.push_back( compIxz );
-        tempSolidI.push_back( compIyz );
+        vector < double > tempSolidI;
+        tempSolidI.push_back( compSolidIxx );
+        tempSolidI.push_back( compSolidIyy );
+        tempSolidI.push_back( compSolidIzz );
+        tempSolidI.push_back( compSolidIxy );
+        tempSolidI.push_back( compSolidIxz );
+        tempSolidI.push_back( compSolidIyz );
 
         compSolidI.push_back( tempSolidI );
 
-        compIxx = 0.0;
-        compIyy = 0.0;
-        compIzz = 0.0;
-        compIxy = 0.0;
-        compIxz = 0.0;
-        compIyz = 0.0;
-        for ( i = 0 ; i < ( int )triShellVec.size() ; i++ )
-        {
-            DegenGeomTriShellMassProp* trs = triShellVec[i];
-            if ( !trs->m_CompId.compare( id ) )
-            {
-                compIxx += trs->m_Ixx +
-                           trs->m_TriArea * ( ( cgShell.y() - trs->m_CG.y() ) * ( cgShell.y() - trs->m_CG.y() ) + ( cgShell.z() - trs->m_CG.z() ) * ( cgShell.z() - trs->m_CG.z() ) );
-                compIyy += trs->m_Iyy +
-                           trs->m_TriArea * ( ( cgShell.x() - trs->m_CG.x() ) * ( cgShell.x() - trs->m_CG.x() ) + ( cgShell.z() - trs->m_CG.z() ) * ( cgShell.z() - trs->m_CG.z() ) );
-                compIzz += trs->m_Izz +
-                           trs->m_TriArea * ( ( cgShell.x() - trs->m_CG.x() ) * ( cgShell.x() - trs->m_CG.x() ) + ( cgShell.y() - trs->m_CG.y() ) * ( cgShell.y() - trs->m_CG.y() ) );
-
-                compIxy += trs->m_Ixy +
-                           trs->m_TriArea * ( ( cgShell.x() - trs->m_CG.x() ) * ( cgShell.y() - trs->m_CG.y() ) );
-                compIxz += trs->m_Ixz +
-                           trs->m_TriArea * ( ( cgShell.x() - trs->m_CG.x() ) * ( cgShell.z() - trs->m_CG.z() ) );
-                compIyz += trs->m_Iyz +
-                           trs->m_TriArea * ( ( cgShell.y() - trs->m_CG.y() ) * ( cgShell.z() - trs->m_CG.z() ) );
-            }
-        }
-
-        vector<double> tempShellI;
-        tempShellI.push_back( compIxx );
-        tempShellI.push_back( compIyy );
-        tempShellI.push_back( compIzz );
-        tempShellI.push_back( compIxy );
-        tempShellI.push_back( compIxz );
-        tempShellI.push_back( compIyz );
+        vector < double > tempShellI;
+        tempShellI.push_back( compShellIxx );
+        tempShellI.push_back( compShellIyy );
+        tempShellI.push_back( compShellIzz );
+        tempShellI.push_back( compShellIxy );
+        tempShellI.push_back( compShellIxz );
+        tempShellI.push_back( compShellIyz );
 
         compShellI.push_back( tempShellI );
 
     }
 
-    bool matchFlag;
-    vector< bool > matchVec( m_TMeshVec.size(), false );
-    // For each degenGeom
-    for ( i = 0; i < ( int )degenGeom.size(); i++ )
+    if ( !degen )
     {
-        matchFlag = false;
-        DegenPoint degenPoint = degenGeom[i].getDegenPoint();
 
-        // Loop through tmesh vector
-        for ( j = 0; j < m_TMeshVec.size(); j++ )
+        for ( int i = 0; i < m_PointMassVec.size(); i++ )
         {
-            if ( matchVec[j] == false )
-            {
-                // If its pointer id matches the current degenGeom
-                string geomid = degenGeom[i].getParentGeom()->GetID();
-                if ( geomid.compare( 0, geomid.size(), m_TMeshVec[j]->m_PtrID, 0, geomid.size() ) == 0 &&
-                     degenGeom[i].getSurfNum() == m_TMeshVec[j]->m_SurfNum )
-                {
-                    degenPoint.Isolid.push_back( compSolidI[j] );
-                    degenPoint.Ishell.push_back( compShellI[j] );
-                    degenPoint.xcgSolid.push_back( compSolidCg[j] );
-                    degenPoint.xcgShell.push_back( compShellCg[j] );
-                    matchVec[j] = true;
+            id_vec.push_back( m_PointMassVec[ i ]->m_CompId );
 
-                    matchFlag = true;
+            Geom *geom = m_Vehicle->FindGeom( m_PointMassVec[ i ]->m_CompId );
+            if ( geom )
+            {
+                name_vec.push_back( geom->GetName());
+            }
+            else
+            {
+                name_vec.push_back( "" );
+            }
+
+            mass_vec.push_back( m_PointMassVec[ i ]->m_Mass );
+            cg_vec.push_back( m_PointMassVec[ i ]->m_CG );
+            ixx_vec.push_back( m_PointMassVec[ i ]->m_Ixx );
+            iyy_vec.push_back( m_PointMassVec[ i ]->m_Iyy );
+            izz_vec.push_back( m_PointMassVec[ i ]->m_Izz );
+            ixy_vec.push_back( m_PointMassVec[ i ]->m_Ixy );
+            ixz_vec.push_back( m_PointMassVec[ i ]->m_Ixz );
+            iyz_vec.push_back( m_PointMassVec[ i ]->m_Iyz );
+            vol_vec.push_back( m_PointMassVec[ i ]->m_Vol );
+        }
+
+        res->Add( NameValData( "Num_Comps", (int)name_vec.size(), "Number of componenets." ) );
+        res->Add( NameValData( "Comp_Name", name_vec, "Component names." ) );
+        res->Add( NameValData( "Comp_ID", id_vec, "Component IDs." ) );
+        res->Add( NameValData( "Comp_Mass", mass_vec, "Component contribution to mass." ) );
+        res->Add( NameValData( "Comp_CG", cg_vec, "CG of component contribution to mass." ) );
+        res->Add( NameValData( "Comp_Ixx", ixx_vec, "Component contribution to Ixx." ) );
+        res->Add( NameValData( "Comp_Iyy", iyy_vec, "Component contribution to Iyy." ) );
+        res->Add( NameValData( "Comp_Izz", izz_vec, "Component contribution to Izz." ) );
+        res->Add( NameValData( "Comp_Ixy", ixy_vec, "Component contribution to Ixy." ) );
+        res->Add( NameValData( "Comp_Ixz", ixz_vec, "Component contribution to Ixx." ) );
+        res->Add( NameValData( "Comp_Iyz", iyz_vec, "Component contribution to Iyz." ) );
+        res->Add( NameValData( "Comp_Vol", vol_vec, "Component contribution to volume." ) );
+
+        res->Add( NameValData( "Num_Fill_Slice", ( int )slice_fill_vec.size(), "Number of filling slices." ) );
+        res->Add( NameValData( "Fill_Slice", slice_fill_vec, "Fill slice coordinate." ) );
+        res->Add( NameValData( "Fill_Mass", mass_fill_vec, "Progressive filling mass." ) );
+        res->Add( NameValData( "Fill_CG", cg_fill_vec, "Progressive filling CG." ) );
+        res->Add( NameValData( "Fill_Ixx", ixx_fill_vec, "Progressive filling Ixx." ) );
+        res->Add( NameValData( "Fill_Iyy", iyy_fill_vec, "Progressive filling Iyy." ) );
+        res->Add( NameValData( "Fill_Izz", izz_fill_vec, "Progressive filling Izz." ) );
+        res->Add( NameValData( "Fill_Ixy", ixy_fill_vec, "Progressive filling Ixy." ) );
+        res->Add( NameValData( "Fill_Ixz", ixz_fill_vec, "Progressive filling Ixz." ) );
+        res->Add( NameValData( "Fill_Iyz", iyz_fill_vec, "Progressive filling Iyz." ) );
+        res->Add( NameValData( "Fill_Vol", vol_fill_vec, "Progressive filling volume." ) );
+
+        //==== Totals ====//
+        res->Add( NameValData( "Total_Mass", m_TotalMass, "Combined mass." ) );
+        res->Add( NameValData( "Total_CG", m_CenterOfGrav, "Combined CG." ) );
+        res->Add( NameValData( "Total_Ixx", m_TotalIxx, "Combined Ixx." ) );
+        res->Add( NameValData( "Total_Iyy", m_TotalIyy, "Combined Iyy." ) );
+        res->Add( NameValData( "Total_Izz", m_TotalIzz, "Combined Izz." ) );
+        res->Add( NameValData( "Total_Ixy", m_TotalIxy, "Combined Ixy." ) );
+        res->Add( NameValData( "Total_Ixz", m_TotalIxz, "Combined Ixz." ) );
+        res->Add( NameValData( "Total_Iyz", m_TotalIyz, "Combined Iyz." ) );
+        res->Add( NameValData( "Total_Volume", totalVol, "Combined volume." ) );
+    }
+    else
+    {
+        bool matchFlag;
+        vector < bool > matchVec( m_TMeshVec.size(), false );
+        // For each degenGeom
+        for ( i = 0; i < ( int ) degenGeom.size(); i++ )
+        {
+            matchFlag = false;
+            DegenPoint degenPoint = degenGeom[ i ].getDegenPoint();
+
+            // Loop through tmesh vector
+            for ( j = 0; j < m_TMeshVec.size(); j++ )
+            {
+                if ( matchVec[ j ] == false )
+                {
+                    // If its pointer id matches the current degenGeom
+                    string geomid = degenGeom[ i ].getParentGeom()->GetID();
+                    if ( geomid.compare( 0, geomid.size(), m_TMeshVec[ j ]->m_OriginGeomID, 0, geomid.size()) == 0 &&
+                         degenGeom[ i ].getSurfNum() == m_TMeshVec[ j ]->m_SurfNum )
+                    {
+                        degenPoint.Isolid.push_back( compSolidI[ j ] );
+                        degenPoint.Ishell.push_back( compShellI[ j ] );
+                        degenPoint.xcgSolid.push_back( compSolidCg[ j ] );
+                        degenPoint.xcgShell.push_back( compShellCg[ j ] );
+                        matchVec[ j ] = true;
+
+                        matchFlag = true;
+                    }
                 }
             }
-        }
-        if ( !matchFlag )
-        {
-            degenPoint.Isolid.push_back( vector<double>( 6, 0.0 ) );
-            degenPoint.Ishell.push_back( vector<double>( 6, 0.0 ) );
-            degenPoint.xcgSolid.push_back( vec3d( 0.0, 0.0, 0.0 ) );
-            degenPoint.xcgShell.push_back( vec3d( 0.0, 0.0, 0.0 ) );
-        }
+            if ( !matchFlag )
+            {
+                degenPoint.Isolid.push_back( vector < double >( 6, 0.0 ));
+                degenPoint.Ishell.push_back( vector < double >( 6, 0.0 ));
+                degenPoint.xcgSolid.push_back( vec3d( 0.0, 0.0, 0.0 ));
+                degenPoint.xcgShell.push_back( vec3d( 0.0, 0.0, 0.0 ));
+            }
 
-        degenGeom[i].setDegenPoint( degenPoint );
+            degenGeom[ i ].setDegenPoint( degenPoint );
+        }
     }
 
     //==== Clean Up Mess ====//
-    for ( i = 0 ; i < ( int )tetraVec.size() ; i++ )
+    for ( j = 0; j < tetraVecVec.size(); j++ )
     {
-        delete tetraVec[i];
+        for ( i = 0; i < ( int ) tetraVecVec[ j ].size(); i++ )
+        {
+            delete tetraVecVec[ j ][ i ];
+        }
     }
 
-    for ( i = 0 ; i < ( int )triShellVec.size() ; i++ )
+    for ( i = 0; i < ( int ) triShellVec.size(); i++ )
     {
-        delete triShellVec[i];
+        delete triShellVec[ i ];
     }
 
+    if ( !degen )
+    {
+        //==== Get Rid of TMeshes  that are not shells ====//
+        vector < TMesh * > newTMeshVec;
+        for ( i = 0; i < ( int ) m_TMeshVec.size(); i++ )
+        {
+            if ( m_TMeshVec[ i ]->m_ShellFlag )
+            {
+                newTMeshVec.push_back( m_TMeshVec[ i ] );
+            }
+            else
+            {
+                delete m_TMeshVec[ i ];
+            }
+        }
+        m_TMeshVec = newTMeshVec;
+
+        if ( writefile )
+        {
+            string f_name = m_Vehicle->getExportFileName( vsp::MASS_PROP_TXT_TYPE );
+            res->WriteMassProp( f_name );
+        }
+    }
+}
+
+double MeshGeom::MakeSlices( int numSlices, int swdir, vector < double > &slicevec, bool mpslice, bool tesselate, bool autoBounds, double start, double end, int slctype )
+{
+    int s, i, j;
+
+    int dir1, dir2;
+    if ( swdir == vsp::X_DIR )
+    {
+        dir1 = vsp::Y_DIR;
+        dir2 = vsp::Z_DIR;
+    }
+    else if ( swdir == vsp::Y_DIR )
+    {
+        dir1 = vsp::Z_DIR;
+        dir2 = vsp::X_DIR;
+    }
+    else
+    {
+        dir1 = vsp::X_DIR;
+        dir2 = vsp::Y_DIR;
+    }
+
+    double swMin;
+    double swMax;
+    if ( autoBounds )
+    {
+        swMin = m_BBox.GetMin( swdir ) - 0.0001;
+        swMax = m_BBox.GetMax( swdir ) + 0.0001;
+    }
+    else
+    {
+        swMin = start - 0.0001;
+        swMax = end + 0.0001;
+    }
+
+    double sliceW;
+    if ( mpslice )
+    {
+        sliceW = ( swMax - swMin ) / ( double )( numSlices );
+    }
+    else
+    {
+        sliceW = ( swMax - swMin ) / ( double )( numSlices - 1 );
+    }
+    slicevec.resize( numSlices );
+
+    double del1 = 1.02 * ( m_BBox.GetMax( dir1 ) - m_BBox.GetMin( dir1 ) );
+    double s1   = m_BBox.GetMin( dir1 ) - 0.01 * del1;
+    double del2 = 1.02 * ( m_BBox.GetMax( dir2 ) - m_BBox.GetMin( dir2 ) );
+    double s2   = m_BBox.GetMin( dir2 ) - 0.01 * del2;
+
+    vec3d n;
+    n[ swdir ] = 1;
+
+    for ( s = 0 ; s < numSlices ; s++ )
+    {
+        TMesh* tm = new TMesh();
+
+        tm->m_ThickSurf = false;
+        tm->m_SurfCfdType = slctype;
+
+        m_SliceVec.push_back( tm );
+
+        double sw;
+        if ( mpslice )
+        {
+            sw = swMin + ( double )s * sliceW + 0.5 * sliceW;
+        }
+        else
+        {
+            sw = swMin + ( double )s * sliceW;
+        }
+        slicevec[s] = sw;
+
+        if ( tesselate )
+        {
+        for ( i = 0 ; i < 10 ; i++ )
+        {
+            double d10 = s1 + del1 * 0.1 * ( double )i;
+            double d11 = s1 + del1 * 0.1 * ( double )( i + 1 );
+
+            for ( j = 0 ; j < 10 ; j++ )
+            {
+                double d20 = s2 + del2 * 0.1 * ( double )j;
+                double d21 = s2 + del2 * 0.1 * ( double )( j + 1 );
+
+                vec3d p1, p2, p3, p4;
+                p1[swdir] = sw;
+                p1[dir1] = d10;
+                p1[dir2] = d20;
+
+                p2[swdir] = sw;
+                p2[dir1] = d11;
+                p2[dir2] = d20;
+
+                p3[swdir] = sw;
+                p3[dir1] = d11;
+                p3[dir2] = d21;
+
+                p4[swdir] = sw;
+                p4[dir1] = d10;
+                p4[dir2] = d21;
+
+                tm->AddTri( p1, p2, p3, n );
+                tm->AddTri( p1, p3, p4, n );
+            }
+        }
+        }
+        else
+        {
+            vec3d p1, p2, p3, p4;
+            p1[swdir] = sw;
+            p1[dir1] = s1;
+            p1[dir2] = s2;
+
+            p2[swdir] = sw;
+            p2[dir1] = s1 + del1;
+            p2[dir2] = s2;
+
+            p3[swdir] = sw;
+            p3[dir1] = s1 + del1;
+            p3[dir2] = s2 + del2;
+
+            p4[swdir] = sw;
+            p4[dir1] = s1;
+            p4[dir2] = s2 + del2;
+
+            tm->AddTri( p1, p2, p3, n );
+            tm->AddTri( p1, p3, p4, n );
+        }
+    }
+    return sliceW;
 }
 
 //==== Create a Prism Made of Tetras - Extrude Tri +- len/2 ====//
-void MeshGeom::CreatePrism( vector< TetraMassProp* >& tetraVec, TTri* tri, double len )
+void MeshGeom::CreatePrism( vector< TetraMassProp* >& tetraVec, TTri* tri, double len, int idir  )
 {
     vec3d cnt = ( tri->m_N0->m_Pnt + tri->m_N1->m_Pnt + tri->m_N2->m_Pnt ) * ( 1.0 / 3.0 );
 
     vec3d p0 = tri->m_N0->m_Pnt;
     vec3d p1 = tri->m_N1->m_Pnt;
     vec3d p2 = tri->m_N2->m_Pnt;
-    p0.offset_x( len / 2.0 );
-    p1.offset_x( len / 2.0 );
-    p2.offset_x( len / 2.0 );
+    p0.offset_i( len / 2.0, idir );
+    p1.offset_i( len / 2.0, idir );
+    p2.offset_i( len / 2.0, idir );
 
     vec3d p3 = tri->m_N0->m_Pnt;
     vec3d p4 = tri->m_N1->m_Pnt;
     vec3d p5 = tri->m_N2->m_Pnt;
-    p3.offset_x( -len / 2.0 );
-    p4.offset_x( -len / 2.0 );
-    p5.offset_x( -len / 2.0 );
+    p3.offset_i( -len / 2.0, idir );
+    p4.offset_i( -len / 2.0, idir );
+    p5.offset_i( -len / 2.0, idir );
 
     tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p0, p1, p2 ) );
-    tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p3, p4, p5 ) );
-    tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p0, p1, p3 ) );
+    tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p3, p5, p4 ) );
+    tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p0, p3, p1 ) );
     tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p3, p4, p1 ) );
-    tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p1, p2, p4 ) );
+    tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p1, p4, p2 ) );
     tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p4, p5, p2 ) );
     tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p0, p2, p3 ) );
-    tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p3, p5, p2 ) );
-}
-
-//==== Create a Prism Made of DegenGeomTetras - Extrude Tri +- len/2 ====//
-void MeshGeom::createDegenGeomPrism( vector< DegenGeomTetraMassProp* >& tetraVec, TTri* tri, double len )
-{
-    vec3d cnt = ( tri->m_N0->m_Pnt + tri->m_N1->m_Pnt + tri->m_N2->m_Pnt ) * ( 1.0 / 3.0 );
-
-    vec3d p0 = tri->m_N0->m_Pnt;
-    vec3d p1 = tri->m_N1->m_Pnt;
-    vec3d p2 = tri->m_N2->m_Pnt;
-    p0.offset_x( len / 2.0 );
-    p1.offset_x( len / 2.0 );
-    p2.offset_x( len / 2.0 );
-
-    vec3d p3 = tri->m_N0->m_Pnt;
-    vec3d p4 = tri->m_N1->m_Pnt;
-    vec3d p5 = tri->m_N2->m_Pnt;
-    p3.offset_x( -len / 2.0 );
-    p4.offset_x( -len / 2.0 );
-    p5.offset_x( -len / 2.0 );
-
-    tetraVec.push_back( new DegenGeomTetraMassProp( tri->m_ID, cnt, p0, p1, p2 ) );
-    tetraVec.push_back( new DegenGeomTetraMassProp( tri->m_ID, cnt, p3, p4, p5 ) );
-    tetraVec.push_back( new DegenGeomTetraMassProp( tri->m_ID, cnt, p0, p1, p3 ) );
-    tetraVec.push_back( new DegenGeomTetraMassProp( tri->m_ID, cnt, p3, p4, p1 ) );
-    tetraVec.push_back( new DegenGeomTetraMassProp( tri->m_ID, cnt, p1, p2, p4 ) );
-    tetraVec.push_back( new DegenGeomTetraMassProp( tri->m_ID, cnt, p4, p5, p2 ) );
-    tetraVec.push_back( new DegenGeomTetraMassProp( tri->m_ID, cnt, p0, p2, p3 ) );
-    tetraVec.push_back( new DegenGeomTetraMassProp( tri->m_ID, cnt, p3, p5, p2 ) );
+    tetraVec.push_back( new TetraMassProp( tri->m_ID, tri->m_Density, cnt, p3, p2, p5 ) );
 }
 
 //==== Check Current Geom For Problems ====//
@@ -4013,7 +3945,7 @@ void MeshGeom::AddHalfBox( string id )
     //==== Build Box Triangles =====//
     TMesh* tm = new TMesh();
     tm->m_SurfCfdType = vsp::CFD_NEGATIVE;
-    tm->m_PtrID = id;
+    tm->m_OriginGeomID = id;
 
     m_TMeshVec.push_back( tm );
 
@@ -4100,7 +4032,7 @@ TMesh* MeshGeom::GetMeshByID( const string & id )
 {
     for ( int i = 0; i < m_TMeshVec.size(); i++ )
     {
-        if ( m_TMeshVec[i]->m_PtrID == id )
+        if ( m_TMeshVec[i]->m_OriginGeomID == id )
         {
             return m_TMeshVec[i];
         }
@@ -4162,11 +4094,15 @@ vector<TMesh*> MeshGeom::CreateTMeshVec() const
 void MeshGeom::FlattenTMeshVec()
 {
     vector<TMesh*> flatTMeshVec;
-    flatTMeshVec.resize( m_TMeshVec.size() );
+    flatTMeshVec.reserve( m_TMeshVec.size() );
     for ( int i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
     {
-        flatTMeshVec[i] = new TMesh();
-        flatTMeshVec[i]->CopyFlatten( m_TMeshVec[i] );
+        TMesh *tm = new TMesh();
+        tm->CopyFlatten( m_TMeshVec[ i ] );
+        if ( tm->m_TVec.size() > 0 )
+        {
+            flatTMeshVec.push_back( tm );
+        }
         delete m_TMeshVec[i];
     }
     m_TMeshVec.clear();
@@ -4176,11 +4112,15 @@ void MeshGeom::FlattenTMeshVec()
 void MeshGeom::FlattenSliceVec()
 {
     vector<TMesh*> flatTMeshVec;
-    flatTMeshVec.resize( m_SliceVec.size() );
+    flatTMeshVec.reserve( m_SliceVec.size() );
     for ( int i = 0 ; i < ( int )m_SliceVec.size() ; i++ )
     {
-        flatTMeshVec[i] = new TMesh();
-        flatTMeshVec[i]->CopyFlatten( m_SliceVec[i] );
+        TMesh *tm = new TMesh();
+        tm->CopyFlatten( m_SliceVec[ i ] );
+        if ( tm->m_TVec.size() > 0 )
+        {
+            flatTMeshVec.push_back( tm );
+        }
         delete m_SliceVec[i];
     }
     m_SliceVec.clear();
@@ -4203,7 +4143,32 @@ vector< string > MeshGeom::GetTMeshNames()
     vector< string > names;
     for ( int i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
     {
-        names.push_back( m_TMeshVec[i]->m_NameStr + "_Surf" + to_string( ( long long )m_TMeshVec[i]->m_SurfNum ) );
+        string plate;
+        if ( m_TMeshVec[ i ]->m_PlateNum == -1 )
+        {
+            plate = "_S";
+        }
+        else
+        {
+            if ( m_TMeshVec[i]->m_SurfType == vsp::NORMAL_SURF )
+            {
+                if ( m_TMeshVec[ i ]->m_PlateNum == 0 )
+                {
+                    plate = "_V";
+                }
+                else if ( m_TMeshVec[ i ]->m_PlateNum == 1 )
+                {
+                    plate = "_H";
+                }
+            }
+            else // WING_SURF with m_TMeshVec[ i ]->m_PlateNum == 0
+            {
+                plate = "_C";
+            }
+
+        }
+
+        names.push_back( m_TMeshVec[i]->m_NameStr + plate + "_Surf" + to_string( ( long long )m_TMeshVec[i]->m_SurfNum ) );
     }
 
     return names;
@@ -4214,10 +4179,47 @@ vector< string > MeshGeom::GetTMeshIDs()
     vector< string > ids;
     for ( int i = 0; i < (int)m_TMeshVec.size(); i++ )
     {
-        ids.push_back( m_TMeshVec[i]->m_PtrID + "_Surf" + to_string( (long long)m_TMeshVec[i]->m_SurfNum ) );
+        string plate;
+        if ( m_TMeshVec[ i ]->m_PlateNum == -1 )
+        {
+            // plate; // emtpy string.
+        }
+        else
+        {
+            if ( m_TMeshVec[i]->m_SurfType == vsp::NORMAL_SURF )
+            {
+                if ( m_TMeshVec[ i ]->m_PlateNum == 0 )
+                {
+                    plate = "_V";
+                }
+                else if ( m_TMeshVec[ i ]->m_PlateNum == 1 )
+                {
+                    plate = "_H";
+                }
+            }
+            else // WING_SURF with m_TMeshVec[ i ]->m_PlateNum == 0
+            {
+                plate = "_C";
+            }
+
+        }
+
+        ids.push_back( m_TMeshVec[i]->m_OriginGeomID + plate + "_Surf" + to_string((long long)m_TMeshVec[i]->m_SurfNum ) );
     }
 
     return ids;
+}
+
+map< string, int > MeshGeom::GetThicks()
+{
+    map < string, int > thick;
+
+    for ( int i = 0; i < (int)m_TMeshVec.size(); i++ )
+    {
+        thick[ m_TMeshVec[i]->m_OriginGeomID ] = m_TMeshVec[i]->m_ThickSurf;
+    }
+
+    return thick;
 }
 
 set < string > MeshGeom::GetTMeshPtrIDs()
@@ -4225,7 +4227,7 @@ set < string > MeshGeom::GetTMeshPtrIDs()
     set < string > ids;
     for ( size_t i = 0; i < m_TMeshVec.size(); i++ )
     {
-        ids.insert( m_TMeshVec[i]->m_PtrID );
+        ids.insert( m_TMeshVec[i]->m_OriginGeomID );
     }
 
     return ids;
@@ -4238,6 +4240,7 @@ void MeshGeom::SubTagTris( bool tag_subs )
     SubSurfaceMgr.ClearTagMaps();
     SubSurfaceMgr.m_CompNames = GetTMeshNames();
     SubSurfaceMgr.m_CompIDs = GetTMeshIDs();
+    SubSurfaceMgr.m_ThickMap = GetThicks();
     SubSurfaceMgr.SetSubSurfTags( GetNumIndexedParts() );
     SubSurfaceMgr.BuildCompNameMap();
     SubSurfaceMgr.BuildCompIDMap();

@@ -60,6 +60,7 @@ public:
     bool m_HalfMeshFlag;
 
     int m_SelectedSetIndex;
+    int m_SelectedDegenSetIndex;
 
     bool m_XYZIntCurveFlag;
 
@@ -141,8 +142,8 @@ public:
 
     bool m_BeamPerElementNormal;
 
-    int m_NodeOffset;
-    int m_ElementOffset;
+    unsigned long long int m_NodeOffset;
+    unsigned long long int m_ElementOffset;
 
 };
 

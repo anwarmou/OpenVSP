@@ -49,8 +49,9 @@ public:
     // creates C2 continuous piecewise cubic spline polynomial with clamped end slopes
     void InterpolateCSpline( vector< double > & input_pnt_vec, const double &start_slope, const double &end_slope, const vector<double> &param );
 
-    void BinCubicTMap( vector < double > &tmap, vector < double > &tdisc );
-    void GetTMap( vector < double > &tmap, vector < double > &tdisc );
+    void BinCubicTMap( vector < double > &tmap, vector < double > &tdisc ) const;
+    void GetTMap( vector < double > &tmap, vector < double > &tdisc ) const;
+    void GetTMap( vector < double > &tmap ) const;
     void ToBinaryCubic( );
     void ToCubic();
 
@@ -70,11 +71,11 @@ public:
     double FindNearest01( double &u, const double &pt, const double &u0 ) const;
 
     //===== Bezier Funcs ====//
-    double CompPnt( double u );
-    double CompTan( double u );
+    double CompPnt( double u ) const;
+    double CompTan( double u ) const;
 
-    double CompPnt01( double u );
-    double CompTan01( double u );
+    double CompPnt01( double u ) const;
+    double CompTan01( double u ) const;
 
     //===== Tesselate ====//
     void TesselateNoCorner( int num_pnts_u, double umin, double umax, vector< double > & output, vector< double > &uout );
@@ -87,6 +88,13 @@ public:
     void Scale( double s );
 
     void Reverse();
+
+    void Roll( double u );
+    void Trim( double u, bool before );
+    void Join( const Vsp1DCurve &a, const Vsp1DCurve &b );
+    void CapMax();
+    void CapMin();
+    double Invert( double f ) const;
 
     void product( Vsp1DCurve c1, Vsp1DCurve c2 );
 
@@ -102,6 +110,9 @@ public:
     double IntegrateCrv_rsq( double r0 );
     double IntegrateCrv_rcub( );
     double IntegrateCrv_rcub( double r0 );
+
+    double GetSegFirstPoint( int i ) const;
+    double GetSegLastPoint( int i ) const;
 
 protected:
     oned_piecewise_curve_type m_Curve;

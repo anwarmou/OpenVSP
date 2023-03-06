@@ -92,8 +92,8 @@ public:
     //==== Add Fixed Distance (GapHeight) To Y Location ====//
     void AddYGap()          { m_Y += m_GapHeight; }
 
-    //==== Move to Begininng of Next Line (ignore SameLineFlag) ====//
-    void ForceNewLine();
+    //==== Move to Beginning of Next Line (ignore SameLineFlag) ====//
+    void ForceNewLine( int dy = -1 );
 
     //==== Flag To Force GuiDevices to Fill Complete Line Width ====//
     void SetFitWidthFlag( bool f )      { m_FitWidthFlag = f; }
@@ -147,7 +147,7 @@ public:
     void AddButton(  TriggerButton& trigger_button, const char* label, int used_w  = 0 );
     void AddButton(  ParmButton& parm_button, const char* label );
     void AddButton( RadioButton& radio_button, const char* label, int val = 0);
-    void AddInput(  StringInput& string_input, const char* label, int used_w = 0 );
+    void AddInput(  StringInput& string_input, const char* label, int used_w = 0, double nline = 1 );
     void AddInput(  Input& input, const char* label, const char* format, int used_w = 0  );
     void AddInputEvenSpacedVector(Input& start_input, Input& end_input, Input& npts_input,const char * label,const char * format);
     void AddOutput( StringOutput& string_output );

@@ -184,8 +184,8 @@ bool VarPresetScreen::Update()
 
     // ==== Update Menus ==== //
     // This used to only update when a flag to update it was set or the 
-    // number of variable presets changed. THis was not working so was simplified
-    // to update the manues evey iteration. The additional time is negligible and 
+    // number of variable presets changed. This was not working so was simplified
+    // to update the menus every iteration. The additional time is negligible and 
     // this is consistent with updates for other menu items. 
     RebuildMenus( VarPresetMgr.GetActiveGroupIndex() );
 
@@ -217,7 +217,7 @@ bool VarPresetScreen::Update()
 
     m_VarBrowser->column_char( ':' );         // use : as the column character
 
-    sprintf( str, "@b@.COMP:@b@.GROUP:@b@.PARM" );
+    snprintf( str, sizeof( str ), "@b@.COMP:@b@.GROUP:@b@.PARM" );
     m_VarBrowser->add( str );
 
     int num_vars = VarPresetMgr.GetNumVars();
@@ -228,7 +228,7 @@ bool VarPresetScreen::Update()
         string c_name, g_name, p_name;
         ParmMgr.GetNames( parmid, c_name, g_name, p_name );
 
-        sprintf( str, "%s:%s:%s", c_name.c_str(), g_name.c_str(), p_name.c_str() );
+        snprintf( str, sizeof( str ), "%s:%s:%s", c_name.c_str(), g_name.c_str(), p_name.c_str() );
         m_VarBrowser->add( str );
     }
 

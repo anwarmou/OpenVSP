@@ -280,9 +280,9 @@ string ImportFile( const string & file_name, int file_type, const string & paren
     return veh->ImportFile( file_name, file_type );
 }
 
-string ExportFile( const string & file_name, int thick_set, int file_type, int thin_set )
+string ExportFile( const string & file_name, int thick_set, int file_type, int subsFlag, int thin_set )
 {
-    string mesh_id = GetVehicle()->ExportFile( file_name, thick_set, thin_set, file_type );
+    string mesh_id = GetVehicle()->ExportFile( file_name, thick_set, thin_set, subsFlag, file_type );
 
     ErrorMgr.NoError();
     return mesh_id;
@@ -426,11 +426,11 @@ void SetComputationFileName( int file_type, const string & file_name )
 }
 
 /// Compute Mass Properties on The Components in the Set
-string ComputeMassProps( int set, int num_slices )
+string ComputeMassProps( int set, int num_slices, int idir )
 {
     Update();
 
-    string id = GetVehicle()->MassPropsAndFlatten( set, num_slices );
+    string id = GetVehicle()->MassPropsAndFlatten( set, num_slices, idir );
 
     if ( id.size() == 0 )
     {
@@ -494,12 +494,12 @@ void ComputeDegenGeom( int set, int file_export_types )
 }
 
 //==== Compute Plane Slice =====//
-string ComputePlaneSlice( int set, int num_slices, const vec3d & norm, bool auto_bnd, double start_bnd, double end_bnd )
+string ComputePlaneSlice( int set, int num_slices, const vec3d & norm, bool auto_bnd, double start_bnd, double end_bnd, bool measureduct )
 {
     Update();
     Vehicle* veh = GetVehicle();
 
-    string id = veh->PSliceAndFlatten( set, num_slices, norm, auto_bnd, start_bnd, end_bnd );
+    string id = veh->PSliceAndFlatten( set, num_slices, norm, auto_bnd, start_bnd, end_bnd, measureduct );
 
     if ( id.size() == 0 )
     {
@@ -673,7 +673,7 @@ void AddDefaultSources()
 }
 
 /// Compute the CFD Mesh
-void ComputeCFDMesh( int set, int file_export_types )
+void ComputeCFDMesh( int set, int degenset, int file_export_types )
 {
     Update();
     Vehicle* veh = GetVehicle();
@@ -702,6 +702,7 @@ void ComputeCFDMesh( int set, int file_export_types )
         veh->GetCfdSettingsPtr()->SetFileExportFlag( CFD_VSPGEOM_FILE_NAME, true );
 
     veh->GetCfdSettingsPtr()->m_SelectedSetIndex = set;
+    veh->GetCfdSettingsPtr()->m_SelectedDegenSetIndex = degenset;
     CfdMeshMgr.GenerateMesh();
     ErrorMgr.NoError();
 }
@@ -1110,6 +1111,31 @@ vector < string > GetAnalysisInputNames( const string & analysis )
     return a->m_Inputs.GetAllDataNames();
 }
 
+string GetAnalysisDoc( const std::string & analysis )
+{
+    if ( !AnalysisMgr.ValidAnalysisName( analysis ) )
+    {
+        ErrorMgr.AddError( VSP_INVALID_ID, "GetAnalysisDoc::Invalid Analysis ID " + analysis );
+        return "";
+    }
+
+    Analysis *a = AnalysisMgr.FindAnalysis( analysis );
+
+    return a->m_Inputs.GetDoc();
+}
+
+string GetAnalysisInputDoc( const std::string & analysis, const std::string & name )
+{
+    if ( !AnalysisMgr.ValidAnalysisName( analysis ) )
+    {
+        ErrorMgr.AddError( VSP_INVALID_ID, "GetAnalysisInputDoc::Invalid Analysis ID " + analysis );
+        return "";
+    }
+    ErrorMgr.NoError();
+
+    return AnalysisMgr.GetAnalysisInputDoc( analysis, name );
+}
+
 string ExecAnalysis( const string & analysis )
 {
     if ( !AnalysisMgr.ValidAnalysisName( analysis ) )
@@ -1314,6 +1340,16 @@ void PrintAnalysisInputs( const string & analysis_name )
     AnalysisMgr.PrintAnalysisInputs( analysis_name );
 }
 
+void PrintAnalysisDocs( const string & analysis_name )
+{
+    if ( !AnalysisMgr.ValidAnalysisName( analysis_name ) )
+    {
+        ErrorMgr.AddError( VSP_INVALID_ID, "PrintAnalysisDocs::Invalid Analysis ID " + analysis_name );
+    }
+
+    AnalysisMgr.PrintAnalysisDocs( analysis_name );
+}
+
 //===================================================================//
 //===============       Results Functions         ===================//
 //===================================================================//
@@ -1352,6 +1388,29 @@ string GetResultsName( const string & results_id )
     }
 
     return ResultsMgr.FindResultsPtr( results_id )->GetName();
+}
+
+string GetResultsSetDoc( const std::string & results_id )
+{
+    if ( !ResultsMgr.ValidResultsID( results_id ) )
+    {
+        ErrorMgr.AddError( VSP_INVALID_ID, "GetResultsSetDoc::Invalid ID " + results_id );
+        return  "";
+    }
+
+    return ResultsMgr.FindResultsPtr( results_id )->GetDoc();
+}
+
+string GetResultsEntryDoc( const std::string & results_id, const std::string & data_name )
+{
+    if ( !ResultsMgr.ValidResultsID( results_id ) )
+    {
+        ErrorMgr.AddError( VSP_INVALID_ID, "GetResultsEntryDoc::Invalid ID " + results_id );
+        return "";
+    }
+    ErrorMgr.NoError();
+
+    return ResultsMgr.GetResultsEntryDoc( results_id, data_name );
 }
 
 /// Return the id of the results with the given results name and index
@@ -1565,6 +1624,11 @@ void WriteResultsCSVFile( const string & id, const string & file_name )
 void PrintResults( const string &results_id )
 {
     ResultsMgr.PrintResults( results_id );
+}
+
+void PrintResultsDocs( const std::string &results_id )
+{
+    ResultsMgr.PrintResultsDocs( results_id );
 }
 
 //===================================================================//
@@ -3852,7 +3916,7 @@ void WriteSeligAirfoilFile( const std::string & airfoil_name, std::vector<vec3d>
 
     for ( size_t i = 0; i < ordered_airfoil_pnts.size(); i++ )
     {
-        sprintf( buff, " %7.6f     %7.6f\n", ordered_airfoil_pnts[i].x(), ordered_airfoil_pnts[i].y() );
+        snprintf( buff, sizeof( buff ), " %7.6f     %7.6f\n", ordered_airfoil_pnts[i].x(), ordered_airfoil_pnts[i].y() );
         fprintf( af, "%s", buff );
     }
 
@@ -7260,12 +7324,12 @@ void WriteAtmosphereCSVFile(const std::string & file_name, const int &atmos_type
         pres_ratio_vec.push_back( pres_ratio );
         rho_ratio_vec.push_back( rho_ratio );
     }
-    Results* res = ResultsMgr.CreateResults("Atmosphere");
-    res->Add(NameValData("Alt", AltTestPoints));
-    res->Add(NameValData("Temp", temp_vec));
-    res->Add(NameValData("Pres", pres_vec));
-    res->Add(NameValData("Pres_Ratio", pres_ratio_vec));
-    res->Add(NameValData("Rho_Ratio", rho_ratio_vec));
+    Results* res = ResultsMgr.CreateResults( "Atmosphere", "Standard atmosphere verification results." );
+    res->Add( NameValData( "Alt", AltTestPoints, "Altitude." ) );
+    res->Add( NameValData( "Temp", temp_vec, "Temperature." ) );
+    res->Add( NameValData( "Pres", pres_vec, "Pressure." ) );
+    res->Add( NameValData( "Pres_Ratio", pres_ratio_vec, "Pressure ratio." ) );
+    res->Add( NameValData( "Rho_Ratio", rho_ratio_vec, "Density ratio." ) );
     res->WriteCSVFile( file_name );
 }
 
@@ -7298,11 +7362,11 @@ void CalcAtmosphere(const double & alt, const double & delta_temp, const int & a
 
 void WriteBodyFFCSVFile(const std::string & file_name)
 {
-    Results* res = ResultsMgr.CreateResults("Body_Form_Factor");
+    Results* res = ResultsMgr.CreateResults("Body_Form_Factor", "Body form factor verification results.");
     char str[256];
     vector < double > body_ff_vec;
     vector < double > dol_array = linspace( 0.0, 0.3, 200 );
-    res->Add(NameValData("D_L", dol_array));
+    res->Add( NameValData( "D_L", dol_array, "D/L fineness ratio." ) );
 
     for (size_t body_ff_case = 0; body_ff_case <= vsp::FF_B_JENKINSON_AFT_FUSE_NACELLE; ++body_ff_case )
     {
@@ -7310,8 +7374,8 @@ void WriteBodyFFCSVFile(const std::string & file_name)
         {
             body_ff_vec.push_back( ParasiteDragMgr.CalcFFBody( 1.0/dol_array[j], body_ff_case ) );
         }
-        sprintf( str, "%s", ParasiteDragMgr.AssignFFBodyEqnName( body_ff_case ).c_str());
-        res->Add(NameValData(str, body_ff_vec));
+        snprintf( str, sizeof( str ), "%s", ParasiteDragMgr.AssignFFBodyEqnName( body_ff_case ).c_str() );
+        res->Add( NameValData( str, body_ff_vec, "Form factor." ) );
         body_ff_vec.clear();
     }
     res->WriteCSVFile( file_name );
@@ -7319,7 +7383,7 @@ void WriteBodyFFCSVFile(const std::string & file_name)
 
 void WriteWingFFCSVFile(const std::string & file_name)
 {
-    Results* res = ResultsMgr.CreateResults("Wing_Form_Factor");
+    Results* res = ResultsMgr.CreateResults("Wing_Form_Factor", "Wing form factor verification results.");
     char str[256];
     vector < double > wing_ff_vec;
     vector < double > toc_array = linspace( 0.0, 0.205, 200 );
@@ -7328,15 +7392,15 @@ void WriteWingFFCSVFile(const std::string & file_name)
     sweep25.push_back(30.0 * PI / 180.0);
     sweep50.push_back(30.0 * PI / 180.0);
     ParasiteDragMgr.m_Atmos.SetMach(0.8);
-    res->Add(NameValData("T_C", toc_array));
+    res->Add( NameValData( "T_C", toc_array, "Thickness to chord ratios" ) );
     for (size_t wing_ff_case = 0; wing_ff_case < vsp::FF_W_SCHEMENSKY_SUPERCRITICAL_AF; ++wing_ff_case )
     {
         for (size_t j = 0; j < toc_array.size(); ++j )
         {
             wing_ff_vec.push_back( ParasiteDragMgr.CalcFFWing( toc_array[j], wing_ff_case, perc_lam[0], sweep25[0], sweep50[0]) );
         }
-        sprintf( str, "%s", ParasiteDragMgr.AssignFFWingEqnName( wing_ff_case ).c_str());
-        res->Add(NameValData(str, wing_ff_vec));
+        snprintf( str, sizeof( str ), "%s", ParasiteDragMgr.AssignFFWingEqnName( wing_ff_case ).c_str() );
+        res->Add(NameValData( str, wing_ff_vec, "Form factor." ) );
         wing_ff_vec.clear();
     }
     res->WriteCSVFile( file_name );
@@ -7344,7 +7408,7 @@ void WriteWingFFCSVFile(const std::string & file_name)
 
 void WriteCfEqnCSVFile(const std::string & file_name)
 {
-    Results* res = ResultsMgr.CreateResults("Friction_Coefficient");
+    Results* res = ResultsMgr.CreateResults("Friction_Coefficient", "Friction coefficient verification results.");
     char str[256];
     vector < double > lam_cf_vec, turb_cf_vec, ref_leng;
     vector < double > ReyIn_array = logspace( 3, 10, 500 );
@@ -7362,8 +7426,8 @@ void WriteCfEqnCSVFile(const std::string & file_name)
             {
                 turb_cf_vec.push_back( ParasiteDragMgr.CalcTurbCf( ReyIn_array[j], ref_leng[0], cf_case, roughness[0], gamma[0], taw_tw_ratio[0], te_tw_ratio[0]) );
             }
-            sprintf( str, "%s", ParasiteDragMgr.AssignTurbCfEqnName( cf_case ).c_str() );
-            res->Add( NameValData( str, turb_cf_vec ) );
+            snprintf( str, sizeof( str ), "%s", ParasiteDragMgr.AssignTurbCfEqnName( cf_case ).c_str() );
+            res->Add( NameValData( str, turb_cf_vec, "Turbulent skin friction coefficient." ) );
             turb_cf_vec.clear();
         }
     }
@@ -7374,19 +7438,19 @@ void WriteCfEqnCSVFile(const std::string & file_name)
         {
             lam_cf_vec.push_back(ParasiteDragMgr.CalcLamCf(ReyIn_array[i], cf_case));
         }
-        sprintf( str, "%s", ParasiteDragMgr.AssignLamCfEqnName( cf_case ).c_str());
-        res->Add(NameValData(str, lam_cf_vec));
+        snprintf( str, sizeof( str ), "%s", ParasiteDragMgr.AssignLamCfEqnName( cf_case ).c_str() );
+        res->Add( NameValData( str, lam_cf_vec, "Laminar skin friction coefficient." ) );
         lam_cf_vec.clear();
     }
 
-    res->Add(NameValData("ReyIn", ReyIn_array));
-    res->Add(NameValData("Ref_Leng", ref_leng));
+    res->Add( NameValData( "ReyIn", ReyIn_array, "Reynolds number." ) );
+    res->Add( NameValData( "Ref_Leng", ref_leng, "Reference length." ) );
     res->WriteCSVFile( file_name );
 }
 
 void WritePartialCfMethodCSVFile(const std::string & file_name)
 {
-    Results* res = ResultsMgr.CreateResults("Friction_Coefficient");
+    Results* res = ResultsMgr.CreateResults("Friction_Coefficient", "Partial turbulence coefficient verification results.");
     vector < double > cf_vec, ref_leng;
     vector < double > lam_perc_array = linspace( 0, 100, 1000 );
     vector < double > ReyIn_array, reql_array;
@@ -7404,14 +7468,14 @@ void WritePartialCfMethodCSVFile(const std::string & file_name)
             roughness[0], taw_tw_ratio[0], te_tw_ratio[0]) );
     }
 
-    res->Add(NameValData("LamPerc", lam_perc_array));
-    res->Add(NameValData("Cf", cf_vec));
-    res->Add(NameValData("ReyIn", ReyIn_array));
-    res->Add(NameValData("Ref_Leng", ref_leng));
-    res->Add(NameValData("Re/L", reql_array));
-    res->Add(NameValData("Roughness", roughness));
-    res->Add(NameValData("Taw/Tw", taw_tw_ratio));
-    res->Add(NameValData("Te/Tw", te_tw_ratio));
+    res->Add( NameValData( "LamPerc", lam_perc_array, "Percent laminar flow." ) );
+    res->Add( NameValData( "Cf", cf_vec, "Skin friction coefficient." ) );
+    res->Add( NameValData( "ReyIn", ReyIn_array, "Reynolds number." ) );
+    res->Add( NameValData( "Ref_Leng", ref_leng, "Reference length." ) );
+    res->Add( NameValData( "Re/L", reql_array, "Reynolds number per length." ) );
+    res->Add( NameValData( "Roughness", roughness, "Surface roughness." ) );
+    res->Add( NameValData( "Taw/Tw", taw_tw_ratio, "Taw/Tw temperature ratio." ) );
+    res->Add( NameValData( "Te/Tw", te_tw_ratio, "Te/Tw temperature ratio." ) );
     res->WriteCSVFile( file_name );
 }
 
@@ -7581,7 +7645,7 @@ double ProjPnt01I(const std::string &geom_id, const vec3d &pt, int &surf_indx,
         return dmin;
     }
 
-    dmin = vPtr->ProjPnt01I( geom_id, pt, surf_indx, u, w );
+    dmin = geom->ProjPnt01I( pt, surf_indx, u, w );
 
     ErrorMgr.NoError();
 
@@ -7653,7 +7717,7 @@ double AxisProjPnt01I(const std::string &geom_id, const int &iaxis, const vec3d 
         return idmin;
     }
 
-    idmin = vPtr->AxisProjPnt01I( geom_id, iaxis, pt, surf_indx_out, u_out, w_out, p_out );
+    idmin = geom->AxisProjPnt01I( iaxis, pt, surf_indx_out, u_out, w_out, p_out );
 
     ErrorMgr.NoError();
 

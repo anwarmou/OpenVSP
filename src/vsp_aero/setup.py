@@ -41,7 +41,6 @@ for module in cython_modules:
     ext = Ext(f"vspaero.{module}", [f"vspaero/{module}.pyx"],
               language="c++",
               include_dirs=inc_dirs, library_dirs=lib_dirs, libraries=libs,
-              define_macros=[('ADEPT_RECORDING_PAUSABLE', None)],
               runtime_library_dirs=lib_dirs,
               extra_objects=[f"{VSPAERO_DIR}/Solver/solverlib.a", f"{VSPAERO_DIR}/Solver/adjointlib.a"],
               extra_compile_args=[],
@@ -50,7 +49,7 @@ for module in cython_modules:
 
 optional_dependencies = {
     "testing": ["testflo>=1.4.7"],
-    "openvsp": ["openvsp>=3.28"],
+    "openvsp": ["openvsp>=3.31.1"],
 }
 
 # Add an optional dependency that concatenates all others

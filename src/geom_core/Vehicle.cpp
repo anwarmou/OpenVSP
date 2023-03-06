@@ -238,11 +238,17 @@ Vehicle::Vehicle()
 
     m_MeasureLenUnit.Init( "LenUnit", "Measure", this, vsp::LEN_UNITLESS, vsp::LEN_MM, vsp::LEN_UNITLESS );
 
+    m_StructModelUnit.Init( "StructModelUnit", "FeaStructure", this, vsp::LEN_UNITLESS, vsp::LEN_MM, vsp::LEN_UNITLESS );
+    m_StructModelUnit.SetDescript( "OpenVSP model unit system" );
+
     m_StructUnit.Init( "StructUnit", "FeaStructure", this, vsp::BFT_UNIT, vsp::SI_UNIT, vsp::BIN_UNIT );
-    m_StructUnit.SetDescript( "Unit System for FEA Structures" );
+    m_StructUnit.SetDescript( "Unit System for output FEA Structures" );
 
     m_NumMassSlices.Init( "NumMassSlices", "MassProperties", this, 20, 10, 200 );
     m_NumMassSlices.SetDescript( "Number of slices used to display mesh" );
+
+    m_MassSliceDir.Init( "MassSliceDir", "MassProperties", this, vsp::X_DIR, vsp::X_DIR, vsp::Z_DIR );
+    m_MassSliceDir.SetDescript( "Slicing direction for mass property integration" );
 
     m_DrawCgFlag.Init( "DrawCgFlag", "MassProperties", this, true, false, true );
     m_DrawCgFlag.SetDescript( "Adds red center point to mesh" );
@@ -261,6 +267,9 @@ Vehicle::Vehicle()
 
     m_PlanarEndLocation.Init( "PlanarEndLocation", "PSlice", this, 10, -1e12, 1e12 );
     m_PlanarEndLocation.SetDescript( "Planar End Location" );
+
+    m_PlanarMeasureDuct.Init( "MeasureDuctFlag", "PSlice", this, false, false, true );
+    m_PlanarMeasureDuct.SetDescript( "Flag to measure negative area inside positive areas" );
 
     SetupPaths();
     m_VehProjectVec3d.resize( 3 );
@@ -303,7 +312,7 @@ void Vehicle::Init()
     for ( int i = 0 ; i < NUM_SETS; i++ )
     {
         char str[256];
-        sprintf( str, "Set_%d", i );
+        snprintf( str, sizeof( str ),  "Set_%d", i );
         m_SetNameVec.push_back( str );
     }
 
@@ -339,6 +348,7 @@ void Vehicle::Init()
     m_IxyIxzIyz = vec3d( 0, 0, 0 );
     m_CG = vec3d( 0, 0, 0 );
     m_NumMassSlices = 20;
+    m_MassSliceDir = vsp::X_DIR;
     m_TotalMass = 0;
 
     m_STEPLenUnit.Set( vsp::LEN_FT );
@@ -450,6 +460,7 @@ void Vehicle::Wype()
     m_IxyIxzIyz = vec3d();
     m_CG = vec3d();
     m_NumMassSlices = int();
+    m_MassSliceDir = vsp::X_DIR;
     m_TotalMass = double();
 
 
@@ -663,6 +674,7 @@ void Vehicle::UpdateManagers()
     VSPAEROMgr.Update();
     WaveDragMgr.Update();
     ParasiteDragMgr.Update();
+    StructureMgr.Update();
     // MeasureMgr already updated in Update()
 }
 
@@ -1027,7 +1039,7 @@ vector < int > Vehicle::GetDegenGeomTypeVec( int set_index )
         {
             // Identify the DegenGeom type
             int surftype = DegenGeom::BODY_TYPE;
-            if ( geom->GetMainSurfType(0) == vsp::WING_SURF || geom->GetMainSurfType(0) == vsp::PROP_SURF )
+            if ( geom->GetMainSurfType(0) == vsp::WING_SURF )
             {
                 surftype = DegenGeom::SURFACE_TYPE;
             }
@@ -1508,7 +1520,7 @@ void Vehicle::SetSetName( int index, const string& name )
 
     while ( ( int )m_SetNameVec.size() <= index )
     {
-        sprintf( str, "Set_%d", ( int )m_SetNameVec.size() );
+        snprintf( str, sizeof( str ),  "Set_%d", ( int )m_SetNameVec.size() );
         m_SetNameVec.push_back( string( str ) );
     }
     m_SetNameVec[index] = name;
@@ -2211,7 +2223,7 @@ string Vehicle::WriteSTLFile( const string & file_name, int write_set )
 }
 
 //==== Write STL File ====//
-string Vehicle::WriteTaggedMSSTLFile( const string & file_name, int write_set )
+string Vehicle::WriteTaggedMSSTLFile( const string & file_name, int write_set, int subsFlag )
 {
     string mesh_id = string();
 
@@ -2230,7 +2242,7 @@ string Vehicle::WriteTaggedMSSTLFile( const string & file_name, int write_set )
             if ( gPtr )
             {
                 MeshGeom* mg = dynamic_cast<MeshGeom*>( gPtr );
-                mg->SubTagTris( true );
+                mg->SubTagTris( subsFlag );
                 geom_vec.push_back( gPtr );
                 gPtr->Update();
             }
@@ -2283,7 +2295,7 @@ string Vehicle::WriteTaggedMSSTLFile( const string & file_name, int write_set )
 }
 
 //==== Write Facet File ====//
-string Vehicle::WriteFacetFile( const string & file_name, int write_set )
+string Vehicle::WriteFacetFile( const string & file_name, int write_set, int subsFlag )
 {
     string mesh_id = string();
 
@@ -2303,7 +2315,7 @@ string Vehicle::WriteFacetFile( const string & file_name, int write_set )
             if ( gPtr )
             {
                 MeshGeom* mg = dynamic_cast<MeshGeom*>( gPtr );
-                mg->SubTagTris( true );
+                mg->SubTagTris( subsFlag );
                 geom_vec.push_back( gPtr );
                 gPtr->Update();
             }
@@ -2386,7 +2398,7 @@ string Vehicle::WriteFacetFile( const string & file_name, int write_set )
 }
 
 //==== Write Tri File ====//
-string Vehicle::WriteTRIFile( const string & file_name, int write_set )
+string Vehicle::WriteTRIFile( const string & file_name, int write_set, int subsFlag )
 {
     string mesh_id = string();
 
@@ -2407,7 +2419,7 @@ string Vehicle::WriteTRIFile( const string & file_name, int write_set )
             if ( geom_ptr )
             {
                 MeshGeom* mg = dynamic_cast<MeshGeom*>( geom_ptr );
-                mg->SubTagTris( true );
+                mg->SubTagTris( subsFlag );
                 geom_vec.push_back( geom_ptr );
                 geom_ptr->Update();
             }
@@ -2488,7 +2500,7 @@ string Vehicle::WriteTRIFile( const string & file_name, int write_set )
 }
 
 //==== Write OBJ File ====//
-string Vehicle::WriteOBJFile( const string & file_name, int write_set )
+string Vehicle::WriteOBJFile( const string & file_name, int write_set, int subsFlag )
 {
     string mesh_id = string();
 
@@ -2509,7 +2521,7 @@ string Vehicle::WriteOBJFile( const string & file_name, int write_set )
             if ( geom_ptr )
             {
                 MeshGeom* mg = dynamic_cast<MeshGeom*>( geom_ptr );
-                mg->SubTagTris( true );
+                mg->SubTagTris( subsFlag );
                 geom_vec.push_back( geom_ptr );
                 geom_ptr->Update();
             }
@@ -2599,7 +2611,7 @@ nnwake in1 in2 in3 in4...inn // Last wake line
 */
 
 //==== Write VSPGeom File ====//
-string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set, int degen_set, bool half_flag, bool hideset, bool suppressdisks )
+string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set, int degen_set, int subsFlag, bool half_flag, bool hideset, bool suppressdisks )
 {
     string mesh_id = string();
 
@@ -2632,7 +2644,7 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set, int de
                     mg->FlattenTMeshVec();
                 }
 
-                mg->SubTagTris( true );
+                mg->SubTagTris( subsFlag );
                 geom_vec.push_back( geom_ptr );
                 geom_ptr->Update();
             }
@@ -2744,7 +2756,7 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set, int de
 
 
 //==== Write Nascart Files ====//
-string Vehicle::WriteNascartFiles( const string & file_name, int write_set )
+string Vehicle::WriteNascartFiles( const string & file_name, int write_set, int subsFlag )
 {
     string mesh_id = string();
 
@@ -2764,7 +2776,7 @@ string Vehicle::WriteNascartFiles( const string & file_name, int write_set )
             if ( geom_ptr )
             {
                 MeshGeom* mg = dynamic_cast<MeshGeom*>( geom_ptr );
-                mg->SubTagTris( true );
+                mg->SubTagTris( subsFlag );
                 geom_vec.push_back( geom_ptr );
                 geom_ptr->Update();
             }
@@ -2841,7 +2853,7 @@ string Vehicle::WriteNascartFiles( const string & file_name, int write_set )
 
 }
 
-string Vehicle::WriteGmshFile( const string & file_name, int write_set )
+string Vehicle::WriteGmshFile( const string & file_name, int write_set, int subsFlag )
 {
     string mesh_id = string();
 
@@ -2861,7 +2873,7 @@ string Vehicle::WriteGmshFile( const string & file_name, int write_set )
             if ( geom_ptr )
             {
                 MeshGeom* mg = dynamic_cast<MeshGeom*>( geom_ptr );
-                mg->SubTagTris( true );
+                mg->SubTagTris( subsFlag );
                 geom_vec.push_back( geom_ptr );
                 geom_ptr->Update();
             }
@@ -3014,16 +3026,16 @@ void Vehicle::WriteX3DViewpoints( xmlNodePtr node )
         // Convert vectors to strings //
         string orients, cents, posits, name, sfov;
 
-        sprintf( numstr, format4.c_str(),  rot_axis.x(), rot_axis.y(), rot_axis.z(), angle );
+        snprintf( numstr, sizeof( numstr ),  format4.c_str(),  rot_axis.x(), rot_axis.y(), rot_axis.z(), angle );
         orients = numstr;
 
-        sprintf( numstr, format3.c_str(), center.x(), center.y(), center.z() );
+        snprintf( numstr, sizeof( numstr ),  format3.c_str(), center.x(), center.y(), center.z() );
         cents = numstr;
 
-        sprintf( numstr, format3.c_str(), position.x(), position.y(), position.z() );
+        snprintf( numstr, sizeof( numstr ),  format3.c_str(), position.x(), position.y(), position.z() );
         posits = numstr;
 
-        sprintf( numstr, "%lf", fov );
+        snprintf( numstr, sizeof( numstr ),  "%lf", fov );
         sfov = numstr;
 
         // write first viewpoint twice so viewpoint buttons will work correctly //
@@ -3076,12 +3088,12 @@ void Vehicle::WriteX3DMaterial( xmlNodePtr node, Material * material )
 
     double alpha;
     material->GetAlpha(alpha);
-    sprintf( numstr, "%lf", 1.0-alpha );
+    snprintf( numstr, sizeof( numstr ),  "%lf", 1.0-alpha );
     xmlSetProp( mat_node, BAD_CAST "transparency", BAD_CAST numstr );
 
     double shine;
     material->GetShininess(shine);
-    sprintf( numstr, "%lf", shine );
+    snprintf( numstr, sizeof( numstr ),  "%lf", shine );
     xmlSetProp( mat_node, BAD_CAST "shininess", BAD_CAST numstr );
 
     material->GetAmbient(amb);
@@ -3095,7 +3107,7 @@ void Vehicle::WriteX3DMaterial( xmlNodePtr node, Material * material )
 
 
 
-    sprintf( numstr, "%lf", ambd );
+    snprintf( numstr, sizeof( numstr ),  "%lf", ambd );
     xmlSetProp( mat_node, BAD_CAST "ambientIntensity", BAD_CAST numstr );
 }
 
@@ -3181,7 +3193,7 @@ void Vehicle::WritePovRayFile( const string & file_name, int write_set )
         if (  geom_vec[i]->GetSetFlag( write_set ) )
         {
             string name = geom_vec[i]->GetName();
-            StringUtil::chance_space_to_underscore( name );
+            StringUtil::change_space_to_underscore( name );
             fprintf( pov_file, "mesh { %s_%d texture {darkgreymetal} } \n", name.c_str(), comp_num );
             comp_num++;
         }
@@ -3190,17 +3202,27 @@ void Vehicle::WritePovRayFile( const string & file_name, int write_set )
     fclose( pov_file );
 }
 
-void Vehicle::FetchXFerSurfs( int write_set, vector< XferSurf > &xfersurfs )
+void Vehicle::FetchXFerSurfs(int normal_set, int degen_set, vector< XferSurf > &xfersurfs )
 {
     vector< Geom* > geom_vec = FindGeomVec( GetGeomVec() );
 
     int icomp = 0;
     for ( int i = 0 ; i < ( int )geom_vec.size() ; i++ )
     {
-        if( geom_vec[i]->GetSetFlag( write_set ) )
+        bool innormalset = geom_vec[i]->GetSetFlag(normal_set );
+        bool indegenset = geom_vec[i]->GetSetFlag( degen_set );
+        if( innormalset || indegenset )
         {
             vector<VspSurf> surf_vec;
-            surf_vec = geom_vec[i]->GetSurfVecConstRef();
+
+            if ( innormalset )
+            {
+                surf_vec = geom_vec[i]->GetSurfVecConstRef();
+            }
+            else // indegenset
+            {
+                surf_vec = geom_vec[i]->GetDegenSurfVec();
+            }
 
             for ( int j = 0; j < ( int )surf_vec.size(); j++ )
             {
@@ -4613,10 +4635,6 @@ string Vehicle::CompGeom( int set, int degenset, int halfFlag, int intSubsFlag, 
 
         mesh_ptr->GetMeshByID( "NEGATIVE_HALF" )->m_DeleteMeFlag = true;
         mesh_ptr->DeleteMarkedMeshes();
-
-        // Repeat tagging after removing meshes.
-        // This removes the empty tags from the key files.
-        mesh_ptr->SubTagTris( true );
     }
 
     return id;
@@ -4632,12 +4650,13 @@ string Vehicle::CompGeomAndFlatten( int set, int halfFlag, int intSubsFlag, int 
     }
     MeshGeom* mesh_ptr = ( MeshGeom* )geom;
     mesh_ptr->FlattenTMeshVec();
+    mesh_ptr->SubTagTris( intSubsFlag );
     mesh_ptr->m_SurfDirty = true;
     mesh_ptr->Update();
     return id;
 }
 
-string Vehicle::MassProps( int set, int numSlices, bool hidegeom, bool writefile )
+string Vehicle::MassProps( int set, int numSlices, int idir, bool hidegeom, bool writefile )
 {
     string id = AddMeshGeom( set );
     if ( id.compare( "NONE" ) == 0 )
@@ -4686,7 +4705,8 @@ string Vehicle::MassProps( int set, int numSlices, bool hidegeom, bool writefile
 
     if ( mesh_ptr->m_TMeshVec.size() || mesh_ptr->m_PointMassVec.size() )
     {
-        mesh_ptr->MassSliceX( numSlices, writefile );
+        vector <DegenGeom> dg;
+        mesh_ptr->MassSlice( dg, false, numSlices, idir, writefile );
         m_TotalMass = mesh_ptr->m_TotalMass;
         m_IxxIyyIzz = vec3d( mesh_ptr->m_TotalIxx, mesh_ptr->m_TotalIyy, mesh_ptr->m_TotalIzz );
         m_IxyIxzIyz = vec3d( mesh_ptr->m_TotalIxy, mesh_ptr->m_TotalIxz, mesh_ptr->m_TotalIyz );
@@ -4703,9 +4723,9 @@ string Vehicle::MassProps( int set, int numSlices, bool hidegeom, bool writefile
     return id;
 }
 
-string Vehicle::MassPropsAndFlatten( int set, int numSlices, bool hidegeom, bool writefile )
+string Vehicle::MassPropsAndFlatten( int set, int numSlices, int idir, bool hidegeom, bool writefile )
 {
-    string id = MassProps( set, numSlices, hidegeom, writefile );
+    string id = MassProps( set, numSlices, idir, hidegeom, writefile );
     Geom* geom = FindGeom( id );
     if ( !geom )
     {
@@ -4719,7 +4739,7 @@ string Vehicle::MassPropsAndFlatten( int set, int numSlices, bool hidegeom, bool
     return id;
 }
 
-string Vehicle::PSlice( int set, int numSlices, vec3d axis, bool autoBoundsFlag, double start, double end )
+string Vehicle::PSlice( int set, int numSlices, vec3d axis, bool autoBoundsFlag, double start, double end, bool measureduct )
 {
 
     string id = AddMeshGeom( set );
@@ -4738,7 +4758,7 @@ string Vehicle::PSlice( int set, int numSlices, vec3d axis, bool autoBoundsFlag,
 
     if ( mesh_ptr->m_TMeshVec.size() )
     {
-        mesh_ptr->AreaSlice( numSlices, axis, autoBoundsFlag, start, end );
+        mesh_ptr->AreaSlice( numSlices, axis, autoBoundsFlag, start, end, measureduct );
     }
     else
     {
@@ -4750,9 +4770,9 @@ string Vehicle::PSlice( int set, int numSlices, vec3d axis, bool autoBoundsFlag,
     return id;
 }
 
-string Vehicle::PSliceAndFlatten( int set, int numSlices, vec3d axis, bool autoBoundsFlag, double start, double end )
+string Vehicle::PSliceAndFlatten( int set, int numSlices, vec3d axis, bool autoBoundsFlag, double start, double end, bool measureduct )
 {
-    string id = PSlice( set, numSlices, axis, autoBoundsFlag, start, end );
+    string id = PSlice( set, numSlices, axis, autoBoundsFlag, start, end, measureduct );
     Geom* geom = FindGeom( id );
     if ( !geom )
     {
@@ -5192,7 +5212,7 @@ void Vehicle::SetApplyAbsIgnoreFlag( const vector< string > &g_vec, bool val )
 }
 
 //==== Import File Methods ====//
-string Vehicle::ExportFile( const string & file_name, int write_set, int degen_set, int file_type )
+string Vehicle::ExportFile( const string & file_name, int write_set, int degen_set, int subsFlag, int file_type )
 {
     string mesh_id = string();
 
@@ -5217,7 +5237,7 @@ string Vehicle::ExportFile( const string & file_name, int write_set, int degen_s
         }
         else
         {
-            mesh_id = WriteTaggedMSSTLFile( file_name, write_set );
+            mesh_id = WriteTaggedMSSTLFile( file_name, write_set, subsFlag );
         }
 
         if ( m_STLExportPropMainSurf() )
@@ -5227,23 +5247,23 @@ string Vehicle::ExportFile( const string & file_name, int write_set, int degen_s
     }
     else if ( file_type == EXPORT_CART3D )
     {
-        mesh_id = WriteTRIFile( file_name, write_set );
+        mesh_id = WriteTRIFile( file_name, write_set, subsFlag );
     }
     else if ( file_type == EXPORT_OBJ )
     {
-        mesh_id = WriteOBJFile( file_name, write_set );
+        mesh_id = WriteOBJFile( file_name, write_set, subsFlag );
     }
     else if ( file_type == EXPORT_VSPGEOM )
     {
-        mesh_id = WriteVSPGeomFile( file_name, write_set, degen_set );
+        mesh_id = WriteVSPGeomFile( file_name, write_set, degen_set, subsFlag );
     }
     else if ( file_type == EXPORT_NASCART )
     {
-        mesh_id = WriteNascartFiles( file_name, write_set );
+        mesh_id = WriteNascartFiles( file_name, write_set, subsFlag );
     }
     else if ( file_type == EXPORT_GMSH )
     {
-        mesh_id = WriteGmshFile( file_name, write_set );
+        mesh_id = WriteGmshFile( file_name, write_set, subsFlag );
     }
     else if ( file_type == EXPORT_POVRAY )
     {
@@ -5303,7 +5323,7 @@ string Vehicle::ExportFile( const string & file_name, int write_set, int degen_s
     }
     else if ( file_type == EXPORT_FACET )
     {
-        mesh_id = WriteFacetFile(file_name, write_set);
+        mesh_id = WriteFacetFile(file_name, write_set, subsFlag);
     }
     else if ( file_type == EXPORT_PMARC )
     {
@@ -5374,7 +5394,7 @@ void Vehicle::CreateDegenGeom( int set )
         MeshGeom* mesh_ptr = dynamic_cast<MeshGeom*> ( FindGeom( id ) );
         if ( mesh_ptr != NULL )
         {
-            mesh_ptr->degenGeomMassSliceX(m_DegenGeomVec);
+            mesh_ptr->MassSlice( m_DegenGeomVec, true, 250, vsp::X_DIR, false );
             DeleteGeom( id );
         }
     }
@@ -5395,7 +5415,7 @@ string Vehicle::WriteDegenGeomFile()
     blankCnt = m_DegenPtMassVec.size();
 
     char geomCntStr[255];
-    sprintf(geomCntStr,"%d components and %d", geomCnt, blankCnt);
+    snprintf( geomCntStr, sizeof( geomCntStr ), "%d components and %d", geomCnt, blankCnt);
     outStr += "Wrote ";
     outStr += geomCntStr;
     outStr += " blank geoms\nto the following files:\n\n";
@@ -5497,7 +5517,7 @@ string Vehicle::WriteDegenGeomFile()
 
     // Create results object to contain the ids of all of the results associated
     // with degen geoms
-    Results *res = ResultsMgr.CreateResults( "DegenGeom" );
+    Results *res = ResultsMgr.CreateResults( "DegenGeom", "Vehicle level degen geom results." );
     vector < string > degen_results_ids;
     vector < string > blank_degen_result_ids;
 
@@ -5505,13 +5525,13 @@ string Vehicle::WriteDegenGeomFile()
     {
         for ( int i = 0; i < ( int ) m_DegenPtMassVec.size(); i++ )
         {
-            Results *blnk_res = ResultsMgr.CreateResults( "Degen_BlankGeom" );
+            Results *blnk_res = ResultsMgr.CreateResults( "Degen_BlankGeom", "Blank component degen geom results." );
             blank_degen_result_ids.push_back( blnk_res->GetID() );
 
-            blnk_res->Add( NameValData( "name", m_DegenPtMassVec[i].name ) );
-            blnk_res->Add( NameValData( "geom_id", m_DegenPtMassVec[i].geom_id ) );
-            blnk_res->Add( NameValData( "X", m_DegenPtMassVec[i].x ) );
-            blnk_res->Add( NameValData( "mass", m_DegenPtMassVec[i].mass ) );
+            blnk_res->Add( NameValData( "name", m_DegenPtMassVec[i].name, "Name." ) );
+            blnk_res->Add( NameValData( "geom_id", m_DegenPtMassVec[i].geom_id, "GeomID." ) );
+            blnk_res->Add( NameValData( "X", m_DegenPtMassVec[i].x, "Coordinate." ) );
+            blnk_res->Add( NameValData( "mass", m_DegenPtMassVec[i].mass, "Mass." ) );
         }
     }
 
@@ -5520,155 +5540,9 @@ string Vehicle::WriteDegenGeomFile()
         m_DegenGeomVec[i].write_degenGeomResultsManager( degen_results_ids );
     }
 
-    res->Add( NameValData( "Degen_BlankGeoms", blank_degen_result_ids ) );
-    res->Add( NameValData( "Degen_DegenGeoms", degen_results_ids ) );
+    res->Add( NameValData( "Degen_BlankGeoms", blank_degen_result_ids, "ID's of degen blanks." ) );
+    res->Add( NameValData( "Degen_DegenGeoms", degen_results_ids, "Believed unused." ) );  // TODO: check for removal.
     return outStr;
-}
-
-vec3d Vehicle::CompPnt01(const std::string &geom_id, const int &surf_indx, const double &u, const double &w)
-{
-    Geom* geom_ptr = FindGeom( geom_id );
-    vec3d ret;
-    if ( geom_ptr )
-    {
-        if ( surf_indx >= 0 && surf_indx < geom_ptr->GetNumTotalSurfs() )
-        {
-            ret = geom_ptr->CompPnt01(surf_indx, u, w);
-        }
-    }
-
-    return ret;
-}
-
-vec3d Vehicle::CompNorm01(const std::string &geom_id, const int &surf_indx, const double &u, const double &w)
-{
-    Geom* geom_ptr = FindGeom( geom_id );
-    vec3d ret;
-    if ( geom_ptr )
-    {
-        if ( surf_indx >= 0 && surf_indx < geom_ptr->GetNumTotalSurfs() )
-        {
-            VspSurf *surf = geom_ptr->GetSurfPtr( surf_indx );
-            ret = surf->CompNorm01( u, w );
-        }
-    }
-
-    return ret;
-}
-
-void Vehicle::CompCurvature01(const std::string &geom_id, const int &surf_indx, const double &u, const double &w, double &k1, double &k2, double &ka, double &kg)
-{
-    Geom* geom_ptr = FindGeom( geom_id );
-
-    k1 = 0.0;
-    k2 = 0.0;
-    ka = 0.0;
-    kg = 0.0;
-
-    if ( geom_ptr )
-    {
-        if ( surf_indx >= 0 && surf_indx < geom_ptr->GetNumTotalSurfs() )
-        {
-            VspSurf *surf = geom_ptr->GetSurfPtr( surf_indx );
-            if ( surf )
-            {
-                surf->CompCurvature01( u, w, k1, k2, ka, kg );
-            }
-        }
-    }
-}
-
-double Vehicle::ProjPnt01I(const std::string &geom_id, const vec3d & pt, int &surf_indx, double &u, double &w)
-{
-    double tol = 1e-12;
-
-    double dmin = std::numeric_limits<double>::max();
-
-    Geom * geom = FindGeom( geom_id );
-
-    if ( geom )
-    {
-        int nsurf = geom->GetNumTotalSurfs();
-        for ( int i = 0; i < nsurf; i++ )
-        {
-            double utest, wtest;
-
-            double d = geom->GetSurfPtr(i)->FindNearest01( utest, wtest, pt );
-
-            if ( d < dmin )
-            {
-                dmin = d;
-                u = utest;
-                w = wtest;
-                surf_indx = i;
-
-                if ( d < tol )
-                {
-                    break;
-                }
-            }
-        }
-    }
-    return dmin;
-}
-
-double Vehicle::AxisProjPnt01I(const std::string &geom_id, const int &iaxis, const vec3d &pt, int &surf_indx_out, double &u_out, double &w_out, vec3d &p_out )
-{
-    double idmin = std::numeric_limits<double>::max();
-
-    bool converged = false;
-
-    Geom * geom = FindGeom( geom_id );
-
-    if ( geom )
-    {
-        int nsurf = geom->GetNumTotalSurfs();
-        for ( int i = 0; i < nsurf; i++ )
-        {
-            double utest, wtest;
-            vec3d ptest;
-
-            double id = geom->GetSurfPtr( i )->ProjectPt01( pt, iaxis, utest, wtest, ptest );
-
-            if ( id >= 0 && id < idmin )
-            {
-                idmin = id;
-                u_out = utest;
-                w_out = wtest;
-                p_out = ptest;
-                surf_indx_out = i;
-                converged = true;
-            }
-        }
-    }
-
-    if ( converged )
-    {
-        return idmin;
-    }
-
-    u_out = -1;
-    w_out = -1;
-    p_out = pt;
-    surf_indx_out = -1;
-    idmin = -1;
-
-    return idmin;
-}
-
-vec3d Vehicle::CompPntRST( const std::string &geom_id, const int &surf_indx, const double &r, const double &s, const double &t )
-{
-    Geom* geom_ptr = FindGeom( geom_id );
-    vec3d ret;
-    if ( geom_ptr )
-    {
-        if ( surf_indx >= 0 && surf_indx < geom_ptr->GetNumTotalSurfs() )
-        {
-            ret = geom_ptr->CompPntRST( surf_indx, r, s, t );
-        }
-    }
-
-    return ret;
 }
 
 // Method to add pnts and normals to results managers for all surfaces
@@ -5677,7 +5551,7 @@ string Vehicle::ExportSurfacePatches( int set )
 {
     vector< string > geom_vec = GetGeomVec();
 
-    Results* veh_surfaces = ResultsMgr.CreateResults( "VehicleSurfaces" );
+    Results* veh_surfaces = ResultsMgr.CreateResults( "VehicleSurfaces", "Vehicle level surface patch results." );
     vector< string > components;
 
     for ( int i = 0; i < (int)geom_vec.size(); i++ )
@@ -5689,22 +5563,60 @@ string Vehicle::ExportSurfacePatches( int set )
             if ( geom->GetSetFlag( set ) )
             {
                 // Loop over all surfaces adding points to the results manager
-                Results* res = ResultsMgr.CreateResults( "ComponentSurfaces" );
-                res->Add( NameValData( "name", geom->GetName() ) );
-                res->Add( NameValData( "id", geom->GetID() ) );
+                Results* res = ResultsMgr.CreateResults( "ComponentSurfaces", "Geom group for surface patch results." );
+                res->Add( NameValData( "name", geom->GetName(), "Geom name." ) );
+                res->Add( NameValData( "id", geom->GetID(), "GeomID." ) );
 
                 vector< string > surfaces;
                 geom->ExportSurfacePatches( surfaces  );
 
-                res->Add( NameValData( "surfaces", surfaces) );
+                res->Add( NameValData( "surfaces", surfaces, "ID's of surface results.") );
 
                 components.push_back( res->GetID() );
             }
         }
     }
 
-    veh_surfaces->Add( NameValData( "components", components ) );
+    veh_surfaces->Add( NameValData( "components", components, "ID's of component results." ) );
     return veh_surfaces->GetID();
+}
+
+double Vehicle::ComputeStructuresScaleFactor()
+{
+    if ( m_StructModelUnit() == vsp::LEN_UNITLESS )
+    {
+        return 1.0;
+    }
+
+    int to_unit = -1;
+    switch ( m_StructUnit() )
+    {
+        case vsp::SI_UNIT:
+            to_unit = vsp::LEN_M;
+            break;
+
+        case vsp::CGS_UNIT:
+            to_unit = vsp::LEN_CM;
+            break;
+
+        case vsp::MPA_UNIT:
+            to_unit = vsp::LEN_MM;
+            break;
+
+        case vsp::BFT_UNIT:
+            to_unit = vsp::LEN_FT;
+            break;
+
+        case vsp::BIN_UNIT:
+            to_unit = vsp::LEN_IN;
+            break;
+
+        default:
+            return 1.0;
+            break;
+    }
+
+    return ConvertLength( 1.0, m_StructModelUnit(), to_unit );
 }
 
 void Vehicle::SetExportPropMainSurf( bool b )

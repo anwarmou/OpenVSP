@@ -29,55 +29,84 @@ NameValData::NameValData( const string & name )
 }
 
 //==== Constructors With Name & Data =====//
-NameValData::NameValData( const string & name, const int & i_data )
+NameValData::NameValData( const string & name, const int & i_data, const string & doc )
 {
     Init( name, vsp::INT_DATA );
     m_IntData.push_back( i_data );
+    m_Doc = doc;
 }
-NameValData::NameValData( const string & name, const double & d_data )
+NameValData::NameValData( const string & name, const double & d_data, const string & doc )
 {
     Init( name, vsp::DOUBLE_DATA );
     m_DoubleData.push_back( d_data );
+    m_Doc = doc;
 }
-NameValData::NameValData( const string & name, const string & s_data )
+NameValData::NameValData( const string & name, const string & s_data, const string & doc )
 {
     Init( name, vsp::STRING_DATA );
     m_StringData.push_back( s_data );
+    m_Doc = doc;
 }
-NameValData::NameValData( const string & name, const vec3d & v_data )
+NameValData::NameValData( const string & name, const vec3d & v_data, const string & doc )
 {
     Init( name, vsp::VEC3D_DATA );
     m_Vec3dData.push_back( v_data );
+    m_Doc = doc;
 }
-NameValData::NameValData( const string & name, const vector< int > & i_data )
+NameValData::NameValData( const string & name, const vector< int > & i_data, const string & doc )
 {
     Init( name, vsp::INT_DATA );
     m_IntData = i_data;
+    m_Doc = doc;
 }
-NameValData::NameValData( const string & name, const vector< double > & d_data )
+NameValData::NameValData( const string & name, const vector< double > & d_data, const string & doc )
 {
     Init( name, vsp::DOUBLE_DATA );
     m_DoubleData = d_data;
+    m_Doc = doc;
 }
-NameValData::NameValData( const string & name, const vector< string > & s_data )
+NameValData::NameValData( const string & name, const vector< string > & s_data, const string & doc )
 {
     Init( name, vsp::STRING_DATA );
     m_StringData = s_data;
+    m_Doc = doc;
 }
-NameValData::NameValData( const string & name, const vector< vec3d > & v_data )
+NameValData::NameValData( const string & name, const vector< vec3d > & v_data, const string & doc )
 {
     Init( name, vsp::VEC3D_DATA );
     m_Vec3dData = v_data;
+    m_Doc = doc;
 }
-NameValData::NameValData( const string &name, const vector< vector< double > > &dmat_data )
+NameValData::NameValData( const string &name, const vector< vector< double > > &dmat_data, const string & doc )
 {
     Init( name, vsp::DOUBLE_MATRIX_DATA );
     m_DoubleMatData = dmat_data;
+    m_Doc = doc;
 }
 void NameValData::Init( const string & name, int type, int index )
 {
     m_Name = name;
     m_Type = type;
+}
+
+string NameValData::GetTypeName() const
+{
+    switch ( m_Type ){
+        case vsp::INVALID_TYPE:
+            return string( "invalid" );
+        case vsp::INT_DATA:
+            return string( "integer" );
+        case vsp::DOUBLE_DATA:
+            return string( "double" );
+        case vsp::STRING_DATA:
+            return string( "string" );
+        case vsp::VEC3D_DATA:
+            return string( "vec3d" );
+        case vsp::DOUBLE_MATRIX_DATA:
+            return string( "double matrix" );
+        default:
+            return string( "unknown" );
+    }
 }
 
 int NameValData::GetInt( int i ) const
@@ -131,10 +160,11 @@ vec3d NameValData::GetVec3d( int i ) const
 //======================================================================================//
 
 
-NameValCollection::NameValCollection( const string & name, const string & id )
+NameValCollection::NameValCollection( const string & name, const string & id, const string & doc )
 {
     m_Name = name;
     m_ID = id;
+    m_Doc = doc;
 }
 
 //==== Add Data To Results - Can Have Data With The Same Name =====//
@@ -154,7 +184,7 @@ void NameValCollection::Add( const NameValData & d )
     }
 }
 
-void NameValCollection::Add(const vector<vector<vec3d> > & d, string prefix)
+void NameValCollection::Add(const vector<vector<vec3d> > & d, string prefix, const string &doc )
 {
     string names[] = { prefix + "x", prefix + "y", prefix + "z"};
     for ( int dim = 0; dim < 3; dim++ )
@@ -172,7 +202,7 @@ void NameValCollection::Add(const vector<vector<vec3d> > & d, string prefix)
             arr.push_back( row );
         }
 
-        Add( NameValData( names[dim], arr ) );
+        Add( NameValData( names[dim], arr, doc ) );
     }
 }
 
@@ -236,7 +266,7 @@ NameValData* NameValCollection::FindPtr( const string & name, int index )
 //======================================================================================//
 //======================================================================================//
 
-Results::Results( const string & name, const string & id ) : NameValCollection( name, id )
+Results::Results( const string & name, const string & id, const string & doc ) : NameValCollection( name, id, doc )
 {
     SetDateTime();          // Set Time Stamp
 }
@@ -445,6 +475,36 @@ void Results::WriteMassProp( const string & file_name )
         fprintf( fid, "%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
                  "Totals", Find( "Total_Mass" ).GetDouble( 0 ), total_cg.x(), total_cg.y(), total_cg.z(),
                  ixx, iyy, izz, ixy, ixz, iyz, Find( "Total_Volume" ).GetDouble( 0 ) );
+
+
+
+        fprintf( fid, "\n...Filling Mass Properties (Volume Only -- No Shell or Point Mass)...\n" );
+
+        int num_slice = Find( "Num_Fill_Slice" ).GetInt( 0 );
+
+        fprintf( fid, "%d Num Slice\n", num_slice );
+
+        fprintf( fid, "\n" );
+        fprintf( fid, "Slice\tMass\tcgX\tcgY\tcgZ\tIxx\tIyy\tIzz\tIxy\tIxz\tIyz\tVolume\n" );
+
+        for ( int i = 0 ; i < num_slice ; i++ )
+        {
+            double fillslice = Find( "Fill_Slice" ).GetDouble( i );
+            double fillmass = Find( "Fill_Mass" ).GetDouble( i );
+            vec3d fillcg = Find( "Fill_CG" ).GetVec3d( i );
+            double fillIxx = Find( "Fill_Ixx" ).GetDouble( i );
+            double fillIyy = Find( "Fill_Iyy" ).GetDouble( i );
+            double fillIzz = Find( "Fill_Izz" ).GetDouble( i );
+            double fillIxy = Find( "Fill_Ixy" ).GetDouble( i );
+            double fillIyz = Find( "Fill_Iyz" ).GetDouble( i );
+            double fillIxz = Find( "Fill_Ixz" ).GetDouble( i );
+            double fillVol = Find( "Fill_Vol" ).GetDouble( i );
+
+            fprintf( fid, "%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+                     fillslice, fillmass, fillcg.x(), fillcg.y(), fillcg.z(),
+                     fillIxx, fillIyy, fillIzz, fillIxy, fillIxz, fillIyz, fillVol );
+        }
+
 
         fclose( fid );          // Close File
     }
@@ -836,7 +896,7 @@ void Results::WriteBEMFile( const string & file_name )
         for ( int i = 0; i < num_sect; i++ )
         {
             char str[255];
-            sprintf( str, "%03d", i );
+            snprintf( str, sizeof( str ),  "%03d", i );
             vector < double > xpts = Find( "XSection_" + string( str ) ).GetDoubleData();
             vector < double > ypts = Find( "YSection_" + string( str ) ).GetDoubleData();
 
@@ -859,27 +919,27 @@ void Results::Copy( NameValData* nvd )
     {
         case ( vsp::DOUBLE_DATA ):
         {
-            Add( ( NameValData( nvd->GetName(), nvd->GetDoubleData() ) ) );
+            Add( ( NameValData( nvd->GetName(), nvd->GetDoubleData(), nvd->GetDoc().c_str() ) ) );
             break;
         }
         case ( vsp::INT_DATA ):
         {
-            Add( ( NameValData( nvd->GetName(), nvd->GetIntData() ) ) );
+            Add( ( NameValData( nvd->GetName(), nvd->GetIntData(), nvd->GetDoc().c_str() ) ) );
             break;
         }
         case ( vsp::STRING_DATA ):
         {
-            Add( ( NameValData( nvd->GetName(), nvd->GetStringData() ) ) );
+            Add( ( NameValData( nvd->GetName(), nvd->GetStringData(), nvd->GetDoc().c_str() ) ) );
             break;
         }
         case ( vsp::DOUBLE_MATRIX_DATA ):
         {
-            Add( ( NameValData( nvd->GetName(), nvd->GetDoubleMatData() ) ) );
+            Add( ( NameValData( nvd->GetName(), nvd->GetDoubleMatData(), nvd->GetDoc().c_str() ) ) );
             break;
         }
         case ( vsp::VEC3D_DATA ):
         {
-            Add( ( NameValData( nvd->GetName(), nvd->GetVec3dData() ) ) );
+            Add( ( NameValData( nvd->GetName(), nvd->GetVec3dData(), nvd->GetDoc().c_str() ) ) );
             break;
         }
     }
@@ -903,10 +963,10 @@ ResultsMgrSingleton::~ResultsMgrSingleton()
 
 
 //==== Create and Add Results Object and Return Ptr ====//
-Results* ResultsMgrSingleton::CreateResults( const string & name )
+Results* ResultsMgrSingleton::CreateResults( const string & name, const string & doc )
 {
     string id = GenerateRandomID( 7 );
-    Results* res_ptr = new Results( name, id );     // Create Results
+    Results* res_ptr = new Results( name, id, doc );     // Create Results
 
     m_ResultsMap[id] = res_ptr;                     // Map ID to Ptr
     m_NameIDMap[name].push_back( id );              // Map Name to Vector of IDs
@@ -917,7 +977,7 @@ Results* ResultsMgrSingleton::CreateResults( const string & name )
 //==== Create Results And Load With Geometry Data ====//
 string ResultsMgrSingleton::CreateGeomResults( const string & geom_id, const string & name )
 {
-    Results* res_ptr = CreateResults( name );
+    Results* res_ptr = CreateResults( name, "Geometry mesh results." );
 
     Vehicle* veh = VehicleMgr.GetVehicle();
     if ( !veh )
@@ -1112,6 +1172,40 @@ int ResultsMgrSingleton::GetResultsType( const string & results_id, const string
     return rd_ptr->GetType();
 }
 
+string ResultsMgrSingleton::GetResultsTypeName( const string & results_id, const string & data_name )
+{
+    Results* results_ptr = FindResultsPtr( results_id );
+    if ( !results_ptr )
+    {
+        return "";
+    }
+
+    NameValData* rd_ptr = results_ptr->FindPtr( data_name );
+    if ( !rd_ptr )
+    {
+        return "";
+    }
+
+    return rd_ptr->GetTypeName();
+}
+
+string ResultsMgrSingleton::GetResultsEntryDoc( const string & results_id, const string & data_name )
+{
+    Results* results_ptr = FindResultsPtr( results_id );
+    if ( !results_ptr )
+    {
+        return "";
+    }
+
+    NameValData* rd_ptr = results_ptr->FindPtr( data_name );
+    if ( !rd_ptr )
+    {
+        return "";
+    }
+
+    return rd_ptr->GetDoc();
+}
+
 //==== Get The Names of All Results ====//
 vector< string > ResultsMgrSingleton::GetAllResultsNames()
 {
@@ -1151,18 +1245,20 @@ void ResultsMgrSingleton::PrintResults( const string &fname, const string &resul
 void ResultsMgrSingleton::PrintResults( const string &results_id )
 {
     PrintResults( stdout, results_id );
+    fflush( stdout );
 }
 
 void ResultsMgrSingleton::PrintResults( FILE * outputStream, const string &results_id )
 {
-    fprintf( outputStream, "\n\t\t%-20s%s\t%s\t%s\n", "[result_name]", "[type]", "[#]", "[current values-->]" );
+    fprintf( outputStream, "\n   %-30s%-13s\t%s\t%s\n", "[result_name]", "[type]", "[#]", "[current values-->]" );
 
     vector<string> results_names = GetAllDataNames( results_id );
     for ( unsigned int i_result_name = 0; i_result_name < results_names.size(); i_result_name++ )
     {
         int current_result_type = GetResultsType( results_id, results_names[i_result_name] );
+        string current_result_type_name = GetResultsTypeName( results_id, results_names[i_result_name] );
         unsigned int current_result_num_data = ( unsigned int )GetNumData( results_id, results_names[i_result_name] );
-        fprintf( outputStream, "\t\t%-20s%d\t\t%d", results_names[i_result_name].c_str(), current_result_type, current_result_num_data );
+        fprintf( outputStream, "   %-30s%-13s\t%d", results_names[i_result_name].c_str(), current_result_type_name.c_str(), current_result_num_data );
         // print out the current value (this needs to handle different types and vector lengths
         fprintf( outputStream, "\t" );
         for ( unsigned int i_val = 0; i_val < current_result_num_data; i_val++ )
@@ -1238,6 +1334,45 @@ void ResultsMgrSingleton::PrintResults( FILE * outputStream, const string &resul
     }
 }
 
+void ResultsMgrSingleton::PrintResultsDocs( const string &fname, const string &results_id )
+{
+    FILE *fp;
+    fp = fopen( fname.c_str(), "w" );
+    if ( fp )
+    {
+        PrintResultsDocs( fp, results_id );
+        fclose( fp );
+    }
+}
+
+void ResultsMgrSingleton::PrintResultsDocs( const string &results_id )
+{
+    PrintResultsDocs( stdout, results_id );
+    fflush( stdout );
+}
+
+void ResultsMgrSingleton::PrintResultsDocs( FILE * outputStream, const string &results_id )
+{
+    Results * res_ptr = FindResultsPtr( results_id );
+
+    if ( !res_ptr )
+    {
+        return;
+    }
+
+    fprintf( outputStream, "%s\n", res_ptr->GetName().c_str() );
+    fprintf( outputStream, "%s\n", res_ptr->GetDoc().c_str() );
+
+    fprintf( outputStream, "   %-30s%-13s\t%s\n", "[result_name]", "[type]", "[doc]" );
+
+    vector<string> results_names = GetAllDataNames( results_id );
+    for ( unsigned int i_result_name = 0; i_result_name < results_names.size(); i_result_name++ )
+    {
+        string current_result_type = GetResultsTypeName( results_id, results_names[i_result_name] );
+        string current_result_doc = GetResultsEntryDoc( results_id, results_names[ i_result_name ] );
+        fprintf( outputStream, "   %-30s%-13s\t%s\n", results_names[i_result_name].c_str(), current_result_type.c_str(), current_result_doc.c_str() );
+    }
+}
 
 
 //==== Get Int Results Given Results ID and Name of Data and Index (Default 0) ====//
@@ -1369,22 +1504,22 @@ void ResultsMgrSingleton::WriteTestResults()
     //==== Write Two Sets of Results ====//
     for ( int s = 0 ; s < 2 ; s++ )
     {
-        Results* res = ResultsMgr.CreateResults( "Test_Results" );
+        Results* res = ResultsMgr.CreateResults( "Test_Results", "Test results." );
 
 //      printf( "Timestamp = %d \n", res->GetTimestamp() );
 
-        res->Add( NameValData( "Test_Int", s + 1 ) );
-        res->Add( NameValData( "Test_Int", s + 2 ) );
-        res->Add( NameValData( "Test_Double", ( s + 1 ) * 0.1 ) );
-        res->Add( NameValData( "Test_String", "This Is A Test" ) );
-        res->Add( NameValData( "Test_Vec3d", vec3d( s, s * 2, s * 4 ) ) );
+        res->Add( NameValData( "Test_Int", s + 1, "Test integer result." ) );
+        res->Add( NameValData( "Test_Int", s + 2, "Test integer result." ) );
+        res->Add( NameValData( "Test_Double", ( s + 1 ) * 0.1, "Test double result." ) );
+        res->Add( NameValData( "Test_String", "This Is A Test", "Test string result." ) );
+        res->Add( NameValData( "Test_Vec3d", vec3d( s, s * 2, s * 4 ), "Test vec3d result." ) );
 
         vector< double > dvec;
         for ( int i = 0 ; i < 5 ; i++ )
         {
             dvec.push_back( i * ( s + 1 ) );
         }
-        res->Add( NameValData( "Test_Double_Vec", dvec ) );
+        res->Add( NameValData( "Test_Double_Vec", dvec, "Test double vector result." ) );
     }
 
 

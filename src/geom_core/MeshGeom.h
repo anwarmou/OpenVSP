@@ -149,9 +149,10 @@ public:
     //==== Intersection, Splitting and Trimming ====//
     virtual void IntersectTrim( vector< DegenGeom > &degenGeom, bool degen = true, int intSubsFlag = 1 );
 
-    virtual void MassSliceX( int numSlice, bool writefile = true );
-    virtual void degenGeomMassSliceX( vector< DegenGeom > &degenGeom );
-    virtual void AreaSlice( int numSlices, vec3d norm, bool autoBounds, double start = 0, double end = 0 );
+    virtual void MassSlice( vector< DegenGeom > &degenGeom, bool degen, int numSlices, int idir = vsp::X_DIR, bool writefile = true );
+    virtual double MakeSlices( int numSlices, int swdir, vector < double > &slicevec, bool mpslice = true, bool tesselate = true, bool autoBounds = true, double start = 0, double end = 0, int slctype = vsp::CFD_STRUCTURE );
+
+    virtual void AreaSlice( int numSlices, vec3d norm, bool autoBounds, double start, double end, bool measureduct );
 
     virtual void WaveStartEnd( const double &sliceAngle, const vec3d &center );
     virtual void WaveDragSlice( int numSlices, double sliceAngle, int coneSections,
@@ -159,8 +160,7 @@ public:
 
     virtual void MergeRemoveOpenMeshes( MeshInfo* info, bool deleteopen = true );
 
-    virtual void CreatePrism( vector< TetraMassProp* >& tetraVec, TTri* tri, double len );
-    virtual void createDegenGeomPrism( vector< DegenGeomTetraMassProp* >& tetraVec, TTri* tri, double len );
+    virtual void CreatePrism( vector< TetraMassProp* >& tetraVec, TTri* tri, double len, int idir );
 
     virtual void AddPointMass( TetraMassProp* pm )
     {
@@ -191,6 +191,7 @@ public:
 
     virtual vector< string > GetTMeshNames();
     virtual vector< string > GetTMeshIDs();
+    virtual map< string, int > GetThicks();
     virtual set< string > GetTMeshPtrIDs();
 
     virtual void SubTagTris( bool tag_subs );

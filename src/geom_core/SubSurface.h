@@ -27,7 +27,7 @@ public:
     // SubSurface UW Line Type
     SSLineSeg();
 
-    virtual void Update( Geom* geom );
+    virtual void Update( Geom *geom, const int &indx );
 
     enum { GT, LT, NO };
     int m_TestType;
@@ -136,9 +136,7 @@ public:
     virtual void SetDisplaySuffix( int num );
     // Save, Load
     virtual xmlNodePtr EncodeXml( xmlNodePtr & node );
-
-    virtual int GetFeaMaterialIndex();
-    virtual void SetFeaMaterialIndex( int index );
+    virtual xmlNodePtr DecodeXml( xmlNodePtr & node );
 
     int m_Tag;
     IntParm m_TestType;
@@ -155,11 +153,16 @@ public:
     Parm m_TeTwRatio;
     Parm m_TawTwRatio;
 
-    IntParm m_IncludedElements;
+    IntParm m_IncludedElements; // Deprecated
+    BoolParm m_CreateBeamElements;
+    IntParm m_KeepDelShellElements;
     BoolParm m_DrawFeaPartFlag;
     IntParm m_FeaPropertyIndex;
     IntParm m_CapFeaPropertyIndex;
     IntParm m_FeaOrientationType;
+
+    string m_FeaPropertyID;
+    string m_CapFeaPropertyID;
 
     std::vector < vec3d > m_FeaOrientationVec;
 

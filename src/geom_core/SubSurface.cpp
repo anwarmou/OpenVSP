@@ -59,16 +59,22 @@ SubSurface::SubSurface( const string& compID, int type )
     m_TawTwRatio.Init("TawTwRatio", "ParasiteDragProps", this, -1, -1, 1e6 );
     m_TawTwRatio.SetDescript("Temperature Ratio of Ambient Wall to Wall" );
 
-    m_IncludedElements.Init( "IncludedElements", "SubSurface", this, vsp::FEA_SHELL, vsp::FEA_SHELL, vsp::FEA_SHELL_AND_BEAM );
-    m_IncludedElements.SetDescript( "Indicates the FeaElements to be Included for the SubSurface" );
+    m_IncludedElements.Init( "IncludedElements", "SubSurface", this, vsp::FEA_DEPRECATED, vsp::FEA_DEPRECATED, vsp::FEA_SHELL_AND_BEAM );
+    m_IncludedElements.SetDescript( "DEPRECATED: Indicates the FeaElements to be Included for the SubSurface" );
+
+    m_CreateBeamElements.Init( "CreateBeamElements","SubSurface", this, false, false, true );
+    m_CreateBeamElements.SetDescript( "Flag to indicate whether to create beam elements for this subsurface" );
+
+    m_KeepDelShellElements.Init( "KeepDelShellElements", "SubSurface", this, vsp::FEA_KEEP, vsp::FEA_KEEP, vsp::FEA_NUM_SHELL_TREATMENT_TYPES - 1 );
+    m_KeepDelShellElements.SetDescript( "Indicates whether to keep or delete shell elements from this subsurface" );
 
     m_DrawFeaPartFlag.Init( "DrawFeaPartFlag", "FeaSubSurface", this, true, false, true );
     m_DrawFeaPartFlag.SetDescript( "Flag to Draw FEA SubSurface" );
 
-    m_FeaPropertyIndex.Init( "FeaPropertyIndex", "FeaSubSurface", this, 0, 0, 1e12 ); // Shell property default
+    m_FeaPropertyIndex.Init( "FeaPropertyIndex", "FeaSubSurface", this, -1, -1, 1e12 ); // Shell property default
     m_FeaPropertyIndex.SetDescript( "FeaPropertyIndex for Shell Elements" );
 
-    m_CapFeaPropertyIndex.Init( "CapFeaPropertyIndex", "FeaSubSurface", this, 1, 0, 1e12 ); // Beam property default
+    m_CapFeaPropertyIndex.Init( "CapFeaPropertyIndex", "FeaSubSurface", this, -1, -1, 1e12 ); // Beam property default
     m_CapFeaPropertyIndex.SetDescript( "FeaPropertyIndex for Beam (Cap) Elements" );
 
     m_FeaOrientationType.Init( "Orientation", "FeaSubSurface", this, vsp::FEA_ORIENT_PART_U, vsp::FEA_ORIENT_GLOBAL_X, vsp::FEA_NUM_ORIENT_TYPES - 1 );
@@ -195,6 +201,67 @@ void SubSurface::UpdateDrawObjs()
 
 void SubSurface::Update()
 {
+    // Attempt to update deprecated options to new versions with closest meaning.
+    if ( m_IncludedElements() != vsp::FEA_DEPRECATED )
+    {
+        if ( m_IncludedElements() == vsp::FEA_SHELL )
+        {
+            m_CreateBeamElements.Set( false );
+            m_KeepDelShellElements.Set( vsp::FEA_KEEP );
+        }
+        else if ( m_IncludedElements() == vsp::FEA_BEAM )
+        {
+            m_CreateBeamElements.Set( true );
+            m_KeepDelShellElements.Set( vsp::FEA_DELETE );
+            m_TestType.Set( vsp::NONE );
+        }
+        else if ( m_IncludedElements() == vsp::FEA_SHELL_AND_BEAM )
+        {
+            m_CreateBeamElements.Set( true );
+            m_KeepDelShellElements.Set( vsp::FEA_KEEP );
+        }
+
+        m_IncludedElements.Set( vsp::FEA_DEPRECATED );
+    }
+
+    if ( m_KeepDelShellElements() == vsp::FEA_KEEP )
+    {
+        if ( m_FeaPropertyIndex() != -1 )
+        {
+            vector < FeaProperty* > prop_vec = StructureMgr.GetFeaPropertyVec();
+            if ( m_FeaPropertyIndex() < prop_vec.size() )
+            {
+                m_FeaPropertyID = prop_vec[ m_FeaPropertyIndex() ]->GetID();
+                m_FeaPropertyIndex = -1;
+            }
+        }
+
+        FeaProperty *shell_prop = StructureMgr.GetFeaProperty( m_FeaPropertyID );
+        if ( !shell_prop )
+        {
+            m_FeaPropertyID = StructureMgr.GetSomeShellProperty();
+        }
+    }
+
+    if ( m_CreateBeamElements() )
+    {
+        if ( m_CapFeaPropertyIndex() != -1 )
+        {
+            vector < FeaProperty* > prop_vec = StructureMgr.GetFeaPropertyVec();
+            if ( m_CapFeaPropertyIndex() < prop_vec.size() )
+            {
+                m_CapFeaPropertyID = prop_vec[ m_CapFeaPropertyIndex() ]->GetID();
+                m_CapFeaPropertyIndex = -1;
+            }
+        }
+
+        FeaProperty *cap_prop = StructureMgr.GetFeaProperty( m_CapFeaPropertyID );
+        if ( !cap_prop )
+        {
+            m_CapFeaPropertyID = StructureMgr.GetSomeBeamProperty();
+        }
+    }
+
     UpdateOrientation();
 
     m_PolyPntsReadyFlag = false;
@@ -321,7 +388,6 @@ std::string SubSurface::GetTypeName( int type )
     return string( "NONE" );
 }
 
-
 // Encode Data into XML file
 xmlNodePtr SubSurface::EncodeXml( xmlNodePtr & node )
 {
@@ -330,7 +396,23 @@ xmlNodePtr SubSurface::EncodeXml( xmlNodePtr & node )
     xmlNodePtr ss_info = xmlNewChild( node, NULL, BAD_CAST "SubSurfaceInfo", NULL );
     XmlUtil::AddIntNode( ss_info, "Type", m_Type );
 
+    XmlUtil::AddStringNode( node, "FeaPropertyID", m_FeaPropertyID );
+    XmlUtil::AddStringNode( node, "CapFeaPropertyID", m_CapFeaPropertyID );
+
     return ss_info;
+}
+
+xmlNodePtr SubSurface::DecodeXml( xmlNodePtr & node )
+{
+    ParmContainer::DecodeXml( node );
+
+    if ( node )
+    {
+        m_FeaPropertyID = ParmMgr.RemapID( XmlUtil::FindString( node, "FeaPropertyID", m_FeaPropertyID ) );
+        m_CapFeaPropertyID = ParmMgr.RemapID( XmlUtil::FindString( node, "CapFeaPropertyID", m_CapFeaPropertyID ) );
+    }
+
+    return node;
 }
 
 bool SubSurface::Subtag( const vec3d & center )
@@ -362,20 +444,6 @@ bool SubSurface::Subtag( const vec3d & center )
     }
 
     return false;
-}
-
-int SubSurface::GetFeaMaterialIndex()
-{
-    FeaProperty* fea_prop = StructureMgr.GetFeaProperty( m_FeaPropertyIndex() );
-
-    return fea_prop->m_FeaMaterialIndex();
-}
-
-void SubSurface::SetFeaMaterialIndex( int index )
-{
-    FeaProperty* fea_prop = StructureMgr.GetFeaProperty( m_FeaPropertyIndex() );
-
-    fea_prop->m_FeaMaterialIndex.Set( index );
 }
 
 //==================================//
@@ -597,13 +665,18 @@ bool SSLineSeg::Subtag( TTri* tri ) const
     return Subtag( center );
 }
 
-void SSLineSeg::Update( Geom* geom )
+void SSLineSeg::Update( Geom *geom, const int &indx )
 {
-    double umax = geom->GetUMax(0);
-    double wmax = geom->GetWMax(0);
+    double umax = geom->GetUMapMax( indx );
+    double wmax = geom->GetWMax( indx );
+
+    VspSurf* surf = geom->GetMainSurfPtr( indx );
+    double u0 = surf->InvertUMapping( m_SP0[0] * umax );
+    double u1 = surf->InvertUMapping( m_SP1[0] * umax );
+
     // Update none scaled points
-    m_P0.set_xyz( m_SP0[0]*umax, m_SP0[1]*wmax, 0 );
-    m_P1.set_xyz( m_SP1[0]*umax, m_SP1[1]*wmax, 0 );
+    m_P0.set_xyz( u0, m_SP0[1]*wmax, 0 );
+    m_P1.set_xyz( u1, m_SP1[1]*wmax, 0 );
 
     // Update line
     m_line = m_P1 - m_P0;
@@ -773,7 +846,7 @@ void SSLine::Update()
     // Update SSegLine points based on current values
     if ( m_ConstType() == vsp::CONST_U )
     {
-        double umax = geom->GetMainUMax( m_MainSurfIndx() );
+        double umax = geom->GetMainUMapMax( m_MainSurfIndx() );
 
         if ( m_Val01.Get() ) // Use 01 basis
         {
@@ -782,6 +855,7 @@ void SSLine::Update()
         else
         {
             double val = clamp( m_ConstVal0N(), 0.0, umax );
+            m_ConstVal0N.Set( val );
             m_ConstVal.Set( val / umax );
         }
 
@@ -808,7 +882,7 @@ void SSLine::Update()
 
     m_LVec[0].m_TestType = m_TestType();
 
-    m_LVec[0].Update( geom );
+    m_LVec[ 0 ].Update( geom, m_MainSurfIndx() );
 
     SubSurface::Update();
 }
@@ -909,7 +983,7 @@ void SSRectangle::Update()
         m_LVec[i].SetSP0( pntVec[pind] );
         pind++;
         m_LVec[i].SetSP1( pntVec[pind] );
-        m_LVec[i].Update( geom );
+        m_LVec[ i ].Update( geom, m_MainSurfIndx() );
     }
 
     SubSurface::Update();
@@ -985,7 +1059,7 @@ void SSEllipse::Update()
         pnt.set_xyz( a * cos( p1 ) + m_CenterU(), b * sin( p1 ) + m_CenterW(), 0 );
         pnt = transMat2.xform( rotMat.xform( transMat1.xform( pnt ) ) );
         m_LVec[i].SetSP1( pnt );
-        m_LVec[i].Update( geom );
+        m_LVec[ i ].Update( geom, m_MainSurfIndx() );
     }
 
     SubSurface::Update();
@@ -1937,7 +2011,7 @@ void SSControlSurf::Update()
             m_LVec.push_back( SSLineSeg() );
             m_LVec.back().SetSP0( up_pnt_vec[i] );
             m_LVec.back().SetSP1( up_pnt_vec[i+1] );
-            m_LVec.back().Update( geom );
+            m_LVec.back().Update( geom, m_MainSurfIndx() );
         }
     }
 
@@ -1950,7 +2024,7 @@ void SSControlSurf::Update()
             m_LVec.push_back( SSLineSeg() );
             m_LVec.back().SetSP0( low_pnt_vec[i] );
             m_LVec.back().SetSP1( low_pnt_vec[i+1] );
-            m_LVec.back().Update( geom );
+            m_LVec.back().Update( geom, m_MainSurfIndx() );
         }
     }
 
@@ -2174,7 +2248,7 @@ SSLineArray::SSLineArray( const string& comp_id, int type ) : SubSurface( comp_i
 
     // Set to only Beam elements (cap) with no tags (tris)
     m_TestType = SSLineSeg::NO;
-    m_IncludedElements.Set( vsp::FEA_BEAM );
+    m_CreateBeamElements = true;
 
     m_NumLines = 0;
 }
@@ -2219,7 +2293,7 @@ void SSLineArray::Update()
             return;
         }
 
-        m_LVec[i].Update( geom );
+        m_LVec[ i ].Update( geom, m_MainSurfIndx() );
     }
 
     SubSurface::Update();
@@ -2286,12 +2360,15 @@ SSLine* SSLineArray::AddSSLine( double location, int ind )
 
     if ( ssline )
     {
-        ssline->m_IncludedElements.Set( m_IncludedElements() );
+        ssline->m_KeepDelShellElements.Set( m_KeepDelShellElements() );
+        ssline->m_CreateBeamElements.Set( m_CreateBeamElements() );
         ssline->m_ConstType.Set( m_ConstType() );
         ssline->m_ConstVal.Set( location );
         ssline->m_TestType.Set( m_TestType() );
         ssline->m_FeaPropertyIndex.Set( m_FeaPropertyIndex() );
         ssline->m_CapFeaPropertyIndex.Set( m_CapFeaPropertyIndex() );
+        ssline->m_FeaPropertyID = m_FeaPropertyID;
+        ssline->m_CapFeaPropertyID = m_CapFeaPropertyID;
 
         ssline->SetName( string( m_Name + "_SSLine_" + std::to_string( ind ) ) );
 
@@ -2336,7 +2413,8 @@ SSFiniteLine::SSFiniteLine( const string& comp_id, int type ) : SubSurface( comp
     m_TestType.Init( "Test_Type", "SubSurface", this, SSLineSeg::NO, SSLineSeg::NO, SSLineSeg::NO );
     m_TestType.SetDescript( "Tag surface as being either greater than or less than const value line" );
 
-    m_IncludedElements.Set( vsp::FEA_BEAM );
+    m_CreateBeamElements = true;
+
     m_LVec.resize( 1 );
 }
 
@@ -2357,7 +2435,7 @@ void SSFiniteLine::Update()
     {
         return;
     }
-    m_LVec[0].Update( geom );
+    m_LVec[ 0 ].Update( geom, m_MainSurfIndx() );
 
     SubSurface::Update();
 }

@@ -642,7 +642,7 @@ Matrix4d GeomXForm::ComposeAttachMatrix()
         // these calculations and does not need to be applied again.
         if ( m_TransAttachFlag() == vsp::ATTACH_TRANS_UV )
         {
-            if ( !( parent->CompTransCoordSys( m_ULoc(), m_WLoc(), transMat ) ) )
+            if ( !( parent->CompTransCoordSys( 0, m_ULoc(), m_WLoc(), transMat )) )
             {
                 revertCompTrans = true; // Blank components revert to the component matrix.
             }
@@ -650,7 +650,7 @@ Matrix4d GeomXForm::ComposeAttachMatrix()
 
         if ( m_RotAttachFlag() == vsp::ATTACH_ROT_UV )
         {
-            if ( !( parent->CompRotCoordSys( m_ULoc(), m_WLoc(), rotMat ) ) )
+            if ( !( parent->CompRotCoordSys( 0, m_ULoc(), m_WLoc(), rotMat )) )
             {
                 revertCompRot = true; // For blank component.
             }
@@ -849,7 +849,7 @@ void GeomXForm::AcceptScale()
 //  if (sym_code != NO_SYM)
 //    compose_reflect_matrix();
 //
-//  //==== Uppdate Children =====//
+//  //==== Update Children =====//
 //  for ( i = 0 ; i < (int)childGeomVec.size() ; i++ )
 //  {
 //  childGeomVec[i]->compose_model_matrix();
@@ -1146,6 +1146,17 @@ void Geom::Update( bool fullupdate )
     if ( m_SurfDirty )
         UpdateEndCaps();
 
+    if ( m_SurfDirty )
+    {
+        for ( int i = 0; i < m_MainSurfVec.size(); i++ )
+        {
+            m_MainSurfVec[i].InitUMapping();
+        }
+    }
+
+    if ( m_SurfDirty )
+        UpdateEngine();
+
     if ( fullupdate )
     {
         if ( m_SurfDirty )
@@ -1248,7 +1259,7 @@ void Geom::Update( bool fullupdate )
     m_UpdateBlock = false;
 }
 
-void Geom::GetUWTess01( int indx, vector < double > &u, vector < double > &w )
+void Geom::GetUWTess01( const int &indx, vector < double > &u, vector < double > &w )
 {
     vector< vector< vec3d > > pnts;
     vector< vector< vec3d > > norms;
@@ -1315,12 +1326,12 @@ void Geom::UpdateTesselate( int indx, vector< vector< vec3d > > &pnts, vector< v
 void Geom::UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vec3d > > &pnts, vector< vector< vec3d > > &norms,
                             vector< vector< vec3d > > &uw_pnts, bool degen ) const
 {
-    surf_vec[indx].Tesselate( m_TessU(), m_TessW(), pnts, norms, uw_pnts, m_CapUMinTess(), degen );
+    surf_vec[indx].Tesselate( m_TessU(), m_TessW(), pnts, norms, uw_pnts, m_CapUMinTess(), m_TessU(), degen );
 }
 
 void Geom::UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, vector< vector< vector< vec3d > > > &pnts, vector< vector< vector< vec3d > > > &norms) const
 {
-    surf_vec[indx].SplitTesselate( m_TessU(), m_TessW(), pnts, norms, m_CapUMinTess() );
+    surf_vec[indx].SplitTesselate( m_TessU(), m_TessW(), pnts, norms, m_CapUMinTess(), m_TessU() );
 }
 
 void Geom::UpdateEndCaps()
@@ -3197,7 +3208,7 @@ void Geom::LoadMainDrawObjs( vector< DrawObj* > & draw_obj_vec )
     {
         // Symmetry drawObjs have same m_ID. Make them unique by adding index
         // at the end of m_ID.
-        sprintf( str, "_%d", i );
+        snprintf( str, sizeof( str ),  "_%d", i );
         m_WireShadeDrawObj_vec[i].m_GeomID = m_ID + str;
         m_WireShadeDrawObj_vec[i].m_Visible = GetSetFlag( vsp::SET_SHOWN );
 
@@ -3313,7 +3324,7 @@ void Geom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
         for ( int i = 0; i < m_AxisDrawObj_vec.size(); i++ )
         {
             m_AxisDrawObj_vec[i].m_Screen = DrawObj::VSP_MAIN_SCREEN;
-            sprintf( str, "_%d", i );
+            snprintf( str, sizeof( str ),  "_%d", i );
             m_AxisDrawObj_vec[i].m_GeomID = m_ID + "Axis_" + str;
             m_AxisDrawObj_vec[i].m_LineWidth = 2.0;
             m_AxisDrawObj_vec[i].m_Type = DrawObj::VSP_LINES;
@@ -3329,7 +3340,7 @@ void Geom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
             for ( int i = 0; i < m_FeatureDrawObj_vec.size(); i++ )
             {
                 m_FeatureDrawObj_vec[i].m_Screen = DrawObj::VSP_MAIN_SCREEN;
-                sprintf( str, "_%d", i );
+                snprintf( str, sizeof( str ),  "_%d", i );
                 m_FeatureDrawObj_vec[i].m_GeomID = m_ID + "Feature_" + str;
                 m_FeatureDrawObj_vec[i].m_Type = DrawObj::VSP_LINES;
                 draw_obj_vec.push_back( &m_FeatureDrawObj_vec[i] );
@@ -3621,7 +3632,7 @@ void Geom::CreateDegenGeom( vector <VspSurf> &surf_vec, const int &nsurf, vector
         surf_vec[i].ResetUSkip();
 
         int surftype = DegenGeom::BODY_TYPE;
-        if( surf_vec[i].GetSurfType() == vsp::WING_SURF || surf_vec[i].GetSurfType() == vsp::PROP_SURF )
+        if( surf_vec[i].GetSurfType() == vsp::WING_SURF )
         {
             surftype = DegenGeom::SURFACE_TYPE;
         }
@@ -3795,6 +3806,38 @@ int Geom::GetNumSymFlags() const
     return numSymFlags;
 }
 
+vector<VspSurf> Geom::GetDegenSurfVec()
+{
+    vector<VspSurf> surf_vec;
+    surf_vec = GetSurfVecConstRef();
+
+    vector<VspSurf> degen_surf_vec;
+    degen_surf_vec.reserve( surf_vec.size() * 2 );
+    for ( int i = 0; i < surf_vec.size(); i++ )
+    {
+        if ( surf_vec[i].GetSurfType() == vsp::WING_SURF )
+        {
+            int isurf = degen_surf_vec.size();
+            degen_surf_vec.push_back( surf_vec[i] ); // Start with copy.
+            degen_surf_vec[isurf].DegenCamberSurf( surf_vec[i] );
+            degen_surf_vec[isurf].SetPlateNum( 0 );
+        }
+        else
+        {
+            int isurf = degen_surf_vec.size();
+            degen_surf_vec.push_back( surf_vec[i] ); // Start with copy.
+            degen_surf_vec[isurf].DegenPlanarSurf( surf_vec[i], 1 ); // Vertical
+            degen_surf_vec[isurf].SetPlateNum( 0 );
+
+            isurf = degen_surf_vec.size();
+            degen_surf_vec.push_back( surf_vec[i] ); // Start with copy.
+            degen_surf_vec[isurf].DegenPlanarSurf( surf_vec[i], 0 ); // Horizontal
+            degen_surf_vec[isurf].SetPlateNum( 1 );
+        }
+    }
+    return degen_surf_vec;
+}
+
 int Geom::GetSurfType( int indx ) const
 {
     return GetMainSurfType( m_SurfIndxVec[indx] );
@@ -3830,6 +3873,16 @@ double Geom::GetMainUMax( int indx ) const
     return m_MainSurfVec[indx].GetUMax();
 }
 
+double Geom::GetUMapMax( int indx ) const
+{
+    return GetMainUMapMax( m_SurfIndxVec[indx] );
+}
+
+double Geom::GetMainUMapMax( int indx ) const
+{
+    return m_MainSurfVec[indx].GetUMapMax();
+}
+
 double Geom::GetWMax( int indx ) const
 {
     return GetMainWMax( m_SurfIndxVec[indx] );
@@ -3838,11 +3891,6 @@ double Geom::GetWMax( int indx ) const
 double Geom::GetMainWMax( int indx ) const
 {
     return m_MainSurfVec[indx].GetWMax();
-}
-
-vec3d Geom::CompPnt01(const double &u, const double &w)
-{
-    return GetSurfPtr(0)->CompPnt01( u, w );
 }
 
 vec3d Geom::CompPnt01(const int &indx, const double &u, const double &w)
@@ -3884,26 +3932,95 @@ vec3d Geom::CompTanT( const int &indx, const double &r, const double &s, const d
     return GetSurfPtr( indx )->CompTanT( r, s, t );
 }
 
-bool Geom::CompRotCoordSys( const double &u, const double &w, Matrix4d &rotMat )
+bool Geom::CompRotCoordSys( const int &indx, const double &u, const double &w, Matrix4d &rotmat )
 {
-    VspSurf* surf_ptr = GetSurfPtr(0);
+    VspSurf* surf_ptr = GetSurfPtr( indx );
     if ( surf_ptr )
     {
-        rotMat = surf_ptr->CompRotCoordSys( u, w );
+        rotmat = surf_ptr->CompRotCoordSys( u, w );
         return true;
     }
     return false;
 }
 
-bool Geom::CompTransCoordSys( const double &u, const double &w, Matrix4d &transMat )
+bool Geom::CompTransCoordSys( const int &indx, const double &u, const double &w, Matrix4d &transmat )
 {
-    VspSurf* surf_ptr = GetSurfPtr(0);
+    VspSurf* surf_ptr = GetSurfPtr( indx );
     if ( surf_ptr )
     {
-        transMat = surf_ptr->CompTransCoordSys( u, w );
+        transmat = surf_ptr->CompTransCoordSys( u, w );
         return true;
     }
     return false;
+}
+
+double Geom::ProjPnt01I( const vec3d & pt, int &surf_indx, double &u, double &w )
+{
+    double tol = 1e-12;
+
+    double dmin = std::numeric_limits<double>::max();
+
+    int nsurf = GetNumTotalSurfs();
+    for ( int i = 0; i < nsurf; i++ )
+    {
+        double utest, wtest;
+
+        double d = GetSurfPtr(i)->FindNearest01( utest, wtest, pt );
+
+        if ( d < dmin )
+        {
+            dmin = d;
+            u = utest;
+            w = wtest;
+            surf_indx = i;
+
+            if ( d < tol )
+            {
+                break;
+            }
+        }
+    }
+
+    return dmin;
+}
+
+double Geom::AxisProjPnt01I( const int &iaxis, const vec3d &pt, int &surf_indx_out, double &u_out, double &w_out, vec3d &p_out )
+{
+    double idmin = std::numeric_limits<double>::max();
+
+    bool converged = false;
+
+    int nsurf = GetNumTotalSurfs();
+    for ( int i = 0; i < nsurf; i++ )
+    {
+        double utest, wtest;
+        vec3d ptest;
+
+        double id = GetSurfPtr( i )->ProjectPt01( pt, iaxis, utest, wtest, ptest );
+
+        if ( id >= 0 && id < idmin )
+        {
+            idmin = id;
+            u_out = utest;
+            w_out = wtest;
+            p_out = ptest;
+            surf_indx_out = i;
+            converged = true;
+        }
+    }
+
+    if ( converged )
+    {
+        return idmin;
+    }
+
+    u_out = -1;
+    w_out = -1;
+    p_out = pt;
+    surf_indx_out = -1;
+    idmin = -1;
+
+    return idmin;
 }
 
 void Geom::WriteBezierAirfoil( const string & file_name, double foilsurf_u_location )
@@ -4345,8 +4462,7 @@ void Geom::SetupPMARCFile( int &ipatch, vector < int > &idpat )
 {
     for ( int i = 0 ; i < GetNumTotalSurfs() ; i++ )
     {
-        if( GetSurfType(i) == vsp::WING_SURF ||
-            GetSurfType(i) == vsp::PROP_SURF )
+        if( GetSurfType(i) == vsp::WING_SURF )
         {
             idpat[ipatch] = 1;
         }
@@ -4477,8 +4593,8 @@ void Geom::WritePMARCWakeFile( FILE *fp, int &ipatch, vector<int> &idpat )
 
 void Geom::CreateGeomResults( Results* res )
 {
-    res->Add( NameValData( "Type", vsp::GEOM_XSECS ) );
-    res->Add( NameValData( "Num_Surfs", GetNumTotalSurfs() ) );
+    res->Add( NameValData( "Type", vsp::GEOM_XSECS, "Geom results type." ) );
+    res->Add( NameValData( "Num_Surfs", GetNumTotalSurfs(), "Number of surfaces." ) );
 
     for ( int i = 0 ; i < GetNumTotalSurfs() ; i++ )
     {
@@ -4487,11 +4603,11 @@ void Geom::CreateGeomResults( Results* res )
         vector< vector< vec3d > > norms;
         UpdateTesselate( i, pnts, norms, false );
 
-        res->Add( NameValData( "Num_XSecs", static_cast<int>( pnts.size() ) ) );
+        res->Add( NameValData( "Num_XSecs", static_cast<int>( pnts.size() ), "Number of cross sections." ) );
 
         if ( pnts.size() )
         {
-            res->Add( NameValData( "Num_Pnts_Per_XSec", static_cast<int>( pnts[0].size() ) ) );
+            res->Add( NameValData( "Num_Pnts_Per_XSec", static_cast<int>( pnts[0].size() ), "Number of points per cross section." ) );
         }
 
         //==== Write XSec Data ====//
@@ -4502,7 +4618,7 @@ void Geom::CreateGeomResults( Results* res )
             {
                 xsec_vec.push_back(  pnts[j][k] );
             }
-            res->Add( NameValData( "XSec_Pnts", xsec_vec ) );
+            res->Add( NameValData( "XSec_Pnts", xsec_vec, "Coordinates of surface points." ) );
         }
     }
 }
@@ -4542,7 +4658,7 @@ void Geom::WriteX3D( xmlNodePtr node )
                 offset++;
 
                 vec3d pnt = pnts[xs][p];
-                sprintf( numstr, "%lf %lf %lf ", pnt.x(), pnt.y(), pnt.z() );
+                snprintf( numstr, sizeof( numstr ), "%lf %lf %lf ", pnt.x(), pnt.y(), pnt.z() );
                 crdstr += numstr;
             }
         }
@@ -4559,11 +4675,11 @@ void Geom::WriteX3D( xmlNodePtr node )
 
                 if ( f_norm )
                 {
-                    sprintf( numstr, "%d %d %d %d -1 ", i3, i2, i1, i0 );
+                    snprintf( numstr, sizeof( numstr ), "%d %d %d %d -1 ", i3, i2, i1, i0 );
                 }
                 else
                 {
-                    sprintf( numstr, "%d %d %d %d -1 ", i0, i1, i2, i3 );
+                    snprintf( numstr, sizeof( numstr ), "%d %d %d %d -1 ", i0, i1, i2, i3 );
                 }
                 indstr += numstr;
             }
@@ -4579,9 +4695,9 @@ void Geom::WriteX3D( xmlNodePtr node )
 void Geom::WritePovRay( FILE* fid, int comp_num )
 {
     string name = GetName();
-    StringUtil::chance_space_to_underscore( name );
+    StringUtil::change_space_to_underscore( name );
     char str[4];
-    sprintf( str, "_%d", comp_num );
+    snprintf( str, sizeof( str ),  "_%d", comp_num );
     name.append( str );
 
     fprintf( fid, "#declare %s = mesh { \n", name.c_str() );
@@ -4691,7 +4807,7 @@ vector< TMesh* > Geom::CreateTMeshVec( const vector<VspSurf> &surf_vec ) const
 
             bool thicksurf = true;
             CreateTMeshVecFromPts( this, TMeshVec, pnts, norms, uw_pnts,
-                                   i, surf_vec[i].GetSurfType(), surf_vec[i].GetSurfCfdType(), thicksurf, surf_vec[i].GetFlipNormal(), surf_vec[i].GetWMax() );
+                                   i, -1, surf_vec[i].GetSurfType(), surf_vec[i].GetSurfCfdType(), thicksurf, surf_vec[i].GetFlipNormal(), surf_vec[i].GetWMax() );
         }
     }
     return TMeshVec;
@@ -5080,23 +5196,23 @@ void Geom::ExportSurfacePatches( vector<string> &surf_res_ids )
         UpdateSplitTesselate( m_SurfVec, i, pnts, norms );
 
         // Add a results entity for each patch to the surface
-        Results* res = ResultsMgr.CreateResults( "Surface" );
-        res->Add( NameValData( "comp_id", GetID() ) );
-        res->Add( NameValData( "surf_index", i ) );
+        Results* res = ResultsMgr.CreateResults( "Surface", "Surfaces within a Geom." );
+        res->Add( NameValData( "comp_id", GetID(), "GeomID." ) );
+        res->Add( NameValData( "surf_index", i, "Surface index." ) );
 
         vector< string > patch_ids;
         for ( int ipatch = 0 ; ipatch < ( int )pnts.size() ; ipatch++ )
         {
-            Results* patch_res = ResultsMgr.CreateResults( "SurfacePatch" );
-            patch_res->Add( NameValData( "comp_id", GetID() ) );
-            patch_res->Add( NameValData( "surf_index", i ) );
-            patch_res->Add( NameValData( "patch_index", ipatch) );
-            patch_res->Add( pnts[ipatch], "" );
-            patch_res->Add( norms[ipatch], "n" );
+            Results* patch_res = ResultsMgr.CreateResults( "SurfacePatch", "Patches (determined by feature lines) within a surface." );
+            patch_res->Add( NameValData( "comp_id", GetID(), "GeomID." ) );
+            patch_res->Add( NameValData( "surf_index", i, "Surface index." ) );
+            patch_res->Add( NameValData( "patch_index", ipatch, "Patch index.") );
+            patch_res->Add( pnts[ipatch], "", "Patch node coordinates" );
+            patch_res->Add( norms[ipatch], "n", "Patch node normal vector" );
             patch_ids.push_back( patch_res->GetID() );
         }
 
-        res->Add( NameValData( "patches", patch_ids ) );
+        res->Add( NameValData( "patches", patch_ids, "ID's of patch results." ) );
 
         surf_res_ids.push_back( res->GetID() );
     }
@@ -5224,7 +5340,7 @@ void GeomXSec::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
 
         for ( int i = 0 ; i < m_XSecDrawObj_vec.size() ; i++ )
         {
-            sprintf( str, "_%d", i );
+            snprintf( str, sizeof( str ),  "_%d", i );
 
             m_XSecDrawObj_vec[i].m_Screen = DrawObj::VSP_MAIN_SCREEN;
             m_XSecDrawObj_vec[i].m_GeomID = XSECHEADER + m_ID + str;
@@ -5271,7 +5387,7 @@ void GeomXSec::AddDefaultSourcesXSec( double base_len, double len_ref, int ixsec
             if ( xsc->GetType() == XS_POINT )
             {
                 psource = new PointSource();
-                sprintf( str, "Def_PS_%d", ixsec );
+                snprintf( str, sizeof( str ),  "Def_PS_%d", ixsec );
                 psource->SetName( str );
                 psource->m_Len = 0.1 * base_len;
                 psource->m_Rad = 0.2 * len_ref;
@@ -5297,7 +5413,7 @@ void GeomXSec::AddDefaultSourcesXSec( double base_len, double len_ref, int ixsec
                     double w1 = ( ( double ) (i+1) ) / ( ( double ) nls );
 
                     lsource = new LineSource();
-                    sprintf( str, "Def_LS_%d_%d", ixsec, i );
+                    snprintf( str, sizeof( str ),  "Def_LS_%d_%d", ixsec, i );
                     lsource->SetName( str );
                     lsource->m_Len = 0.1 * base_len;
                     lsource->m_Len2 = 0.1 * base_len;

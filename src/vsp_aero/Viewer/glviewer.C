@@ -1519,7 +1519,7 @@ void GL_VIEWER::LoadCalculixINPFile(void)
     int NumNodes, NumElements, GeometryType, NumberOfElementNodes;
     int *NodeIsUsed, MaxNodes;
     int MaxTris;
-    float Pressure, *PressureLoad;
+    float Pressure, *PressureLoad, TotalPressureForce[3];
     char file_name_w_ext[10000], DumChar[10000], SaveChar[10000];
     FILE *CalculixFile;
 
@@ -2304,6 +2304,10 @@ void GL_VIEWER::LoadCalculixINPFile(void)
               
        // Calculate normals
        
+       TotalPressureForce[0] = 0.;
+       TotalPressureForce[1] = 0.;
+       TotalPressureForce[2] = 0.;
+       
        for ( i = 1 ; i <= NumElements ; i++ ) {
 
           node1 = INP_MESH.CalculixElement[i].Node[0];
@@ -2322,14 +2326,36 @@ void GL_VIEWER::LoadCalculixINPFile(void)
           
           mag = sqrt(vector_dot(vec3,vec3));
           
-          INP_MESH.CalculixElement[i].nx[0] = vec3[0]/mag;
-          INP_MESH.CalculixElement[i].ny[0] = vec3[1]/mag;
-          INP_MESH.CalculixElement[i].nz[0] = vec3[2]/mag;
+          if ( mag > 0. ) {
+             
+             INP_MESH.CalculixElement[i].nx[0] = vec3[0]/mag;
+             INP_MESH.CalculixElement[i].ny[0] = vec3[1]/mag;
+             INP_MESH.CalculixElement[i].nz[0] = vec3[2]/mag;
+             
+             INP_MESH.CalculixElement[i].Area = 0.5*mag;
+             
+             TotalPressureForce[0] += INP_MESH.CalculixElement[i].Area * INP_MESH.CalculixElement[i].Pressure * INP_MESH.CalculixElement[i].nx[0];
+             TotalPressureForce[1] += INP_MESH.CalculixElement[i].Area * INP_MESH.CalculixElement[i].Pressure * INP_MESH.CalculixElement[i].ny[0];
+             TotalPressureForce[2] += INP_MESH.CalculixElement[i].Area * INP_MESH.CalculixElement[i].Pressure * INP_MESH.CalculixElement[i].nz[0];
+            
+          }
+          
+          else {
+
+             INP_MESH.CalculixElement[i].nx[0] = 0.;
+             INP_MESH.CalculixElement[i].ny[0] = 0.;
+             INP_MESH.CalculixElement[i].nz[0] = 0.;            
+
+          }             
                     
        }
                     
     }
     
+    printf("TotalPressureForce[0]: %f \n",TotalPressureForce[0]);
+    printf("TotalPressureForce[1]: %f \n",TotalPressureForce[1]);
+    printf("TotalPressureForce[2]: %f \n",TotalPressureForce[2]);
+        
     INP_MESH.ScaleFactor = 1;
          
 }
@@ -6109,6 +6135,7 @@ void GL_VIEWER::LoadExistingSolutionData(int Case)
     int DumInt;
     int *TempSurfaceList;
     float Vmax, Mag, Vclip;
+    double Xw, Yw, Zw, Sw;
     FILE *adb_file, *QuadFile;
     BINARYIO BIO;
 
@@ -6285,8 +6312,10 @@ void GL_VIEWER::LoadExistingSolutionData(int Case)
           
           TempSurfaceList[NodeList[WingWakeNode_[i]].SurfID] = 1;
           
-          BIO.fread(&(SWake_[i]), f_size, 1, adb_file); // Span location of this trailing vortex
+          BIO.fread(&(Sw), d_size, 1, adb_file); // Span location of this trailing vortex
  
+          SWake_[i] = Sw;
+          
           BIO.fread(&(NumberOfSubVortexNodesForEdge_[i]), i_size, 1, adb_file); // Number of sub vortices
 
           XWake_[i] = new float[NumberOfSubVortexNodesForEdge_[i] + 1];
@@ -6295,13 +6324,13 @@ void GL_VIEWER::LoadExistingSolutionData(int Case)
 
           for ( j = 1 ; j <= NumberOfSubVortexNodesForEdge_[i] ; j++ ) {
 
-             BIO.fread(&(XWake_[i][j]), f_size, 1, adb_file); // X
-             BIO.fread(&(YWake_[i][j]), f_size, 1, adb_file); // Y
-             BIO.fread(&(ZWake_[i][j]), f_size, 1, adb_file); // Z
+             BIO.fread(&(Xw), d_size, 1, adb_file); // X
+             BIO.fread(&(Yw), d_size, 1, adb_file); // Y
+             BIO.fread(&(Zw), d_size, 1, adb_file); // Z
 
-             XWake_[i][j] -= GeometryXShift;
-             YWake_[i][j] -= GeometryYShift;
-             ZWake_[i][j] -= GeometryZShift;
+             XWake_[i][j] = Xw - GeometryXShift;
+             YWake_[i][j] = Yw - GeometryYShift;
+             ZWake_[i][j] = Zw - GeometryZShift;
              
            }
           
@@ -7252,16 +7281,16 @@ void GL_VIEWER::FindSolutionMinMax(void)
     printf("CpUnsteadyMinActual: %f \n",CpUnsteadyMinActual);
     printf("CpUnsteadyMinActual: %f \n",CpUnsteadyMaxActual);
     fflush(NULL);
-
+    
     if ( ABS(CpUnsteadyMinActual) + ABS(CpUnsteadyMaxActual) <= 1.e-8 ) {
-
-        CpSteadyMinActual = CpMinActual;
-        CpSteadyMaxActual = CpMaxActual;
-
-        CpSteadyMin = CpMin;
-        CpSteadyMax = CpMax;
+       
+       CpSteadyMinActual = CpMinActual;
+       CpSteadyMaxActual = CpMaxActual;
+       
+       CpSteadyMin = CpMin;
+       CpSteadyMax = CpMax;
     }
-
+   
 }
 
 /*##############################################################################

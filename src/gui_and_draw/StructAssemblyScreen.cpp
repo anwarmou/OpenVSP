@@ -135,12 +135,11 @@ StructAssemblyScreen::StructAssemblyScreen( ScreenMgr* mgr ) : TabScreen( mgr, 4
 
     m_StructureTabLayout.AddChoice( m_FeaStructureChoice, "Structure" );
 
-    m_StructureTabLayout.SetButtonWidth( m_StructureTabLayout.GetRemainX() / 2 );
-
-    m_StructureTabLayout.SetSameLineFlag( true );
-    m_StructureTabLayout.SetFitWidthFlag( false );
+    m_StructureTabLayout.SetSameLineFlag( false );
+    m_StructureTabLayout.SetFitWidthFlag( true );
 
     m_StructureTabLayout.AddButton( m_AddFeaStructureButton, "Add Structure" );
+    m_StructureTabLayout.AddButton( m_AddAllFeaStructureButton, "Add All Structures" );
     m_StructureTabLayout.AddButton( m_DelFeaStructureButton, "Delete Structure" );
 
     //=== Connection Tab ===//
@@ -428,7 +427,7 @@ void StructAssemblyScreen::UpdateAssemblyTab()
             string assy_name = assy_vec[i]->GetName();
 
             char str[256];
-            sprintf( str, "%s", assy_name.c_str() );
+            snprintf( str, sizeof( str ),  "%s", assy_name.c_str() );
             m_AssemblySelectBrowser->add( str );
 
             m_AssemblyIDs.push_back( assy_vec[i]->GetID() );
@@ -495,26 +494,30 @@ void StructAssemblyScreen::UpdateStructTab()
     {
         int indx = vector_find_val( m_StructIDs, idvec[i] );
 
-        string ready( "N" );
-
-        FeaStructure* fea_struct = StructureMgr.GetFeaStruct( idvec[i] );
-
-        if ( fea_struct )
+        if ( indx >= 0 )
         {
-            FeaMesh* mesh = FeaMeshMgr.GetMeshPtr( idvec[i] );
-            if ( mesh )
+            string ready( "N" );
+
+            FeaStructure *fea_struct = StructureMgr.GetFeaStruct( idvec[ i ] );
+
+            if ( fea_struct )
             {
-                if ( mesh->m_MeshReady )
+                FeaMesh *mesh = FeaMeshMgr.GetMeshPtr( idvec[ i ] );
+                if ( mesh )
                 {
-                    ready = "Y";
+                    if ( mesh->m_MeshReady )
+                    {
+                        ready = "Y";
+                    }
                 }
             }
+
+            char str[256];
+            snprintf( str, sizeof( str ),  "%s:%s:", names[indx].c_str(), ready.c_str() );
+
+
+            m_StructureSelectBrowser->add( str );
         }
-
-        char str[256];
-        sprintf( str, "%s:%s:", names[indx].c_str(), ready.c_str() );
-
-        m_StructureSelectBrowser->add( str );
     }
 
     m_StructureSelectBrowser->select( m_StructureBrowserIndex + 2 );
@@ -857,11 +860,31 @@ void StructAssemblyScreen::GuiDeviceCallBack( GuiDevice* device )
             curr_assy->AddStructure( m_StructIDs[m_StructureChoiceIndex] );
         }
     }
+    else if ( device == &m_AddAllFeaStructureButton )
+    {
+        if ( curr_assy )
+        {
+            for ( int i = 0; i < m_StructIDs.size(); i++ )
+            {
+                curr_assy->AddStructure( m_StructIDs[i] );
+
+                // Overwrite structure names to match Geom names.  Useful when debugging and creating a large number
+                // of structures.
+                // FeaStructure* fea_struct = StructureMgr.GetFeaStruct( m_StructIDs[i] );
+                // string geomid = fea_struct->GetParentGeomID();
+                // Geom *g = veh->FindGeom( geomid );
+                // fea_struct->SetName( g->GetName() );
+            }
+        }
+    }
     else if ( device == &m_DelFeaStructureButton )
     {
         if ( curr_assy )
         {
-            curr_assy->DelStructure( curr_assy->m_StructIDVec[ m_StructureBrowserIndex ] );
+            if ( m_StructureBrowserIndex < curr_assy->m_StructIDVec.size() )
+            {
+                curr_assy->DelStructure( curr_assy->m_StructIDVec[ m_StructureBrowserIndex ] );
+            }
         }
     }
     else if ( device == &m_ConnectionStartChoice )
@@ -884,8 +907,14 @@ void StructAssemblyScreen::GuiDeviceCallBack( GuiDevice* device )
     {
         if ( curr_assy )
         {
-            curr_assy->AddConnection( m_FixPtIDs[m_ConnectionStartIndex], m_FixPtStructIDs[m_ConnectionStartIndex], m_ConnectionStartSurfIndex,
-                                      m_FixPtIDs[m_ConnectionEndIndex], m_FixPtStructIDs[m_ConnectionEndIndex], m_ConnectionEndSurfIndex );
+            if ( m_ConnectionStartIndex < m_FixPtIDs.size() &&
+                 m_ConnectionStartIndex < m_FixPtStructIDs.size() &&
+                 m_ConnectionEndIndex < m_FixPtIDs.size() &&
+                 m_ConnectionEndIndex < m_FixPtStructIDs.size() )
+            {
+                curr_assy->AddConnection( m_FixPtIDs[m_ConnectionStartIndex], m_FixPtStructIDs[m_ConnectionStartIndex], m_ConnectionStartSurfIndex,
+                                          m_FixPtIDs[m_ConnectionEndIndex], m_FixPtStructIDs[m_ConnectionEndIndex], m_ConnectionEndSurfIndex );
+            }
         }
     }
     else if ( device == &m_DelConnectionButton )

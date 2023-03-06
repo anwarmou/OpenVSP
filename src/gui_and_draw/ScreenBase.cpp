@@ -823,7 +823,7 @@ bool GeomScreen::Update()
     m_SymAncestorChoice.ClearItems();
     for( int i = 0; i < (int) ancestorNames.size(); i++ )
     {
-        sprintf( str, "%3d %s", i, ancestorNames[i].c_str() );
+        snprintf( str, sizeof( str ),  "%3d %s", i, ancestorNames[i].c_str() );
         m_SymAncestorChoice.AddItem( str );
     }
     m_SymAncestorChoice.UpdateItems();
@@ -894,7 +894,7 @@ bool GeomScreen::Update()
     int nmain = geom_ptr->GetNumMainSurfs();
     for ( int i = 0; i < nmain; ++i )
     {
-        sprintf( str, "Surf_%d", i );
+        snprintf( str, sizeof( str ),  "Surf_%d", i );
         m_SubSurfSelectSurface.AddItem( str );
     }
     m_SubSurfSelectSurface.UpdateItems();
@@ -1071,7 +1071,7 @@ bool GeomScreen::Update()
 
     m_SubSurfBrowser->column_char( ':' );
 
-    sprintf( str, "@b@.NAME:@b@.TYPE:@b@.SURF" );
+    snprintf( str, sizeof( str ),  "@b@.NAME:@b@.TYPE:@b@.SURF" );
     m_SubSurfBrowser->add( str );
 
     string ss_name, ss_type;
@@ -1108,13 +1108,13 @@ bool GeomScreen::Update()
             }
 
             char buf[15];
-            sprintf( buf, "%0.2f", ssline->m_ConstVal() );
+            snprintf( buf, sizeof( buf ), "%0.2f", ssline->m_ConstVal() );
 
             ss_type.append( buf );
         }
 
         ss_surf_ind = subsurf_vec[i]->m_MainSurfIndx.Get();
-        sprintf( str, "%s:%s:Surf_%d", ss_name.c_str(), ss_type.c_str(), ss_surf_ind );
+        snprintf( str, sizeof( str ),  "%s:%s:Surf_%d", ss_name.c_str(), ss_type.c_str(), ss_surf_ind );
         m_SubSurfBrowser->add( str );
     }
 
@@ -2161,9 +2161,9 @@ bool XSecScreen::Update()
                 int num_low = cst_xs->m_LowDeg() + 1;
 
                 char str[255];
-                sprintf( str, "%d", cst_xs->m_UpDeg() );
+                snprintf( str, sizeof( str ),  "%d", cst_xs->m_UpDeg() );
                 m_UpDegreeOutput.Update( str );
-                sprintf( str, "%d", cst_xs->m_LowDeg() );
+                snprintf( str, sizeof( str ),  "%d", cst_xs->m_LowDeg() );
                 m_LowDegreeOutput.Update( str );
 
                 m_CSTChordSlider.Update( cst_xs->m_Chord.GetID() );
@@ -2991,12 +2991,303 @@ void SkinScreen::CallBack( Fl_Widget *w )
     XSecScreen::CallBack( w );
 }
 
+//=====================================================================//
+//=====================================================================//
+//=====================================================================//
+EngineModelScreen::EngineModelScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
+        SkinScreen( mgr, w, h, title )
+{
+}
+
+void EngineModelScreen::BuildEngineGUI( GroupLayout & layout )
+{
+
+    layout.AddYGap();
+
+    layout.AddDividerBox( "Engine Definition" );
+
+    m_EngineGeomIOChoice.AddItem( "NONE", vsp::ENGINE_GEOM_NONE );
+    m_EngineGeomIOChoice.AddItem( "INLET", vsp::ENGINE_GEOM_INLET );
+    m_EngineGeomIOChoice.AddItem( "BOTH", vsp::ENGINE_GEOM_INLET_OUTLET );
+    m_EngineGeomIOChoice.AddItem( "OUTLET", vsp::ENGINE_GEOM_OUTLET );
+    layout.AddChoice( m_EngineGeomIOChoice, "Geom Type:" );
+
+    m_EngineGeomInChoice.AddItem( "FLOWTHROUGH", vsp::ENGINE_GEOM_FLOWTHROUGH );
+    m_EngineGeomInChoice.AddItem( "FLOWPATH", vsp::ENGINE_GEOM_FLOWPATH );
+    m_EngineGeomInChoice.AddItem( "INLET TO LIP", vsp::ENGINE_GEOM_TO_LIP );
+    m_EngineGeomInChoice.AddItem( "INLET TO FACE", vsp::ENGINE_GEOM_TO_FACE );
+    layout.AddChoice( m_EngineGeomInChoice, "Inlet Type:" );
+
+    m_EngineGeomOutChoice.AddItem( "FLOWPATH", vsp::ENGINE_GEOM_FLOWPATH );
+    m_EngineGeomOutChoice.AddItem( "OUTLET TO LIP", vsp::ENGINE_GEOM_TO_LIP );
+    m_EngineGeomOutChoice.AddItem( "OUTLET TO FACE", vsp::ENGINE_GEOM_TO_FACE );
+    layout.AddChoice( m_EngineGeomOutChoice, "Outlet Type:" );
+
+    int button_w = layout.GetButtonWidth();
+    int slider_w = layout.GetSliderWidth();
+    int sm_but_w = 40;
+    int toggle_w = 15;
+    int add_w = 5;
+
+    vector< int > val_map_vec { ENGINE_LOC_INDEX, ENGINE_LOC_U };
+
+    layout.SetSameLineFlag( true );
+
+    layout.AddYGap();
+
+    layout.SetFitWidthFlag( false );
+    layout.AddLabel( "Inlet Lip:", button_w, FL_CYAN );
+    layout.AddX( add_w );
+    layout.SetButtonWidth( toggle_w );
+    layout.AddButton( m_EngineInLipIndexToggle, "" );
+    layout.SetButtonWidth( sm_but_w );
+    layout.SetSliderWidth( 50 );
+    layout.AddCounter( m_EngineInLipCounter, "Indx" );
+    layout.AddX( add_w );
+    layout.SetButtonWidth( toggle_w );
+    layout.AddButton( m_EngineInLipUToggle, "" );
+    layout.SetButtonWidth( sm_but_w );
+    layout.SetFitWidthFlag( true );
+    layout.SetSliderWidth( slider_w );
+    layout.AddSlider( m_EngineInLipUSlider, "U", 10.0, "%6.5f" );
+    layout.ForceNewLine();
+
+    m_EngineInLipToggleGroup.Init( this );
+    m_EngineInLipToggleGroup.AddButton( m_EngineInLipIndexToggle.GetFlButton() );
+    m_EngineInLipToggleGroup.AddButton( m_EngineInLipUToggle.GetFlButton() );
+    m_EngineInLipToggleGroup.SetValMapVec( val_map_vec );
+
+    layout.SetFitWidthFlag( false );
+    layout.AddLabel( "Inlet Face:", button_w, FL_MAGENTA );
+    layout.AddX( add_w );
+    layout.SetButtonWidth( toggle_w );
+    layout.AddButton( m_EngineInFaceIndexToggle, "" );
+    layout.SetButtonWidth( sm_but_w );
+    layout.SetSliderWidth( 50 );
+    layout.AddCounter( m_EngineInFaceCounter, "Indx" );
+    layout.AddX( add_w );
+    layout.SetButtonWidth( toggle_w );
+    layout.AddButton( m_EngineInFaceUToggle, "" );
+    layout.SetButtonWidth( sm_but_w );
+    layout.SetFitWidthFlag( true );
+    layout.SetSliderWidth( slider_w );
+    layout.AddSlider( m_EngineInFaceUSlider, "U", 10.0, "%6.5f" );
+    layout.ForceNewLine();
+
+    m_EngineInFaceToggleGroup.Init( this );
+    m_EngineInFaceToggleGroup.AddButton( m_EngineInFaceIndexToggle.GetFlButton() );
+    m_EngineInFaceToggleGroup.AddButton( m_EngineInFaceUToggle.GetFlButton() );
+    m_EngineInFaceToggleGroup.SetValMapVec( val_map_vec );
+
+    layout.SetFitWidthFlag( false );
+    layout.AddLabel( "Outlet Face:", button_w, FL_GREEN );
+    layout.AddX( add_w );
+    layout.SetButtonWidth( toggle_w );
+    layout.AddButton( m_EngineOutFaceIndexToggle, "" );
+    layout.SetButtonWidth( sm_but_w );
+    layout.SetSliderWidth( 50 );
+    layout.AddCounter( m_EngineOutFaceCounter, "Indx" );
+    layout.AddX( add_w );
+    layout.SetButtonWidth( toggle_w );
+    layout.AddButton( m_EngineOutFaceUToggle, "" );
+    layout.SetButtonWidth( sm_but_w );
+    layout.SetFitWidthFlag( true );
+    layout.SetSliderWidth( slider_w );
+    layout.AddSlider( m_EngineOutFaceUSlider, "U", 10.0, "%6.5f" );
+    layout.ForceNewLine();
+
+    m_EngineOutFaceToggleGroup.Init( this );
+    m_EngineOutFaceToggleGroup.AddButton( m_EngineOutFaceIndexToggle.GetFlButton() );
+    m_EngineOutFaceToggleGroup.AddButton( m_EngineOutFaceUToggle.GetFlButton() );
+    m_EngineOutFaceToggleGroup.SetValMapVec( val_map_vec );
+
+    layout.SetFitWidthFlag( false );
+    layout.AddLabel( "Outlet Lip:", button_w, FL_YELLOW );
+    layout.AddX( add_w );
+    layout.SetButtonWidth( toggle_w );
+    layout.AddButton( m_EngineOutLipIndexToggle, "" );
+    layout.SetButtonWidth( sm_but_w );
+    layout.SetSliderWidth( 50 );
+    layout.AddCounter( m_EngineOutLipCounter, "Indx" );
+    layout.AddX( add_w );
+    layout.SetButtonWidth( toggle_w );
+    layout.AddButton( m_EngineOutLipUToggle, "" );
+    layout.SetButtonWidth( sm_but_w );
+    layout.SetFitWidthFlag( true );
+    layout.SetSliderWidth( slider_w );
+    layout.AddSlider( m_EngineOutLipUSlider, "U", 10.0, "%6.5f" );
+    layout.ForceNewLine();
+
+    m_EngineOutLipToggleGroup.Init( this );
+    m_EngineOutLipToggleGroup.AddButton( m_EngineOutLipIndexToggle.GetFlButton() );
+    m_EngineOutLipToggleGroup.AddButton( m_EngineOutLipUToggle.GetFlButton() );
+    m_EngineOutLipToggleGroup.SetValMapVec( val_map_vec );
+
+    layout.SetSameLineFlag( false );
+
+    layout.AddYGap();
+    layout.AddDividerBox( "Engine Representation" );
+
+    m_EngineInModeChoice.AddItem( "FLOWTHROUGH", vsp::ENGINE_MODE_FLOWTHROUGH );
+    m_EngineInModeChoice.AddItem( "FLOWTHROUGH NEGATIVE", vsp::ENGINE_MODE_FLOWTHROUGH_NEG );
+    m_EngineInModeChoice.AddItem( "TO LIP", vsp::ENGINE_MODE_TO_LIP );
+    m_EngineInModeChoice.AddItem( "TO FACE", vsp::ENGINE_MODE_TO_FACE );
+    m_EngineInModeChoice.AddItem( "TO FACE NEGATIVE", vsp::ENGINE_MODE_TO_FACE_NEG );
+    m_EngineInModeChoice.AddItem( "EXTEND", vsp::ENGINE_MODE_EXTEND );
+    layout.AddChoice( m_EngineInModeChoice, "Inlet Mode:" );
+
+    m_EngineOutModeChoice.AddItem( "TO LIP", vsp::ENGINE_MODE_TO_LIP );
+    m_EngineOutModeChoice.AddItem( "TO FACE", vsp::ENGINE_MODE_TO_FACE );
+    m_EngineOutModeChoice.AddItem( "TO FACE NEGATIVE", vsp::ENGINE_MODE_TO_FACE_NEG );
+    m_EngineOutModeChoice.AddItem( "EXTEND", vsp::ENGINE_MODE_EXTEND );
+    layout.AddChoice( m_EngineOutModeChoice, "Outlet Mode:" );
+
+    layout.AddYGap();
+    layout.AddDividerBox( "Extension" );
+    layout.SetButtonWidth( button_w );
+
+    layout.AddSlider( m_EngineExtendDistanceSlider, "Distance", 10.0, "%7.3f" );
+
+}
+
+bool EngineModelScreen::Update( )
+{
+    assert( m_ScreenMgr );
+
+    Geom* geom_ptr = m_ScreenMgr->GetCurrGeom();
+    if ( !geom_ptr )
+    {
+        Hide();
+        return false;
+    }
+
+    SkinScreen::Update();
+
+    GeomEngine* geomengine_ptr = dynamic_cast< GeomEngine* >( geom_ptr );
+    assert( geomengine_ptr );
+
+    // Reset all Choice entries to normal (enabled) vs. FL_MENU_INACTIVE
+    // Most of these are not needed.
+    m_EngineGeomIOChoice.SetFlagByVal( vsp::ENGINE_GEOM_NONE, 0 );
+    m_EngineGeomIOChoice.SetFlagByVal( vsp::ENGINE_GEOM_INLET, 0 );
+    m_EngineGeomIOChoice.SetFlagByVal( vsp::ENGINE_GEOM_INLET_OUTLET, 0 );
+    m_EngineGeomIOChoice.SetFlagByVal( vsp::ENGINE_GEOM_OUTLET, 0 );
+
+    m_EngineGeomInChoice.SetFlagByVal( vsp::ENGINE_GEOM_FLOWTHROUGH, 0 );
+    m_EngineGeomInChoice.SetFlagByVal( vsp::ENGINE_GEOM_FLOWPATH, 0 );
+    m_EngineGeomInChoice.SetFlagByVal( vsp::ENGINE_GEOM_TO_LIP, 0 );
+    m_EngineGeomInChoice.SetFlagByVal( vsp::ENGINE_GEOM_TO_FACE, 0 );
+
+    m_EngineGeomOutChoice.SetFlagByVal( vsp::ENGINE_GEOM_FLOWPATH, 0 );
+    m_EngineGeomOutChoice.SetFlagByVal( vsp::ENGINE_GEOM_TO_LIP, 0 );
+    m_EngineGeomOutChoice.SetFlagByVal( vsp::ENGINE_GEOM_TO_FACE, 0 );
+
+    m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_FLOWTHROUGH, 0 );
+    m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_FLOWTHROUGH_NEG, 0 );
+    m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_LIP, 0 );
+    m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE, 0 );
+    m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE_NEG, 0 );
+    m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_EXTEND, 0 );
+
+    m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_LIP, 0 );
+    m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE, 0 );
+    m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE_NEG, 0 );
+    m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_EXTEND, 0 );
+
+    m_EngineGeomIOChoice.Update( geomengine_ptr->m_EngineGeomIOType.GetID() );
+    m_EngineGeomInChoice.Update( geomengine_ptr->m_EngineGeomInType.GetID() );
+    m_EngineGeomOutChoice.Update( geomengine_ptr->m_EngineGeomOutType.GetID() );
+
+    m_EngineInLipToggleGroup.Update( geomengine_ptr->m_EngineInLipMode.GetID() );
+    m_EngineInLipCounter.Update( geomengine_ptr->m_EngineInLipIndex.GetID() );
+    m_EngineInLipUSlider.Update( geomengine_ptr->m_EngineInLipU.GetID() );
+
+    m_EngineInFaceToggleGroup.Update( geomengine_ptr->m_EngineInFaceMode.GetID() );
+    m_EngineInFaceCounter.Update( geomengine_ptr->m_EngineInFaceIndex.GetID() );
+    m_EngineInFaceUSlider.Update( geomengine_ptr->m_EngineInFaceU.GetID() );
+
+    m_EngineOutLipToggleGroup.Update( geomengine_ptr->m_EngineOutLipMode.GetID() );
+    m_EngineOutLipCounter.Update( geomengine_ptr->m_EngineOutLipIndex.GetID() );
+    m_EngineOutLipUSlider.Update( geomengine_ptr->m_EngineOutLipU.GetID() );
+
+    m_EngineOutFaceToggleGroup.Update( geomengine_ptr->m_EngineOutFaceMode.GetID() );
+    m_EngineOutFaceCounter.Update( geomengine_ptr->m_EngineOutFaceIndex.GetID() );
+    m_EngineOutFaceUSlider.Update( geomengine_ptr->m_EngineOutFaceU.GetID() );
+
+    m_EngineInModeChoice.Update( geomengine_ptr->m_EngineInModeType.GetID() );
+    m_EngineOutModeChoice.Update( geomengine_ptr->m_EngineOutModeType.GetID() );
+
+
+    // Deactivate choice entries based on type
+    if ( geomengine_ptr->m_EngineGeomInType() != ENGINE_GEOM_FLOWTHROUGH )
+    {
+        m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_FLOWTHROUGH, FL_MENU_INACTIVE );
+        m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_FLOWTHROUGH_NEG, FL_MENU_INACTIVE );
+    }
+
+    if ( geomengine_ptr->m_EngineGeomInType() == ENGINE_GEOM_TO_LIP )
+    {
+        m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE, FL_MENU_INACTIVE );
+        m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE_NEG, FL_MENU_INACTIVE );
+    }
+
+    if ( geomengine_ptr->m_EngineGeomOutType() == ENGINE_GEOM_TO_LIP )
+    {
+        m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE, FL_MENU_INACTIVE );
+        m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE_NEG, FL_MENU_INACTIVE );
+    }
+
+    if ( geomengine_ptr->m_EngineGeomOutType() == ENGINE_GEOM_FLOWPATH ||
+         ( geomengine_ptr->m_EngineGeomIOType() == ENGINE_GEOM_INLET_OUTLET && geomengine_ptr->m_EngineGeomInType() == ENGINE_GEOM_FLOWPATH ) )
+    {
+        m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE, FL_MENU_INACTIVE );
+    }
+
+    if ( geomengine_ptr->m_EngineGeomInType() == ENGINE_GEOM_FLOWPATH )
+    {
+        m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE, FL_MENU_INACTIVE );
+        if ( geomengine_ptr->m_EngineGeomIOType() == ENGINE_GEOM_INLET_OUTLET )
+        {
+            m_EngineInModeChoice.SetFlagByVal( vsp::ENGINE_MODE_FLOWTHROUGH_NEG, 0 );          // Re-activate, order matters!
+        }
+    }
+
+    if ( geomengine_ptr->m_EngineGeomInType() == ENGINE_GEOM_FLOWTHROUGH )
+    {
+        if ( geomengine_ptr->m_EngineGeomIOType() == ENGINE_GEOM_INLET_OUTLET )
+        {
+            m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE, 0 );
+            m_EngineOutModeChoice.SetFlagByVal( vsp::ENGINE_MODE_TO_FACE_NEG, 0 );
+        }
+    }
+
+    // Update menu while keeping setting.  Required to deactivate entries.
+    m_EngineGeomIOChoice.UpdateItems( true );
+    m_EngineGeomInChoice.UpdateItems( true );
+    m_EngineGeomOutChoice.UpdateItems( true );
+    m_EngineInModeChoice.UpdateItems( true );
+    m_EngineOutModeChoice.UpdateItems( true );
+
+    m_EngineExtendDistanceSlider.Update( geomengine_ptr->m_ExtensionDistance.GetID() );
+
+    return true;
+}
+
+void EngineModelScreen::CallBack( Fl_Widget *w )
+{
+    SkinScreen::CallBack( w );
+}
+
+void EngineModelScreen::GuiDeviceCallBack( GuiDevice* device )
+{
+    SkinScreen::GuiDeviceCallBack( device );
+}
 
 //=====================================================================//
 //=====================================================================//
 //=====================================================================//
 ChevronScreen::ChevronScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
-        SkinScreen( mgr, w, h, title )
+        EngineModelScreen( mgr, w, h, title )
 {
 
     //==== XSec Modifications ====//
@@ -3173,7 +3464,7 @@ bool ChevronScreen::Update()
         return false;
     }
 
-    SkinScreen::Update();
+    EngineModelScreen::Update();
 
     GeomXSec* geomxsec_ptr = dynamic_cast< GeomXSec* >( geom_ptr );
     assert( geomxsec_ptr );
@@ -3234,13 +3525,13 @@ bool ChevronScreen::Update()
 
 void ChevronScreen::GuiDeviceCallBack( GuiDevice* gui_device )
 {
-    SkinScreen::GuiDeviceCallBack( gui_device );
+    EngineModelScreen::GuiDeviceCallBack( gui_device );
 }
 
 //==== Fltk  Callbacks ====//
 void ChevronScreen::CallBack( Fl_Widget *w )
 {
-    SkinScreen::CallBack( w );
+    EngineModelScreen::CallBack( w );
 }
 
 
@@ -4004,14 +4295,11 @@ bool FeaXSecScreen::Update()
 
     int xsec_type = -1;
 
-    if ( StructureMgr.ValidFeaPropertyInd( StructureMgr.GetCurrPropertyIndex() ) )
-    {
-        FeaProperty* fea_prop = StructureMgr.GetFeaPropertyVec()[StructureMgr.GetCurrPropertyIndex()];
+    FeaProperty* fea_prop = StructureMgr.GetCurrProperty();
 
-        if ( fea_prop )
-        {
-            xsec_type = fea_prop->m_CrossSectType();
-        }
+    if ( fea_prop )
+    {
+        xsec_type = fea_prop->m_CrossSectType();
     }
 
     if ( xsec_type == vsp::FEA_XSEC_CIRC )

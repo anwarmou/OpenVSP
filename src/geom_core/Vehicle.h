@@ -185,18 +185,18 @@ public:
     //=== Export Files ===//
     // Return Mesh Geom ID if the export generates a mesh, otherwise return an 
     // empty string. This facilitates deleting the generated mesh from the API.
-    string ExportFile( const string & file_name, int write_set, int degen_set, int file_type );
+    string ExportFile( const string & file_name, int write_set, int degen_set, int subsFlag, int file_type );
     bool WriteXMLFile( const string & file_name, int set );
     void WriteXSecFile( const string & file_name, int write_set );
     void WritePLOT3DFile( const string & file_name, int write_set );
     string WriteSTLFile( const string & file_name, int write_set );
-    string WriteTaggedMSSTLFile( const string & file_name, int write_set );
-    string WriteFacetFile( const string & file_name, int write_set );
-    string WriteTRIFile( const string & file_name, int write_set );
-    string WriteOBJFile( const string & file_name, int write_set );
-    string WriteVSPGeomFile( const string & file_name, int write_set, int degen_set, bool half_flag = false, bool hideset = true, bool suppressdisks = false );
-    string WriteNascartFiles( const string & file_name, int write_set );
-    string WriteGmshFile( const string & file_name, int write_set );
+    string WriteTaggedMSSTLFile( const string & file_name, int write_set, int subsFlag );
+    string WriteFacetFile( const string & file_name, int write_set, int subsFlag );
+    string WriteTRIFile( const string & file_name, int write_set, int subsFlag );
+    string WriteOBJFile( const string & file_name, int write_set, int subsFlag );
+    string WriteVSPGeomFile( const string & file_name, int write_set, int degen_set, int subsFlag, bool half_flag = false, bool hideset = true, bool suppressdisks = false );
+    string WriteNascartFiles( const string & file_name, int write_set, int subsFlag );
+    string WriteGmshFile( const string & file_name, int write_set, int subsFlag );
     void WriteX3DFile( const string & file_name, int write_set );
     static void WriteX3DMaterial( xmlNodePtr node, Material * material );
     void WriteX3DViewpoints( xmlNodePtr node );
@@ -235,7 +235,7 @@ public:
         return m_VehProjectVec3d[dir_index];
     }
 
-    void FetchXFerSurfs( int write_set, vector< XferSurf > &xfersurfs );
+    void FetchXFerSurfs(int normal_set, int degen_set, vector< XferSurf > &xfersurfs );
     //==== Computation File Names ====//
     string getExportFileName( int type );
     void setExportFileName( int type, string f_name );
@@ -257,25 +257,16 @@ public:
     //Comp Geom
     string CompGeom( int set, int degenset, int halfFlag, int intSubsFlag = 1, bool hideset = true, bool suppressdisks = false );
     string CompGeomAndFlatten( int set, int halfFlag, int intSubsFlag = 1, int degenset = vsp::SET_NONE, bool hideset = true, bool suppressdisks = false );
-    string MassProps( int set, int numSlices, bool hidegeom = true, bool writefile = true );
-    string MassPropsAndFlatten( int set, int numSlices, bool hidegeom = true, bool writefile = true );
-    string PSlice( int set, int numSlices, vec3d norm, bool autoBoundsFlag, double start = 0, double end = 0 );
-    string PSliceAndFlatten( int set, int numSlices, vec3d norm, bool autoBoundsFlag, double start = 0, double end = 0 );
+    string MassProps( int set, int numSlices, int idir = vsp::X_DIR, bool hidegeom = true, bool writefile = true );
+    string MassPropsAndFlatten( int set, int numSlices, int idir = vsp::X_DIR, bool hidegeom = true, bool writefile = true );
+    string PSlice( int set, int numSlices, vec3d norm, bool autoBoundsFlag, double start, double end, bool measureduct );
+    string PSliceAndFlatten( int set, int numSlices, vec3d norm, bool autoBoundsFlag, double start, double end, bool measureduct );
 
     //==== Degenerate Geometry ====//
     void CreateDegenGeom( int set );
     vector< DegenGeom > GetDegenGeomVec()    { return m_DegenGeomVec; }
     string WriteDegenGeomFile();
     void ClearDegenGeom()   { m_DegenGeomVec.clear(); }
-
-    //==== Surface Query ====//
-    vec3d CompPnt01(const std::string &geom_id, const int &surf_indx, const double &u, const double &w);
-    vec3d CompNorm01(const std::string &geom_id, const int &surf_indx, const double &u, const double &w);
-    void CompCurvature01(const std::string &geom_id, const int &surf_indx, const double &u, const double &w, double &k1, double &k2, double &ka, double &kg);
-    double ProjPnt01I(const std::string &geom_id, const vec3d & pt, int &surf_indx, double &u, double &w);
-    double AxisProjPnt01I(const std::string &geom_id, const int &iaxis, const vec3d &pt, int &surf_indx_out, double &u_out, double &w_out, vec3d &p_out );
-
-    vec3d CompPntRST( const std::string &geom_id, const int &surf_indx, const double &r, const double &s, const double &t );
 
     //=== Surface API ===//
     string ExportSurfacePatches( int set );
@@ -314,6 +305,8 @@ public:
     virtual vec3d GetXSecLineColor()                    { return m_XSecLineColor; }
     virtual void SetXSecLineColor( vec3d color )        { m_XSecLineColor = color; }
 
+    double ComputeStructuresScaleFactor();
+
     //==== Mass Properties ====//
     vec3d m_IxxIyyIzz;
     vec3d m_IxyIxzIyz;
@@ -321,6 +314,7 @@ public:
     double m_TotalMass;
 
     IntParm m_NumMassSlices;
+    IntParm m_MassSliceDir;
     BoolParm m_DrawCgFlag;
 
     IntParm m_NumPlanerSlices;
@@ -328,6 +322,7 @@ public:
     Parm m_PlanarStartLocation;
     Parm m_PlanarEndLocation;
     IntParm m_PlanarAxisType;
+    BoolParm m_PlanarMeasureDuct;
 
     Parm m_BbXLen;
     Parm m_BbYLen;
@@ -492,6 +487,7 @@ public:
     IntParm m_MeasureLenUnit;
 
 
+    IntParm m_StructModelUnit;
     IntParm m_StructUnit;
 
     BoolParm m_CopySetsWithGeomsFlag;

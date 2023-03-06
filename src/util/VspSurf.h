@@ -14,6 +14,7 @@
 #include "Vec3d.h"
 #include "Matrix4d.h"
 #include "VspCurve.h"
+#include "Vsp1DCurve.h"
 #include "BndBox.h"
 #include "XferSurf.h"
 
@@ -78,6 +79,7 @@ public:
     void SkinC2( const vector< VspCurve > &input_crv_vec, bool closed_flag );
 
     double GetUMax() const;
+    double GetUMapMax() const { return m_UMapMax; };
     double GetWMax() const;
 
     void ReverseUDirection();
@@ -89,11 +91,11 @@ public:
     bool IsClosedU() const;
     bool IsClosedW() const;
 
-    void RollU( const int &iu ) { m_Surface.roll_u( iu ); }
-    void RollW( const int &iw ) { m_Surface.roll_v( iw ); }
+    void RollU( const double &u );
+    void RollW( const double &w );
 
-    int SplitU( const double &u );
-    int SplitW( const double &w );
+    void SplitU( const double &u );
+    void SplitW( const double &w );
 
     void JoinU( const VspSurf & sa, const VspSurf & sb );
     void JoinW( const VspSurf & sa, const VspSurf & sb );
@@ -113,6 +115,9 @@ public:
 
     int GetSurfCfdType() const { return m_SurfCfdType; }
     void SetSurfCfdType( int type ) { m_SurfCfdType = type; }
+
+    bool GetThickSurf() { return m_ThickSurf; }
+    void SetThickSurf( bool thicksurf ) { m_ThickSurf = thicksurf; }
 
     double FindNearest( double &u, double &w, const vec3d &pt ) const;
     double FindNearest( double &u, double &w, const vec3d &pt, const double &u0, const double &w0 ) const;
@@ -204,18 +209,18 @@ public:
     double GetRootCluster( const int &index ) const;
     double GetTipCluster( const int &index ) const;
 
-    void MakeUTess( const vector<int> &num_u, std::vector<double> &utess, const std::vector<int> & umerge ) const;
+    void MakeUTess( vector < double > &u, const vector < int > &num_u, const std::vector < int > &umerge, const int &n_cap, const int &n_default ) const;
     void MakeVTess( int num_v, std::vector<double> &vtess, const int &n_cap, bool degen ) const;
 
     //===== Tesselate ====//
     void TesselateTEforWake( std::vector< vector< vec3d > > & pnts ) const;
     void GetWakeTECurve( piecewise_curve_type& curve ) const;
 
-    void Tesselate( int num_u, int num_v, std::vector< vector< vec3d > > & pnts,  std::vector< vector< vec3d > > & norms,  std::vector< vector< vec3d > > & uw_pnts, const int &n_cap, bool degen ) const;
-    void Tesselate( const vector<int> &num_u, int num_v, std::vector< vector< vec3d > > & pnts,  std::vector< vector< vec3d > > & norms,  std::vector< vector< vec3d > > & uw_pnts, const int &n_cap, bool degen, const std::vector<int> & umerge = std::vector<int>() ) const;
+    void Tesselate( int num_u, int num_v, std::vector< vector< vec3d > > & pnts,  std::vector< vector< vec3d > > & norms,  std::vector< vector< vec3d > > & uw_pnts, const int &n_cap, const int &n_default, bool degen ) const;
+    void Tesselate( const vector<int> &num_u, int num_v, std::vector< vector< vec3d > > & pnts,  std::vector< vector< vec3d > > & norms,  std::vector< vector< vec3d > > & uw_pnts, const int &n_cap, const int &n_default, bool degen, const std::vector<int> & umerge = std::vector<int>() ) const;
 
-    void SplitTesselate( int num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap ) const;
-    void SplitTesselate( const vector<int> &num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap, const std::vector<int> & umerge = std::vector<int>() ) const;
+    void SplitTesselate( int num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap, const int &n_default ) const;
+    void SplitTesselate( const vector<int> &num_u, int num_v, std::vector< vector< vector< vec3d > > > & pnts,  std::vector< vector< vector< vec3d > > > & norms, const int &n_cap, const int &n_default, const std::vector<int> & umerge = std::vector<int>() ) const;
 
     void TessULine( double u, std::vector< vec3d > & pnts, double tol ) const;
     void TessUFeatureLine( int iu, std::vector< vec3d > & pnts, double tol ) const;
@@ -298,6 +303,21 @@ public:
         return m_FeaOrientation;
     }
 
+    void DegenCamberSurf( const VspSurf & parent );
+    void DegenPlanarSurf( const VspSurf & parent, int vhflag );
+
+    int GetPlateNum() { return m_PlateNum; }
+    void SetPlateNum( int p ) { m_PlateNum = p; }
+
+    void InitUMapping();
+    void InitUMapping( double val );
+    void PrintUMapping();
+
+    void ParmReport();
+
+    double InvertUMapping( double u ) const;
+    double EvalUMapping( double u ) const;
+
 protected:
 
     void Tesselate( const vector<double> &utess, const vector<double> &vtess, std::vector< vector< vec3d > > & pnts,  std::vector< vector< vec3d > > & norms,  std::vector< vector< vec3d > > & uw_pnts ) const;
@@ -315,10 +335,15 @@ protected:
     int m_FeaOrientationType;
     vec3d m_FeaOrientation;
 
+    bool m_ThickSurf;
+    int m_PlateNum;
     piecewise_surface_type m_Surface;
 
     vector < double > m_UFeature;
     vector < double > m_WFeature;
+
+    Vsp1DCurve m_UMapping;
+    double m_UMapMax;
 
     double m_LECluster;
     double m_TECluster;

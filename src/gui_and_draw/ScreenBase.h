@@ -662,8 +662,66 @@ protected:
 
 };
 
+//==== Engine Model Screen ====//
+class EngineModelScreen : public SkinScreen
+{
+public:
+    EngineModelScreen( ScreenMgr* mgr, int w, int h, const string & title );
+    virtual ~EngineModelScreen()                               {}
+
+    virtual void BuildEngineGUI( GroupLayout & layout );
+
+    virtual bool Update( );
+    virtual void CallBack( Fl_Widget *w );
+    virtual void GuiDeviceCallBack( GuiDevice* device );
+
+    static void staticScreenCB( Fl_Widget *w, void* data )
+    {
+        ( ( static_cast <EngineModelScreen*>( data ) )->CallBack( w ) );
+    }
+
+protected:
+
+    Choice m_EngineGeomIOChoice;
+    Choice m_EngineGeomInChoice;
+    Choice m_EngineGeomOutChoice;
+
+    ToggleRadioGroup m_EngineInFaceToggleGroup;
+    ToggleButton m_EngineInFaceUToggle;
+    ToggleButton m_EngineInFaceIndexToggle;
+
+    ToggleRadioGroup m_EngineInLipToggleGroup;
+    ToggleButton m_EngineInLipUToggle;
+    ToggleButton m_EngineInLipIndexToggle;
+
+    ToggleRadioGroup m_EngineOutFaceToggleGroup;
+    ToggleButton m_EngineOutFaceUToggle;
+    ToggleButton m_EngineOutFaceIndexToggle;
+
+    ToggleRadioGroup m_EngineOutLipToggleGroup;
+    ToggleButton m_EngineOutLipUToggle;
+    ToggleButton m_EngineOutLipIndexToggle;
+
+    SliderAdjRangeInput m_EngineInFaceUSlider;
+    SliderAdjRangeInput m_EngineInLipUSlider;
+
+    Counter m_EngineInFaceCounter;
+    Counter m_EngineInLipCounter;
+
+    SliderAdjRangeInput m_EngineOutFaceUSlider;
+    SliderAdjRangeInput m_EngineOutLipUSlider;
+
+    Counter m_EngineOutFaceCounter;
+    Counter m_EngineOutLipCounter;
+
+    Choice m_EngineInModeChoice;
+    Choice m_EngineOutModeChoice;
+
+    SliderAdjRangeInput m_EngineExtendDistanceSlider;
+};
+
 //==== Chevron Screen ====//
-class ChevronScreen : public SkinScreen
+class ChevronScreen : public EngineModelScreen
 {
 public:
     ChevronScreen( ScreenMgr* mgr, int w, int h, const string & title );
