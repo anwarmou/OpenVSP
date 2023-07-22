@@ -70,10 +70,69 @@ void CfdMeshScreen::CreateGlobalTab()
 
     m_GlobalTabLayout.AddYGap();
 
-    m_GlobalTabLayout.SetButtonWidth(175.0);
-    m_GlobalTabLayout.AddSlider(m_MaxEdgeLen, "Max Edge Len", 1.0, "%7.5f");
-    m_GlobalTabLayout.AddSlider(m_MinEdgeLen, "Min Edge Len", 1.0, "%7.5f");
-    m_GlobalTabLayout.AddSlider(m_MaxGap, "Max Gap", 1.0, "%7.5f");
+    int actionToggleButtonWidth = 45;
+    int normalButtonWidth = 175;
+
+    m_GlobalTabLayout.SetFitWidthFlag( false );
+    m_GlobalTabLayout.SetSameLineFlag( true );
+
+    m_GlobalTabLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_GlobalTabLayout.AddButton( m_MaxAbsToggle, "Abs" );
+    m_GlobalTabLayout.AddButton( m_MaxRelToggle, "Rel" );
+
+    m_GlobalTabLayout.SetFitWidthFlag( true );
+
+    m_GlobalTabLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
+    m_GlobalTabLayout.AddSlider( m_MaxEdgeLen, "Max Edge Len", 1.0, "%7.5f" );
+
+    m_MaxEdgeLenToggleGroup.Init( this );
+    m_MaxEdgeLenToggleGroup.AddButton( m_MaxAbsToggle.GetFlButton() );
+    m_MaxEdgeLenToggleGroup.AddButton( m_MaxRelToggle.GetFlButton() );
+
+
+    m_GlobalTabLayout.ForceNewLine();
+
+    m_GlobalTabLayout.SetFitWidthFlag( false );
+    m_GlobalTabLayout.SetSameLineFlag( true );
+
+    m_GlobalTabLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_GlobalTabLayout.AddButton( m_MinAbsToggle, "Abs" );
+    m_GlobalTabLayout.AddButton( m_MinRelToggle, "Rel" );
+
+    m_GlobalTabLayout.SetFitWidthFlag( true );
+
+    m_GlobalTabLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
+    m_GlobalTabLayout.AddSlider( m_MinEdgeLen, "Min Edge Len", 1.0, "%7.5f" );
+
+    m_MinEdgeLenToggleGroup.Init( this );
+    m_MinEdgeLenToggleGroup.AddButton( m_MinAbsToggle.GetFlButton() );
+    m_MinEdgeLenToggleGroup.AddButton( m_MinRelToggle.GetFlButton() );
+
+
+    m_GlobalTabLayout.ForceNewLine();
+
+    m_GlobalTabLayout.SetFitWidthFlag( false );
+    m_GlobalTabLayout.SetSameLineFlag( true );
+
+    m_GlobalTabLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_GlobalTabLayout.AddButton( m_GapAbsToggle, "Abs" );
+    m_GlobalTabLayout.AddButton( m_GapRelToggle, "Rel" );
+
+    m_GlobalTabLayout.SetFitWidthFlag( true );
+
+    m_GlobalTabLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
+    m_GlobalTabLayout.AddSlider( m_MaxGap, "Max Gap", 1.0, "%7.5f" );
+
+    m_MaxGapToggleGroup.Init( this );
+    m_MaxGapToggleGroup.AddButton( m_GapAbsToggle.GetFlButton() );
+    m_MaxGapToggleGroup.AddButton( m_GapRelToggle.GetFlButton() );
+
+    m_GlobalTabLayout.ForceNewLine();
+    m_GlobalTabLayout.SetFitWidthFlag( true );
+    m_GlobalTabLayout.SetSameLineFlag( false );
+
+    m_GlobalTabLayout.SetButtonWidth( normalButtonWidth );
+
     m_GlobalTabLayout.AddSlider(m_NumCircleSegments, "Num Circle Segments", 100.0, "%7.5f");
     m_GlobalTabLayout.AddSlider(m_GrowthRatio, "Growth Ratio", 2.0, "%7.5f");
 
@@ -138,27 +197,123 @@ void CfdMeshScreen::CreateDisplayTab()
     m_DisplayTabLayout.AddDividerBox( "Mesh Display" );
     m_DisplayTabLayout.AddYGap();
     m_DisplayTabLayout.AddButton(m_ShowMesh, "Show Mesh");
-    m_DisplayTabLayout.AddButton(m_ColorTags, "Color Tags");
+
+    m_DisplayTabLayout.SetButtonWidth( m_DisplayTabLayout.GetW() / 3.0 );
+
+    m_DisplayTabLayout.SetFitWidthFlag( false );
+    m_DisplayTabLayout.SetSameLineFlag( true );
+
+    m_DisplayTabLayout.AddButton( m_ColorFaces, "Color Mesh");
+    m_DisplayTabLayout.AddButton( m_ColorByTag, "By Tag" );
+    m_DisplayTabLayout.AddButton( m_ColorByReason, "By Reason" );
+    m_DisplayTabLayout.ForceNewLine();
+
+    m_ColorByToggleGroup.Init( this );
+    m_ColorByToggleGroup.AddButton( m_ColorByTag.GetFlButton() );
+    m_ColorByToggleGroup.AddButton( m_ColorByReason.GetFlButton() );
+
+    m_DisplayTabLayout.SetFitWidthFlag( true );
+    m_DisplayTabLayout.SetSameLineFlag( false );
+
     m_DisplayTabLayout.AddButton(m_ShowBadEdgesAndTriangles, "Show Bad Edges and Triangles");
     m_DisplayTabLayout.AddYGap();
-    m_DisplayTabLayout.AddButton(m_ShowSourcesAndWakePreview, "Show Sources and Wake Preview");
+
+    m_DisplayTabLayout.SetFitWidthFlag( false );
+    m_DisplayTabLayout.SetSameLineFlag( true );
+
+    m_DisplayTabLayout.SetButtonWidth( m_DisplayTabLayout.GetW() / 2.0 );
+
+    m_DisplayTabLayout.AddButton(m_ShowSourcesAndWakePreview, "Show Sources & Wake Preview");
     m_DisplayTabLayout.AddButton(m_ShowWake, "Show Wake");
-    m_DisplayTabLayout.AddButton(m_ShowSymmetryPlane, "Show Symmetry Plane");
+    m_DisplayTabLayout.ForceNewLine();
+
     m_DisplayTabLayout.AddButton(m_ShowFarFieldPreview, "Show Far Field Preview");
     m_DisplayTabLayout.AddButton(m_ShowFarField, "Show Far Field");
+    m_DisplayTabLayout.ForceNewLine();
+
+    m_DisplayTabLayout.SetFitWidthFlag( true );
+    m_DisplayTabLayout.SetSameLineFlag( false );
+    m_DisplayTabLayout.AddButton(m_ShowSymmetryPlane, "Show Symmetry Plane");
+
     m_DisplayTabLayout.AddYGap();
 
     m_DisplayTabLayout.AddDividerBox( "Intersection Curve Display" );
 
     m_DisplayTabLayout.AddYGap();
+
+    m_DisplayTabLayout.SetFitWidthFlag( false );
+    m_DisplayTabLayout.SetSameLineFlag( true );
+
     m_DisplayTabLayout.AddButton( m_DrawIsect, "Show Intersection Curves");
     m_DisplayTabLayout.AddButton( m_DrawBorder, "Show Border Curves");
-    m_DisplayTabLayout.AddYGap();
+    m_DisplayTabLayout.ForceNewLine();
     m_DisplayTabLayout.AddButton( m_ShowCurve, "Show Curves");
     m_DisplayTabLayout.AddButton( m_ShowPts, "Show Points");
-    m_DisplayTabLayout.AddYGap();
+    m_DisplayTabLayout.ForceNewLine();
     m_DisplayTabLayout.AddButton( m_ShowRaw, "Show Raw Curve");
     m_DisplayTabLayout.AddButton( m_ShowBinAdapt, "Show Binary Adapted");
+    m_DisplayTabLayout.ForceNewLine();
+
+    m_DisplayTabLayout.SetFitWidthFlag( true );
+    m_DisplayTabLayout.SetSameLineFlag( false );
+
+    m_DisplayTabLayout.AddYGap();
+
+    m_DisplayTabLayout.AddDividerBox( "Mesh Edge Length Reason Key" );
+
+    m_DisplayTabLayout.AddYGap();
+
+    vec3d c;
+
+
+    m_DisplayTabLayout.AddButton( m_MaxLenConstraintLabel, "Max Edge Len" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::MAX_LEN_CONSTRAINT ) );
+    m_MaxLenConstraintLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+
+    m_DisplayTabLayout.SetFitWidthFlag( false );
+    m_DisplayTabLayout.SetSameLineFlag( true );
+
+    m_DisplayTabLayout.SetButtonWidth( m_DisplayTabLayout.GetW() / 3.0 );
+
+    m_DisplayTabLayout.AddButton( m_GrowLimitCurvGapLabel, "Growth Ratio" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::GROW_LIMIT_CURV_GAP ) );
+    m_GrowLimitCurvGapLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_DisplayTabLayout.AddButton( m_GrowLimitNCircSegLabel, "Growth Ratio" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::GROW_LIMIT_CURV_NCIRCSEG ) );
+    m_GrowLimitNCircSegLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_DisplayTabLayout.AddButton( m_GrowLimitSourcesLabel, "Growth Ratio" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::GROW_LIMIT_SOURCES ) );
+    m_GrowLimitSourcesLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_DisplayTabLayout.ForceNewLine();
+
+    m_DisplayTabLayout.AddButton( m_CurvGapLabel, "Max Gap" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::CURV_GAP ) );
+    m_CurvGapLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_DisplayTabLayout.AddButton( m_NCircSegLabel, "Num Circle Segments" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::CURV_NCIRCSEG ) );
+    m_NCircSegLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_DisplayTabLayout.AddButton( m_SourcesLabel, "Sources" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::SOURCES ) );
+    m_SourcesLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_DisplayTabLayout.ForceNewLine();
+
+    m_DisplayTabLayout.AddButton( m_MinLenCurvGapLabel, "Min Edge Len" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::MIN_LEN_CONSTRAINT_CURV_GAP ) );
+    m_MinLenCurvGapLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+    m_MinLenCurvGapLabel.SetLabelColor( FL_WHITE );
+
+    m_DisplayTabLayout.AddButton( m_MinLenCurvNCircSegLabel, "Min Edge Len" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::MIN_LEN_CONSTRAINT_CURV_NCIRCSEG ) );
+    m_MinLenCurvNCircSegLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+    m_MinLenCurvNCircSegLabel.SetLabelColor( FL_WHITE );
+
 
     displayTab->show();
 }
@@ -375,8 +530,53 @@ void CfdMeshScreen::CreateDomainTab()
     m_FarParametersLayout.AddDividerBox("Far Field Mesh Control");
     m_FarParametersLayout.AddYGap();
     m_FarParametersLayout.SetButtonWidth(m_DomainTabLayout.GetRemainX() / 2.0);
-    m_FarParametersLayout.AddSlider(m_DomainMaxEdgeLen, "Max Edge Len", 1.0, "%7.5f");
-    m_FarParametersLayout.AddSlider(m_DomainMaxGap, "Max Gap", 1.0, "%7.5f");
+
+    int actionToggleButtonWidth = 45;
+    int normalButtonWidth = 175;
+
+    m_FarParametersLayout.SetFitWidthFlag( false );
+    m_FarParametersLayout.SetSameLineFlag( true );
+
+    m_FarParametersLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_FarParametersLayout.AddButton( m_DomainMaxAbsToggle, "Abs" );
+    m_FarParametersLayout.AddButton( m_DomainMaxRelToggle, "Rel" );
+
+    m_FarParametersLayout.SetFitWidthFlag( true );
+
+    m_FarParametersLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
+    m_FarParametersLayout.AddSlider( m_DomainMaxEdgeLen, "Max Edge Len", 1.0, "%7.5f" );
+
+    m_DomainMaxEdgeLenToggleGroup.Init( this );
+    m_DomainMaxEdgeLenToggleGroup.AddButton( m_DomainMaxAbsToggle.GetFlButton() );
+    m_DomainMaxEdgeLenToggleGroup.AddButton( m_DomainMaxRelToggle.GetFlButton() );
+
+
+    m_FarParametersLayout.ForceNewLine();
+
+    m_FarParametersLayout.SetFitWidthFlag( false );
+    m_FarParametersLayout.SetSameLineFlag( true );
+
+    m_FarParametersLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_FarParametersLayout.AddButton( m_DomainGapAbsToggle, "Abs" );
+    m_FarParametersLayout.AddButton( m_DomainGapRelToggle, "Rel" );
+
+    m_FarParametersLayout.SetFitWidthFlag( true );
+
+    m_FarParametersLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
+    m_FarParametersLayout.AddSlider( m_DomainMaxGap, "Max Gap", 1.0, "%7.5f" );
+
+    m_DomainMaxGapToggleGroup.Init( this );
+    m_DomainMaxGapToggleGroup.AddButton( m_DomainGapAbsToggle.GetFlButton() );
+    m_DomainMaxGapToggleGroup.AddButton( m_DomainGapRelToggle.GetFlButton() );
+
+
+    m_FarParametersLayout.ForceNewLine();
+    m_FarParametersLayout.SetFitWidthFlag( true );
+    m_FarParametersLayout.SetSameLineFlag( false );
+
+    m_FarParametersLayout.SetButtonWidth( normalButtonWidth );
+
+
     m_FarParametersLayout.AddSlider(m_DomainNumCircleSegments, "Num Circle Segments", 100.0, "%7.5f");
     m_FarParametersLayout.AddYGap();
 
@@ -506,12 +706,7 @@ bool CfdMeshScreen::Update()
         m_MeshAndExport.Activate();
     }
 
-    if ( !CfdMeshMgr.GetMeshInProgress() )
-    {
-        CfdMeshMgr.UpdateSourcesAndWakes();
-    }
-
-    CfdMeshMgr.UpdateDomain();
+    CfdMeshMgr.Update();
 
     //==== Load Geom Choice ====//
     m_GeomVec = m_Vehicle->GetGeomVec();
@@ -648,9 +843,36 @@ bool CfdMeshScreen::Update()
 void CfdMeshScreen::UpdateGlobalTab()
 {
     //===== Global Mesh Control =====//
-    m_MaxEdgeLen.Update( m_Vehicle->GetCfdGridDensityPtr()->m_BaseLen.GetID() );
-    m_MinEdgeLen.Update( m_Vehicle->GetCfdGridDensityPtr()->m_MinLen.GetID() );
-    m_MaxGap.Update( m_Vehicle->GetCfdGridDensityPtr()->m_MaxGap.GetID() );
+    m_MaxEdgeLenToggleGroup.Update( m_Vehicle->GetCfdGridDensityPtr()->m_BaseAbsRel.GetID() );
+    if ( m_Vehicle->GetCfdGridDensityPtr()->m_BaseAbsRel() == vsp::ABS )
+    {
+        m_MaxEdgeLen.Update( 1, m_Vehicle->GetCfdGridDensityPtr()->m_BaseLen.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_BaseFrac.GetID() );
+    }
+    else
+    {
+        m_MaxEdgeLen.Update( 2, m_Vehicle->GetCfdGridDensityPtr()->m_BaseLen.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_BaseFrac.GetID() );
+    }
+
+    m_MinEdgeLenToggleGroup.Update( m_Vehicle->GetCfdGridDensityPtr()->m_MinAbsRel.GetID() );
+    if ( m_Vehicle->GetCfdGridDensityPtr()->m_MinAbsRel() == vsp::ABS )
+    {
+        m_MinEdgeLen.Update( 1, m_Vehicle->GetCfdGridDensityPtr()->m_MinLen.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_MinFrac.GetID() );
+    }
+    else
+    {
+        m_MinEdgeLen.Update( 2, m_Vehicle->GetCfdGridDensityPtr()->m_MinLen.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_MinFrac.GetID() );
+    }
+
+    m_MaxGapToggleGroup.Update( m_Vehicle->GetCfdGridDensityPtr()->m_MaxGapAbsRel.GetID() );
+    if ( m_Vehicle->GetCfdGridDensityPtr()->m_MaxGapAbsRel() == vsp::ABS )
+    {
+        m_MaxGap.Update( 1, m_Vehicle->GetCfdGridDensityPtr()->m_MaxGap.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_MaxGapFrac.GetID() );
+    }
+    else
+    {
+        m_MaxGap.Update( 2, m_Vehicle->GetCfdGridDensityPtr()->m_MaxGap.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_MaxGapFrac.GetID() );
+    }
+
     m_NumCircleSegments.Update( m_Vehicle->GetCfdGridDensityPtr()->m_NCircSeg.GetID() );
     m_GrowthRatio.Update( m_Vehicle->GetCfdGridDensityPtr()->m_GrowRatio.GetID() );
     m_Rig3dGrowthLimit.Update( m_Vehicle->GetCfdGridDensityPtr()->m_RigorLimit.GetID() );
@@ -685,7 +907,14 @@ void CfdMeshScreen::UpdateDisplayTab()
     m_ShowSymmetryPlane.Update( m_Vehicle->GetCfdSettingsPtr()->m_DrawSymmFlag.GetID() );
     m_ShowFarField.Update( m_Vehicle->GetCfdSettingsPtr()->m_DrawFarFlag.GetID() );
     m_ShowBadEdgesAndTriangles.Update( m_Vehicle->GetCfdSettingsPtr()->m_DrawBadFlag.GetID() );
-    m_ColorTags.Update( m_Vehicle->GetCfdSettingsPtr()->m_ColorTagsFlag.GetID() );
+    m_ColorFaces.Update( m_Vehicle->GetCfdSettingsPtr()->m_ColorFacesFlag.GetID() );
+    m_ColorByToggleGroup.Update( m_Vehicle->GetCfdSettingsPtr()->m_ColorTagReason.GetID() );
+
+    m_ColorByToggleGroup.Deactivate();
+    if ( m_Vehicle->GetCfdSettingsPtr()->m_ColorFacesFlag() )
+    {
+        m_ColorByToggleGroup.Activate();
+    }
 
     m_DrawIsect.Update( m_Vehicle->GetCfdSettingsPtr()->m_DrawIsectFlag.GetID() );
     m_DrawBorder.Update( m_Vehicle->GetCfdSettingsPtr()->m_DrawBorderFlag.GetID() );
@@ -859,8 +1088,26 @@ void CfdMeshScreen::UpdateDomainTab()
     m_GenerateFarFieldMesh.Update( m_Vehicle->GetCfdSettingsPtr()->m_FarMeshFlag.GetID() );
 
     //===== Update Domain Sliders =====//
-    m_DomainMaxEdgeLen.Update( m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxLen.GetID() );
-    m_DomainMaxGap.Update( m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxGap.GetID() );
+    m_DomainMaxEdgeLenToggleGroup.Update( m_Vehicle->GetCfdGridDensityPtr()->m_FarAbsRel.GetID() );
+    if ( m_Vehicle->GetCfdGridDensityPtr()->m_FarAbsRel() == vsp::ABS )
+    {
+        m_DomainMaxEdgeLen.Update( 1, m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxLen.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_FarFrac.GetID() );
+    }
+    else
+    {
+        m_DomainMaxEdgeLen.Update( 2, m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxLen.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_FarFrac.GetID() );
+    }
+
+    m_DomainMaxGapToggleGroup.Update( m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxGapAbsRel.GetID() );
+    if ( m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxGapAbsRel() == vsp::ABS )
+    {
+        m_DomainMaxGap.Update( 1, m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxGap.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxGapFrac.GetID() );
+    }
+    else
+    {
+        m_DomainMaxGap.Update( 2, m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxGap.GetID(), m_Vehicle->GetCfdGridDensityPtr()->m_FarMaxGapFrac.GetID() );
+    }
+
     m_DomainNumCircleSegments.Update( m_Vehicle->GetCfdGridDensityPtr()->m_FarNCircSeg.GetID() );
 
     //===== Symmetry Plane Toggle Update =====//
@@ -964,6 +1211,15 @@ void CfdMeshScreen::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
     {
         CfdMeshMgr.LoadDrawObjs( draw_obj_vec );
     }
+}
+
+bool CfdMeshScreen::GetVisBndBox( BndBox &bbox )
+{
+    if ( IsShown() )
+    {
+        return CfdMeshMgr.GetVisBndBox( bbox );
+    }
+    return false;
 }
 
 void CfdMeshScreen::Show()

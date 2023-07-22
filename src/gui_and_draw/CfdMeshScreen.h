@@ -41,6 +41,7 @@ public:
 
     void AddOutputText( const string &text );
     void LoadDrawObjs( vector< DrawObj* > &draw_obj_vec );
+    virtual bool GetVisBndBox( BndBox &bbox );
 
     ProcessUtil* getCfdMeshProcess()
     {
@@ -62,9 +63,21 @@ protected:
 
     //===== Global Tab Items =====//
 
-    SliderAdjRangeInput m_MaxEdgeLen;
-    SliderAdjRangeInput m_MinEdgeLen;
-    SliderAdjRangeInput m_MaxGap;
+    ToggleButton m_MaxAbsToggle;
+    ToggleButton m_MaxRelToggle;
+    ToggleRadioGroup m_MaxEdgeLenToggleGroup;
+
+    ToggleButton m_MinAbsToggle;
+    ToggleButton m_MinRelToggle;
+    ToggleRadioGroup m_MinEdgeLenToggleGroup;
+
+    ToggleButton m_GapAbsToggle;
+    ToggleButton m_GapRelToggle;
+    ToggleRadioGroup m_MaxGapToggleGroup;
+
+    SliderAdjRange2Input m_MaxEdgeLen;
+    SliderAdjRange2Input m_MinEdgeLen;
+    SliderAdjRange2Input m_MaxGap;
     SliderAdjRangeInput m_NumCircleSegments;
     SliderAdjRangeInput m_GrowthRatio;
 
@@ -97,7 +110,11 @@ protected:
     ToggleButton m_ShowSymmetryPlane;
     ToggleButton m_ShowFarField;
     ToggleButton m_ShowBadEdgesAndTriangles;
-    ToggleButton m_ColorTags;
+    ToggleButton m_ColorFaces;
+
+    ToggleButton m_ColorByTag;
+    ToggleButton m_ColorByReason;
+    ToggleRadioGroup m_ColorByToggleGroup;
 
     ToggleButton m_DrawIsect;
     ToggleButton m_DrawBorder;
@@ -108,6 +125,20 @@ protected:
 
     ToggleButton m_ShowCurve;
     ToggleButton m_ShowPts;
+
+
+    TriggerButton m_MaxLenConstraintLabel;
+
+    TriggerButton m_MinLenCurvGapLabel;
+    TriggerButton m_CurvGapLabel;
+    TriggerButton m_GrowLimitCurvGapLabel;
+
+    TriggerButton m_MinLenCurvNCircSegLabel;
+    TriggerButton m_NCircSegLabel;
+    TriggerButton m_GrowLimitNCircSegLabel;
+
+    TriggerButton m_SourcesLabel;
+    TriggerButton m_GrowLimitSourcesLabel;
 
     //===== Output Tab Items =====//
 
@@ -183,8 +214,16 @@ protected:
     ToggleButton m_GenerateHalfMesh;
     ToggleButton m_GenerateFarFieldMesh;
 
-    SliderAdjRangeInput m_DomainMaxEdgeLen;
-    SliderAdjRangeInput m_DomainMaxGap;
+    ToggleButton m_DomainMaxAbsToggle;
+    ToggleButton m_DomainMaxRelToggle;
+    ToggleRadioGroup m_DomainMaxEdgeLenToggleGroup;
+
+    ToggleButton m_DomainGapAbsToggle;
+    ToggleButton m_DomainGapRelToggle;
+    ToggleRadioGroup m_DomainMaxGapToggleGroup;
+
+    SliderAdjRange2Input m_DomainMaxEdgeLen;
+    SliderAdjRange2Input m_DomainMaxGap;
     SliderAdjRangeInput m_DomainNumCircleSegments;
 
     //Far Field Type Items

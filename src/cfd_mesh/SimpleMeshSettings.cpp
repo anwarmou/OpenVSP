@@ -21,7 +21,8 @@ SimpleMeshCommonSettings::SimpleMeshCommonSettings()
     m_SymSplittingOnFlag = false;
 
     m_DrawMeshFlag = false;
-    m_ColorTagsFlag = false;
+    m_ColorFacesFlag = false;
+    m_ColorTagReason = vsp::TAG;
 
     m_DrawSourceWakeFlag = false;
 
@@ -75,7 +76,8 @@ void SimpleMeshCommonSettings::CopyFrom( MeshCommonSettings* settings )
     m_SymSplittingOnFlag = settings->m_SymSplittingOnFlag.Get();
 
     m_DrawMeshFlag = settings->m_DrawMeshFlag.Get();
-    m_ColorTagsFlag = settings->m_ColorTagsFlag.Get();
+    m_ColorFacesFlag = settings->m_ColorFacesFlag.Get();
+    m_ColorTagReason = settings->m_ColorTagReason.Get();
 
     m_DrawSourceWakeFlag = settings->m_DrawSourceWakeFlag.Get();
 
@@ -398,15 +400,16 @@ double SimpleGridDensity::GetTargetLen( vec3d& pos, bool farFlag, const string &
     double target_len;
     double base_len;
 
+    target_len = numeric_limits<double>::max( );
+
     if ( !farFlag )
     {
-        target_len = m_BaseLen;
+        base_len = m_BaseLen;
     }
     else
     {
-        target_len = m_FarMaxLen;
+        base_len = m_FarMaxLen;
     }
-    base_len = target_len;
 
     for ( int i = 0; i < (int)m_Sources.size(); i++ )
     {
@@ -514,7 +517,8 @@ SimpleAssemblySettings::SimpleAssemblySettings()
     m_DrawAsMeshFlag = true;
 
     m_DrawMeshFlag = false;
-    m_ColorTagsFlag = false;
+    m_ColorFacesFlag = false;
+    m_ColorTagReason = vsp::TAG;
 
     m_DrawNodesFlag = false;
     m_DrawBCNodesFlag = false;
@@ -531,7 +535,8 @@ void SimpleAssemblySettings::CopyFrom( AssemblySettings* settings )
     m_DrawAsMeshFlag = settings->m_DrawAsMeshFlag.Get();
 
     m_DrawMeshFlag = settings->m_DrawMeshFlag.Get();
-    m_ColorTagsFlag = settings->m_ColorTagsFlag.Get();
+    m_ColorFacesFlag = settings->m_ColorFacesFlag.Get();
+    m_ColorTagReason = settings->m_ColorTagReason.Get();
 
     m_DrawNodesFlag = settings->m_DrawNodesFlag.Get();
     m_DrawBCNodesFlag = settings->m_DrawBCNodesFlag.Get();

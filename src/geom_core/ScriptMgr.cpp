@@ -568,6 +568,12 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     assert( r >= 0 );
     r = se->RegisterEnumValue( "ATTACH_TRANS_TYPE", "ATTACH_TRANS_UV", ATTACH_TRANS_UV, "/*!< Translation relative to parent surface coordinate frame */" );
     assert( r >= 0 );
+    r = se->RegisterEnumValue( "ATTACH_TRANS_TYPE", "ATTACH_TRANS_RST", ATTACH_TRANS_RST, "/*!< Translation relative to parent per-section volume coordinate frame */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "ATTACH_TRANS_TYPE", "ATTACH_TRANS_LMN", ATTACH_TRANS_LMN, "/*!< Translation relative to parent uniform volume coordinate frame */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "ATTACH_TRANS_TYPE", "ATTACH_TRANS_NUM_TYPES", ATTACH_TRANS_NUM_TYPES, "/*!< Number of translation attachment types */" );
+    assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum that determines parent to child relative rotation axes. */";
 
@@ -578,6 +584,12 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "ATTACH_ROT_TYPE", "ATTACH_ROT_COMP", ATTACH_ROT_COMP, "/*!< Rotation relative to parent body axes */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "ATTACH_ROT_TYPE", "ATTACH_ROT_UV", ATTACH_ROT_UV, "/*!< Rotation relative to parent surface coordinate frame */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "ATTACH_ROT_TYPE", "ATTACH_ROT_RST", ATTACH_ROT_RST, "/*!< Rotation relative to parent per-section volume coordinate frame */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "ATTACH_ROT_TYPE", "ATTACH_ROT_LMN", ATTACH_ROT_LMN, "/*!< Rotation relative to parent uniform volume coordinate frame */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "ATTACH_ROT_TYPE", "ATTACH_ROT_NUM_TYPES", ATTACH_ROT_NUM_TYPES, "/*!< Number of rotation attachment types */" );
     assert( r >= 0 );
 
     doc_struct.comment = "/*! Enum for Body of Revolution mode control. */";
@@ -615,6 +627,14 @@ void ScriptMgrSingleton::RegisterEnums( asIScriptEngine* se )
     r = se->RegisterEnumValue( "CAP_TYPE", "EDGE_END_CAP", vsp::EDGE_END_CAP, "/*!< Edge end cap */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "CAP_TYPE", "SHARP_END_CAP", vsp::SHARP_END_CAP, "/*!< Sharp end cap */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CAP_TYPE", "ROUND_EXT_END_CAP_NONE", vsp::ROUND_EXT_END_CAP_NONE, "/*!< Extended round end cap, but not extended */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CAP_TYPE", "ROUND_EXT_END_CAP_LE", vsp::ROUND_EXT_END_CAP_LE, "/*!< Extended round end cap, extend LE */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CAP_TYPE", "ROUND_EXT_END_CAP_TE", vsp::ROUND_EXT_END_CAP_TE, "/*!< Extended round end cap, extend TE */" );
+    assert( r >= 0 );
+    r = se->RegisterEnumValue( "CAP_TYPE", "ROUND_EXT_END_CAP_BOTH", vsp::ROUND_EXT_END_CAP_BOTH, "/*!< Extended round end cap, extend both */" );
     assert( r >= 0 );
     r = se->RegisterEnumValue( "CAP_TYPE", "NUM_END_CAP_OPTIONS", vsp::NUM_END_CAP_OPTIONS, "/*!< Number of end cap options */" );
     assert( r >= 0 );
@@ -10984,7 +11004,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     int surf_indx = 0;
 
     double r = 0.12;
-    double s = 0.34;
+    double s = 0.68;
     double t = 0.56;
 
     vec3d pnt = CompPntRST( geom_id, surf_indx, r, s, t );
@@ -11021,7 +11041,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     int surf_indx = 0;
 
     double r = 0.12;
-    double s = 0.34;
+    double s = 0.68;
     double t = 0.56;
 
     vec3d pnt = CompPntRST( geom_id, surf_indx, r, s, t );
@@ -11037,7 +11057,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] pt Input 3D coordinate point
     \param [out] r Output closest R (0 - 1.0) volume coordinate
-    \param [out] s Output closest S (0 - 0.5) volume coordinate
+    \param [out] s Output closest S (0 - 1.0) volume coordinate
     \param [out] t Output closest T (0 - 1.0) volume coordinate
     \return Distance between the 3D point and the closest point of the volume
 */)";
@@ -11056,7 +11076,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     int surf_indx = 0;
 
     double r = 0.12;
-    double s = 0.34;
+    double s = 0.68;
     double t = 0.56;
 
     vec3d pnt = CompPntRST( geom_id, surf_indx, r, s, t );
@@ -11064,7 +11084,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     double rout, sout, tout;
 
     double r0 = 0.1;
-    double s0 = 0.3;
+    double s0 = 0.6;
     double t0 = 0.5;
 
     double d = FindRSTGuess( geom_id, surf_indx, pnt, r0, s0, t0, rout, sout, tout );
@@ -11076,10 +11096,10 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] pt Input 3D coordinate point
     \param [in] r0 Input R (0 - 1.0) volume coordinate guess
-    \param [in] s0 Input S (0 - 0.5) volume coordinate guess
+    \param [in] s0 Input S (0 - 1.0) volume coordinate guess
     \param [in] t0 Input T (0 - 1.0) volume coordinate guess
     \param [out] r Output closest R (0 - 1.0) volume coordinate
-    \param [out] s Output closest S (0 - 0.5) volume coordinate
+    \param [out] s Output closest S (0 - 1.0) volume coordinate
     \param [out] t Output closest T (0 - 1.0) volume coordinate
     \return Distance between the 3D point and the closest point of the volume
 */)";
@@ -11096,7 +11116,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     int surf_indx = 0;
 
     double r = 0.12;
-    double s = 0.34;
+    double s = 0.68;
     double t = 0.56;
 
     vec3d pnt = CompPntRST( geom_id, surf_indx, r, s, t );
@@ -11106,7 +11126,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] geom_id Parent Geom ID
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] r R (0 - 1) volume coordinate
-    \param [in] s S (0 - 0.5) volume coordinate
+    \param [in] s S (0 - 1) volume coordinate
     \param [in] t T (0 - 1) volume coordinate
     \return vec3d coordinate point
 */)";
@@ -11132,7 +11152,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     {
         rvec[i] = (i+1)*1.0/(n+1);
 
-        svec[i] = (n-i)*0.5/(n+1);
+        svec[i] = (n-i)*1.0/(n+1);
 
         tvec[i] = (i+1)*1.0/(n+1);
     }
@@ -11142,7 +11162,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] geom_id Parent Geom ID
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] rs Input array of R (0 - 1.0) volume coordinates
-    \param [in] ss Input array of S (0 - 0.5) volume coordinates
+    \param [in] ss Input array of S (0 - 1.0) volume coordinates
     \param [in] ts Input array of T (0 - 1.0) volume coordinates
     \return Array of 3D coordinate points
 */)";
@@ -11159,7 +11179,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     int surf_indx = 0;
 
     double r = 0.12;
-    double s = 0.34;
+    double s = 0.68;
     double t = 0.56;
     double l, m, n;
 
@@ -11169,7 +11189,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] geom_id Parent Geom ID
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] r R (0 - 1) volume coordinate
-    \param [in] s S (0 - 0.5) volume coordinate
+    \param [in] s S (0 - 1) volume coordinate
     \param [in] t T (0 - 1) volume coordinate
     \param [out] l L (0 - 1) linear volume coordinate
     \param [out] m M (0 - 1) linear volume coordinate
@@ -11202,7 +11222,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] m M (0 - 1) linear volume coordinate
     \param [in] n N (0 - 1) linear volume coordinate
     \param [out] r R (0 - 1) volume coordinate
-    \param [out] s S (0 - 0.5) volume coordinate
+    \param [out] s S (0 - 1) volume coordinate
     \param [out] t T (0 - 1) volume coordinate
     \return void
 */)";
@@ -11229,7 +11249,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     for( int i = 0 ; i < n ; i++ )
     {
         rvec[i] = (i+1)*1.0/(n+1);
-        svec[i] = 0.5 * (n-i)*1.0/(n+1);
+        svec[i] = (n-i)*1.0/(n+1);
         tvec[i] = (i+1)*1.0/(n+1);
     }
 
@@ -11242,7 +11262,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] geom_id Parent Geom ID
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] rs Input array of R (0 - 1) volumetric coordinate
-    \param [in] ss Input array of S (0 - 0.5) volumetric coordinate
+    \param [in] ss Input array of S (0 - 1) volumetric coordinate
     \param [in] ts Input array of T (0 - 1) volumetric coordinate
     \param [out] ls Output array of L (0 - 1) linear volumetric coordinate
     \param [out] ms Output array of M (0 - 1) linear volumetric coordinate
@@ -11283,7 +11303,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] geom_id Parent Geom ID
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] rs Input array of R (0 - 1) volumetric coordinate
-    \param [in] ss Input array of S (0 - 0.5) volumetric coordinate
+    \param [in] ss Input array of S (0 - 1) volumetric coordinate
     \param [in] ts Input array of T (0 - 1) volumetric coordinate
     \param [out] ls Output array of L (0 - 1) linear volumetric coordinate
     \param [out] ms Output array of M (0 - 1) linear volumetric coordinate
@@ -11671,7 +11691,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     {
         rvec[i] = (i+1)*1.0/(n+1);
 
-        svec[i] = (n-i)*0.5/(n+1);
+        svec[i] = (n-i)*1.0/(n+1);
 
         tvec[i] = (i+1)*1.0/(n+1);
     }
@@ -11711,7 +11731,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     {
         rvec[i] = (i+1)*1.0/(n+1);
 
-        svec[i] = (n-i)*0.5/(n+1);
+        svec[i] = (n-i)*1.0/(n+1);
 
         tvec[i] = (i+1)*1.0/(n+1);
     }
@@ -11727,7 +11747,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] pts Input array of 3D coordinate points
     \param [out] rs Output array of the closest R (0 - 1.0) volume coordinate for each 3D input point
-    \param [out] ss Output array of the closest S (0 - 0.5) volume coordinate for each 3D input point
+    \param [out] ss Output array of the closest S (0 - 1.0) volume coordinate for each 3D input point
     \param [out] ts Output array of the closest T (0 - 1.0) volume coordinate for each 3D input point
     \param [out] ds Output array of distances for each 3D point and the closest point of the volume
 */)";
@@ -11755,7 +11775,7 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     {
         rvec[i] = (i+1)*1.0/(n+1);
 
-        svec[i] = (n-i)*0.5/(n+1);
+        svec[i] = (n-i)*1.0/(n+1);
 
         tvec[i] = (i+1)*1.0/(n+1);
     }
@@ -11776,10 +11796,10 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \param [in] surf_indx Main surface index from the parent Geom
     \param [in] pts Input array of 3D coordinate points
     \param [in] r0s Input array of U (0 - 1.0) volume coordinate guesses
-    \param [in] s0s Input array of S (0 - 0.5) volume coordinate guesses
+    \param [in] s0s Input array of S (0 - 1.0) volume coordinate guesses
     \param [in] t0s Input array of T (0 - 1.0) volume coordinate guesses
     \param [out] rs Output array of the closest R (0 - 1.0) volume coordinate for each 3D input point
-    \param [out] ss Output array of the closest S (0 - 0.5) volume coordinate for each 3D input point
+    \param [out] ss Output array of the closest S (0 - 1.0) volume coordinate for each 3D input point
     \param [out] ts Output array of the closest T (0 - 1.0) volume coordinate for each 3D input point
     \param [out] ds Output array of distances for each 3D point and the closest point of the volume
 */)";

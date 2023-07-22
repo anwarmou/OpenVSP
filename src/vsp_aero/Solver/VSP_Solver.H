@@ -242,10 +242,13 @@ private:
     int WakeIterations_;
     int CurrentWakeIteration_;
     int GMRESTightConvergence_;
+    int AdjointUsePreviousSolution_;
     
     int DoSymmetryPlaneSolve_;
 
     int Preconditioner_;
+    
+    int DoVortexStretching_;
     
     VSPAERO_DOUBLE User_GMRES_ToleranceFactor_;
     
@@ -255,7 +258,7 @@ private:
 
     VSPAERO_DOUBLE *Gamma_[3];
     VSPAERO_DOUBLE &Gamma(int i) { return Gamma_[0][i]; };
-    VSPAERO_DOUBLE &GammaNM0(int i) { return Gamma_[0][i]; };    
+    VSPAERO_DOUBLE &GammaNM0(int i) { return Gamma_[0][i]; };
     VSPAERO_DOUBLE &GammaNM1(int i) { return Gamma_[1][i]; };
     VSPAERO_DOUBLE &GammaNM2(int i) { return Gamma_[2][i]; };
  
@@ -349,6 +352,8 @@ private:
     VSPAERO_DOUBLE CMyo_[3];
     VSPAERO_DOUBLE CMzo_[3];
     
+    VSPAERO_DOUBLE **NodalForces_;
+
     // Span loading data
 
     int SpanLoadingData_;
@@ -507,6 +512,7 @@ private:
     int AdjointMatrixSolve_;    
     int NumberOfTotalWakeResidualNodes_;
     int NumberOfAdjointEquations_;
+    int FrozenWake_;
     
     OPTIMIZATION_FUNCTION OptimizationFunctionList_[1001];   
     
@@ -630,9 +636,13 @@ private:
     // Reset the geometry to it's initial state
     
     void ResetGeometry(void);
-
-    // Update the local values of the circulation strengths for each vortex egde
     
+    // Reset the geometry to it's initial state
+    
+    void UpdateSpanLoadData(void);
+    
+    // Update the local values of the circulation strengths for each vortex egde
+
     void UpdateVortexEdgeStrengths(int Level, int UpdateType);
     
     // Zero out vortex strengths
@@ -664,7 +674,7 @@ private:
     void CalculateDeltaCPs(void);
     void CalculateVorticityGradient(void);    
     void CalculateSurfacePressures(void);
-    void CalculateOptimizationFunctions(void);
+ //djk   void CalculateOptimizationFunctions(void);
     void CalculateOptimizationForces(void);
 
     void CreateVorticityGradientDataStructure(void);
@@ -898,6 +908,9 @@ public:
    ~VSP_SOLVER(void);
     VSP_SOLVER(const VSP_SOLVER &Solver_);
 
+//djk
+    void CalculateOptimizationFunctions(void);
+
     // Copy function
 
     VSP_SOLVER& operator=(const VSP_SOLVER &Solver_);
@@ -922,9 +935,21 @@ public:
     
     VSPAERO_DOUBLE &CoreSizeFactor(void) { return CoreSizeFactor_; };
     
+    /** Turn on vortex stretching model **/
+    
+    int &DoVortexStretching(void) { return DoVortexStretching_; };
+    
     /** Turn on tight GMRES convergence **/
     
     int &GMRESTightConvergence(void) { return GMRESTightConvergence_; };
+    
+    /** Adjoint restart option... turn this on to use previous adjoint solution... for
+     * each given optimization variable ... as the initial guess for the current solve...
+     * this can drastically reduce the number of GMRES iterations for unsteady adjoint
+     * cases, and likely for steady adjoint cases as well - where the user is coming in
+     * with very similar geometries while doing an optimization **/
+     
+    int &AdjointUsePreviousSolution(void) { return AdjointUsePreviousSolution_; };
     
     /** User GMRES residual reduction factor... this scales the default residual reduction
      * ie... ResidualReductrion = DefaultResidualReduction * User_GMRES_ToleranceFactor_
@@ -1080,7 +1105,7 @@ public:
 
     /** Solution vector for the forward solve ... ie the vorticity **/
 
-    double ForwardSolutionVector(int i) { return DOUBLE(Gamma_[0][i]); };
+    VSPAERO_DOUBLE &ForwardSolutionVector(int i) { return Gamma_[0][i]; };
 
     /** Solution vector for the adjoint solve ... ie Psi **/
 
@@ -1341,7 +1366,11 @@ public:
     /** Solve case, Case **/
     
     void Solve(int Case);
-
+    
+    /** Update the mesh geometry data structures **/
+    
+    void UpdateMeshes(void);
+   
     /** Recalcalculate the forces... something has been changed, usually the Re # **/
     
     void ReCalculateForces(void);    
@@ -1360,18 +1389,36 @@ public:
 
 #if not defined AUTODIFF && not defined COMPLEXDIFF
 
-    /** Do a matrix vector product using a user supplied vector... and also return the right hand side **/
+    /** Do a matrix vector product using a user supplied vector **/
 
-    void CalculateMatrixVectorProductAndRightHandSide(double *VecIn, double *VecOut, double *RHS);
+    void CalculateForwardMatrixVectorProduct(double *VecIn, double *VecOut);
 
-#endif
+    /** Calculate the right hand side of the forward equation **/
 
-#if not defined AUTODIFF && not defined COMPLEXDIFF
+    void CalculateForwardRightHandSide(double *RHS);
 
     /** Calculate residual given user supplied vector of solution vector, gamma **/
 
     void CalculateForwardResidual(double *VecIn, double *VecOut);
 
+#else
+    void CalculateForwardMatrixVectorProduct(double *VecIn, double *VecOut)
+    {
+        PRINTF( "Function %s not defined for non-DIFF version of VSP_SOLVER.\n", __FUNCTION__ );
+        exit(1);
+    };
+
+    void CalculateForwardRightHandSide(double *RHS)
+    {
+        PRINTF( "Function %s not defined for non-DIFF version of VSP_SOLVER.\n", __FUNCTION__ );
+        exit(1);
+    };
+
+    void CalculateForwardResidual(double *VecIn, double *VecOut)
+    {
+        PRINTF( "Function %s not defined for non-DIFF version of VSP_SOLVER.\n", __FUNCTION__ );
+        exit(1);
+    };
 #endif
 
 #if not defined AUTODIFF && not defined COMPLEXDIFF
@@ -1380,26 +1427,50 @@ public:
 
     void CalculateOptimizationFunctions(double *VecIn);
 
+    /** Get aerodynamic forces at nodes **/
+
+    void GetNodalForces(double *VecIn);
+
+#else
+    void CalculateOptimizationFunctions(double *VecIn)
+    {
+        PRINTF( "Function %s not defined for non-DIFF version of VSP_SOLVER.\n", __FUNCTION__ );
+        exit(1);
+    };
+
+    void GetNodalForces(double *VecIn)
+    {
+        PRINTF( "Function %s not defined for non-DIFF version of VSP_SOLVER.\n", __FUNCTION__ );
+        exit(1);
+    };
 #endif
 
 #if defined AUTODIFF
 
-    /** Do a matrix vector product using a user supplied vector... and also return the right hand side **/
+    /** Do a transpose matrix vector product using a user supplied vector **/
 
-    void CalculateAdjointMatrixVectorProductAndRightHandSide(double *VecIn, double *VecOut, double *RHS);
+    void CalculateAdjointMatrixVectorProduct(double *VecIn, double *VecOut);
+
+    /** Calculate partial of functions wrt gamma **/
+
+    void CalculateAdjointRightHandSide(int OptimizationCase, double *RHS);
     
     /** Solve the adjoint equation for user defined right hand side **/
     
     void SolveAdjointLinearSystem(double *Psi, double *RHS);
 
-    /** Calculate partial derivatives of optimization case = Case wrt the mesh and the input variables **/
+    /** Calculate partial derivatives of optimization case = Case wrt the mesh, the input variables, and gamma **/
     
-    void CalculateOptimizationFunctionPartials(int Case, double *pF_pMesh, double *pF_pInputVariable);
+    void CalculateOptimizationFunctionPartials(int OptimizationCase, double *pF_pMesh, double *pF_pInputVariable, double *pF_pGamma);
     
-    /** Solve for the adjoint residual partial products given the vector Psi **/
+    /** Calculate the adjoint residual partial products given the vector Psi **/
     
     void CalculateAdjointResidualPartialProducts(double *Psi, double *pR_pMesh, double *pR_pInputVariable);
         
+    /** Calculate the mesh, the input variables, and gamma partial products given the vector pF_pForces **/
+
+    void CalculateNodalForcePartialProducts(double *pF_pForces, double* pF_pMesh, double *pF_pInputVariable, double *pF_pGamma);
+
 #endif
 
     // Apply matrix preconditioner... the preconditioner applied depends on whether we are doing a forward or adjoint solve **/
@@ -1636,6 +1707,11 @@ public:
     /** Do the adjoint solve **/
 
     int &DoAdjointSolve(void) { return DoAdjointSolve_; };
+    
+    /** Turn on frozen wake mode for optimization solves... this turns off the wake to wake
+     * interactions **/
+     
+    int &FrozenWake(void) { return FrozenWake_; };
     
     /** This is an optimization solve
      * 

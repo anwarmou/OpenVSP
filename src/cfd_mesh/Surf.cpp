@@ -15,7 +15,12 @@
 #include "CfdMeshMgr.h"
 #include "SubSurfaceMgr.h"
 #include "IntersectPatch.h"
+#include "VspUtil.h"
 #include <cfloat>  //For DBL_EPSILON
+
+#ifdef DEBUG_CFD_MESH
+#include "WriteMatlab.h"
+#endif
 
 Surf::Surf()
 {
@@ -36,7 +41,6 @@ Surf::Surf()
     m_BaseTag = 1;
     m_MainSurfID = 0;
     m_FeaPartIndex = -1;
-    m_ScaleUFlag = false;
     m_IgnoreSurfFlag = false;
 }
 
@@ -78,7 +82,7 @@ int Surf::UWPointOnBorder( double u, double w, double tol ) const
     return m_SurfCore.UWPointOnBorder( u, w, tol );
 }
 
-double Surf::TargetLen( double u, double w, double gap, double radfrac )
+double Surf::TargetLen( double u, double w, double gap, double radfrac, int &reason )
 {
     double k1, k2, ka, kg;
 
@@ -130,6 +134,15 @@ double Surf::TargetLen( double u, double w, double gap, double radfrac )
         // is a required control to prevent this.
         nlen = r * radfrac;
 
+        if ( glen < nlen )
+        {
+            reason = vsp::CURV_GAP;
+        }
+        else
+        {
+            reason = vsp::CURV_NCIRCSEG;
+        }
+
         len = min( glen, nlen );
     }
     return len;
@@ -175,11 +188,22 @@ void Surf::BuildTargetMap( vector< MapSource* > &sources, int sid )
 
             double len = numeric_limits<double>::max( );
 
+            int reason = vsp::NO_REASON;
             // apply curvature based limits
-            double curv_len = TargetLen( u, w, m_GridDensityPtr->GetMaxGap( limitFlag ), m_GridDensityPtr->GetRadFrac( limitFlag ) );
+            double curv_len = TargetLen( u, w, m_GridDensityPtr->GetMaxGap( limitFlag ), m_GridDensityPtr->GetRadFrac( limitFlag ), reason );
             len = min( len, curv_len );
 
             // apply minimum edge length as safety on curvature
+            if ( len <= m_GridDensityPtr->m_MinLen )
+            {
+                // Assign MIN_LEN_CONSTRAINT, MIN_LEN_CONSTRAINT_CURV_GAP, MIN_LEN_CONSTRAINT_CURV_NCIRCSEG as appropriate.
+                reason += vsp::MIN_LEN_INCREMENT;
+
+                if ( reason >= vsp::NUM_MESH_REASON ) // Should be imposible, just as a safety check.
+                {
+                    reason = vsp::MIN_LEN_CONSTRAINT;
+                }
+            }
             len = max( len, m_GridDensityPtr->m_MinLen );
 
             // apply sources
@@ -190,13 +214,21 @@ void Surf::BuildTargetMap( vector< MapSource* > &sources, int sid )
             // constant U/W line sources to do some evaluation in u,w space instead
             // of just x,y,z space.
             double grid_len = m_GridDensityPtr->GetTargetLen( p, limitFlag, m_GeomID, m_MainSurfID, u, w );
+            if ( grid_len < len )
+            {
+                printf("%g %g\n", grid_len, len );
+                reason = vsp::SOURCES;
+            }
             len = min( len, grid_len );
 
             // finally check max size
+            if ( len >= m_GridDensityPtr->GetBaseLen( limitFlag ) )
+            {
+                reason = vsp::MAX_LEN_CONSTRAINT;
+            }
             len = min( len, m_GridDensityPtr->GetBaseLen( limitFlag ) );
 
-            MapSource ms = MapSource( p, len, sid );
-            m_SrcMap[i][j] = ms;
+            m_SrcMap[i][j] = MapSource( p, len, sid, reason );
             sources.push_back( &( m_SrcMap[i][j] ) );
         }
     }
@@ -262,6 +294,15 @@ void Surf::WalkMap( int istart, int jstart, int kstart )
                 m_SrcMap[ icurrent ][ jcurrent ].m_dominated = true;
                 m_SrcMap[ icurrent ][ jcurrent ].m_str = targetstr;
 
+                if ( m_SrcMap[istart][jstart].m_reason < vsp::MIN_GROW_LIMIT )
+                {
+                    m_SrcMap[ icurrent ][ jcurrent ].m_reason = m_SrcMap[istart][jstart].m_reason + vsp::GROW_LIMIT_INCREMENT;
+                }
+                else
+                {
+                    m_SrcMap[ icurrent ][ jcurrent ].m_reason = m_SrcMap[istart][jstart].m_reason;
+                }
+
                 for( int i = 0; i < 4; i++ )
                 {
                     int inext = icurrent + iadd[i];
@@ -311,6 +352,15 @@ void Surf::WalkMap( int istart, int jstart )
         {
             m_SrcMap[ icurrent ][ jcurrent ].m_str = targetstr;
 
+            if ( m_SrcMap[istart][jstart].m_reason < vsp::MIN_GROW_LIMIT )
+            {
+                m_SrcMap[ icurrent ][ jcurrent ].m_reason = m_SrcMap[istart][jstart].m_reason + vsp::GROW_LIMIT_INCREMENT;
+            }
+            else
+            {
+                m_SrcMap[ icurrent ][ jcurrent ].m_reason = m_SrcMap[istart][jstart].m_reason;
+            }
+
             for( int i = 0; i < 4; i++ )
             {
                 int inext = icurrent + iadd[i];
@@ -359,10 +409,8 @@ void Surf::LimitTargetMap()
         int i = ij.first;
         int j = ij.second;
 
-        MapSource src = m_SrcMap[i][j];
-
         // Recursively limit from small to large (skip if dominated)
-        if( !src.m_dominated )
+        if( !( m_SrcMap[i][j].m_dominated ) )
         {
             WalkMap( i, j, k );
         }
@@ -393,6 +441,7 @@ void Surf::LimitTargetMap( const MSCloud &es_cloud, MSTree &es_tree, double minm
 
             double t = m_SrcMap[i][j].m_str;
             double torig = t;
+            int reason = m_SrcMap[i][j].m_reason;
 
             double rmax = ( t - tmin ) / grm1;
             if( rmax > 0.0 )
@@ -411,11 +460,27 @@ void Surf::LimitTargetMap( const MSCloud &es_cloud, MSTree &es_tree, double minm
                     double str = es_cloud.sources[imatch]->m_str;
 
                     double ts = str + grm1 * r;
+
+                    if ( ts < t )
+                    {
+                        reason = es_cloud.sources[imatch]->m_reason;
+                    }
+
                     t = min( t, ts );
                 }
                 if( t < torig )
                 {
                     m_SrcMap[i][j].m_str = t;
+
+                    if ( reason < vsp::MIN_GROW_LIMIT )
+                    {
+                        m_SrcMap[i][j].m_reason = reason + vsp::GROW_LIMIT_INCREMENT;
+                    }
+                    else
+                    {
+                        m_SrcMap[i][j].m_reason = reason;
+                    }
+
                     WalkMap( i, j );
                 }
             }
@@ -423,7 +488,7 @@ void Surf::LimitTargetMap( const MSCloud &es_cloud, MSTree &es_tree, double minm
     }
 }
 
-double Surf::InterpTargetMap( double u, double w )
+double Surf::InterpTargetMap( double u, double w, int &reason )
 {
     int i, j;
     double fraci, fracj;
@@ -431,6 +496,9 @@ double Surf::InterpTargetMap( double u, double w )
 
     double ti = m_SrcMap[i][j].m_str + fracj * ( m_SrcMap[i][j + 1].m_str - m_SrcMap[i][j].m_str );
     double tip1 = m_SrcMap[i + 1][j].m_str + fracj * ( m_SrcMap[i + 1][j + 1].m_str - m_SrcMap[i + 1][j].m_str );
+
+    // Assign reason based on nearest map source point.
+    reason = m_SrcMap[ round( i + fraci ) ][ round( j + fracj ) ].m_reason;
 
     double t = ti + fraci * ( tip1 - ti );
     return t;
@@ -476,7 +544,7 @@ void Surf::UWtoTargetMapij( double u, double w, int &i, int &j )
     UWtoTargetMapij( u, w, i, j, fraci, fracj );
 }
 
-void Surf::ApplyES( vec3d uw, double t )
+void Surf::ApplyES( vec3d uw, double t, int reason )
 {
     double grm1 = m_GridDensityPtr->m_GrowRatio - 1.0;
     int nmapu = m_SrcMap.size();
@@ -505,6 +573,16 @@ void Surf::ApplyES( vec3d uw, double t )
             if( m_SrcMap[ itarget ][ jtarget ].m_str > targetstr )
             {
                 m_SrcMap[ itarget ][ jtarget ].m_str = targetstr;
+
+                if ( reason < vsp::MIN_GROW_LIMIT )
+                {
+                    m_SrcMap[ itarget ][ jtarget ].m_reason = reason + vsp::GROW_LIMIT_INCREMENT;
+                }
+                else
+                {
+                    m_SrcMap[ itarget ][ jtarget ].m_reason = reason;
+                }
+
                 WalkMap( itarget, jtarget );
             }
         }
@@ -859,10 +937,12 @@ void Surf::InitMesh( vector< ISegChain* > chains, const vector < vec2d > &adduw,
     //==== Store Only One Instance of each IPnt ====//
     set< IPnt* > ipntSet;
     for ( int i = 0 ; i < ( int )chains.size() ; i++ )
+    {
         for ( int j = 0 ; j < ( int )chains[i]->m_TessVec.size() ; j += 2 )  // Note every other point fed.
         {
             ipntSet.insert( chains[i]->m_TessVec[j] );
         }
+    }
 
     vector < vec2d > uwPntVec;
 
@@ -993,8 +1073,11 @@ void Surf::InitMesh( vector< ISegChain* > chains, const vector < vec2d > &adduw,
 //}
 //isegVec = smallMeshSegVec;
 
+    BuildDistMap();
 
     m_Mesh.InitMesh( uwPntVec, isegVec, MeshMgr );
+
+    CleanupDistMap();
 }
 
 
@@ -1027,14 +1110,15 @@ void Surf::BuildDistMap()
     }
 
     //==== Find U Dists ====//
-    double maxUDist = 0.0;
+    double maxUDist = 1.0e-9;
     vector< double > uDistVec;
     for ( i = 0 ; i < nump ; i++ )
     {
         double sum_d = 0.0;
         for ( j = 1 ; j < nump ; j++  )
         {
-            sum_d += dist( pvec[j - 1][i], pvec[j][i] );
+            double du = dist( pvec[j - 1][i], pvec[j][i] );
+            sum_d += du;
         }
         uDistVec.push_back( sum_d );
 
@@ -1043,20 +1127,17 @@ void Surf::BuildDistMap()
             maxUDist = sum_d;
         }
     }
-    if ( maxUDist < DBL_EPSILON )
-    {
-        maxUDist = 1.0e-9;
-    }
 
     //==== Find W Dists ====//
-    double maxWDist = 0.0;
+    double maxWDist = 1.0e-9;
     vector< double > wDistVec;
     for ( i = 0 ; i < nump ; i++ )
     {
         double sum_d = 0.0;
         for ( j = 1 ; j < nump ; j++  )
         {
-            sum_d += dist( pvec[i][j - 1], pvec[i][j] );
+            double dw = dist( pvec[i][j - 1], pvec[i][j] );
+            sum_d += dw;
         }
         wDistVec.push_back( sum_d );
 
@@ -1066,158 +1147,249 @@ void Surf::BuildDistMap()
         }
     }
 
-    if ( maxWDist < DBL_EPSILON )
+    // Build normalized arc-length distance map.
+
+    double lenscale = std::max( maxUDist, maxWDist );
+
+
+    vector < vector < double > > s;
+    vector < vector < double > > t;
+
+    s.resize( nump );
+    t.resize( nump );
+
+    i = 0;
+    s[i].resize( nump, 0.0 );
+    t[i].resize( nump, 0.0 );
+
+    for ( j = 1 ; j < nump ; j++ )
     {
-        maxWDist = 1.0e-9;
+        t[i][j] = t[i][j - 1] + dist( pvec[i][j - 1], pvec[i][j] ) / lenscale;
+    }
+
+    for ( i = 1 ; i < nump ; i++ )
+    {
+        s[i].resize( nump, 0.0 );
+        t[i].resize( nump, 0.0 );
+
+        j = 0;
+        s[i][j] = s[i - 1][j] + dist( pvec[i - 1][j], pvec[i][j] ) / lenscale;
+
+        for ( j = 1 ; j < nump ; j++ )
+        {
+            t[i][j] = t[i][j - 1] + dist( pvec[i][j - 1], pvec[i][j] ) / lenscale;
+            s[i][j] = s[i - 1][j] + dist( pvec[i - 1][j], pvec[i][j] ) / lenscale;
+        }
+    }
+
+    for ( j = 0 ; j < nump ; j++ )
+    {
+        double s0 = 0.5 * ( maxUDist - uDistVec[j] ) / lenscale;
+        for ( i = 0 ; i < nump ; i++ )
+        {
+            s[i][j] = s[i][j] + s0;
+        }
+    }
+
+    for ( i = 0 ; i < nump ; i++ )
+    {
+        double t0 = 0.5 * ( maxWDist - wDistVec[i] ) / lenscale;
+        for ( j = 0 ; j < nump ; j++ )
+        {
+            t[i][j] = t[i][j] + t0;
+        }
     }
 
 
-    //==== Scale U Dists ====//
-    double wu_ratio = VspdW / VspdU;
-    m_UScaleMap.resize( uDistVec.size() );
-    for ( i = 0 ; i < ( int )uDistVec.size() ; i++ )
+    m_STMap.resize( nump );
+    for ( i = 0 ; i < nump ; i++ )
     {
-        m_UScaleMap[i] = wu_ratio * ( uDistVec[i] / maxWDist );
-
-        if ( m_UScaleMap[i] < 1.0e-5 )
+        m_STMap[i].resize( nump );
+        for ( j = 0 ; j < nump ; j++ )
         {
-            m_UScaleMap[i] = 1.0e-5;
+            m_STMap[i][j] = vec2d( s[i][j], t[i][j] );
         }
     }
 
-    //==== Scale W Dists ====//
-    double uw_ratio = VspdU / VspdW;
-    m_WScaleMap.resize( wDistVec.size() );
-    for ( i = 0 ; i < ( int )wDistVec.size() ; i++ )
-    {
-        m_WScaleMap[i] = uw_ratio * ( wDistVec[i] / maxUDist );
+    m_UWMap.AddPntNodes( m_STMap );
+    m_UWMap.BuildIndex();
 
-        if ( m_WScaleMap[i] < 1.0e-5 )
+#ifdef DEBUG_CFD_MESH
+    static int cnt = 0;
+
+    if ( true )
+    {
+        char str[256];
+        snprintf( str, sizeof( str ), "uwscale_%d.m", cnt );
+
+        FILE *fp = fopen( str, "w" );
+
+        fprintf( fp, "u01=[" );
+        for ( i = 0; i < ( int ) nump; i++ )
         {
-            m_WScaleMap[i] = 1.0e-5;
+            double u = ( double ) i / ( double ) ( nump - 1 );
+            fprintf( fp, "%f ", u );
         }
+        fprintf( fp, "];\n" );
+
+        fprintf( fp, "u=[" );
+        for ( i = 0; i < ( int ) nump; i++ )
+        {
+            double u = VspMinU + VspdU * ( double ) i / ( double ) ( nump - 1 );
+            fprintf( fp, "%f ", u );
+        }
+        fprintf( fp, "];\n" );
+
+        fprintf( fp, "w01=[" );
+        for ( j = 0; j < ( int ) nump; j++ )
+        {
+            double w = ( double ) j / ( double ) ( nump - 1 );
+            fprintf( fp, "%f ", w );
+        }
+        fprintf( fp, "];\n" );
+
+        fprintf( fp, "w=[" );
+        for ( j = 0; j < ( int ) nump; j++ )
+        {
+            double w = VspMinW + VspdW * ( double ) j / ( double ) ( nump - 1 );
+            fprintf( fp, "%f ", w );
+        }
+        fprintf( fp, "];\n" );
+
+        WriteMatDoubleM writeMatDouble;
+
+        writeMatDouble.write( fp, s, string( "s" ), nump, nump );
+
+        writeMatDouble.write( fp, t, string( "t" ), nump, nump );
+
+        fprintf( fp, "figure(1)\n" );
+        fprintf( fp, "plot( s, t, s', t' );\n" );
+        fprintf( fp, "ax=axis; ax(1)=0; ax(3)=0; axis(ax);\n" );
+
+        fclose( fp );
     }
 
-    //==== Figure Out Which to Scale ====//
-    double min_u_scale = 1.0e12;
-    double max_u_scale = 0.0;
-    for ( i = 0 ; i < ( int )m_UScaleMap.size() ; i++ )
-    {
-        if ( m_UScaleMap[i] < min_u_scale )
-        {
-            min_u_scale = m_UScaleMap[i];
-        }
-        if ( m_UScaleMap[i] > max_u_scale )
-        {
-            max_u_scale = m_UScaleMap[i];
-        }
-    }
-    double u_ratio = max_u_scale / min_u_scale;
-
-    double min_w_scale = 1.0e12;
-    double max_w_scale = 0.0;
-    for ( i = 0 ; i < ( int )m_WScaleMap.size() ; i++ )
-    {
-        if ( m_WScaleMap[i] < min_w_scale )
-        {
-            min_w_scale = m_WScaleMap[i];
-        }
-        if ( m_WScaleMap[i] > max_w_scale )
-        {
-            max_w_scale = m_WScaleMap[i];
-        }
-    }
-    double w_ratio = max_w_scale / min_w_scale;
-
-    m_ScaleUFlag = u_ratio > w_ratio;
-
-
-//char str[256];
-//static int cnt = 0;
-//sprintf( str, "uwscale_%d.dat", cnt );
-//cnt++;
-//  FILE* fp = fopen(str, "w");
-//  fprintf( fp, "ws 1 2\n" );
-//  fprintf( fp, "color green\n" );
-//  for ( i = 0 ; i < (int)m_WScaleMap.size() ; i++ )
-//  {
-//      double u = (double)i/(double)(m_WScaleMap.size()-1);
-//      fprintf( fp, "%f %f \n", u, m_WScaleMap[i]  );
-//  }
-//  fprintf( fp, "color blue\n" );
-//  for ( i = 0 ; i < 1001 ; i++ )
-//  {
-//      double u = (double)i/(double)(1000);
-//      fprintf( fp, "%f %f \n", u, GetWScale(u)  );
-//  }
-//  fclose( fp );
-
+    cnt++;
+#endif
 }
 
-double Surf::GetUScale( double w01 )      // w 0->1
+void Surf::UtoIndexFrac( const double &u, int &indx, double &frac )
 {
-    if ( !m_ScaleUFlag )
+    int num = m_STMap.size();
+
+    double indd = u * (double) ( num - 1 );
+
+    indx = ( int ) indd;
+    if ( indx < 0 )
     {
-        return 1.0;
+        indx = 0;
+    }
+    if ( indx > num - 2 )
+    {
+        indx = num - 2;
     }
 
-    int num = m_UScaleMap.size();
-    double indd = w01 * (double) ( num - 1 );
-    int ind = ( int ) indd;
-    if ( ind < 0 )
+    frac = indd - ( double )indx;
+    if ( frac < 0.0 )
     {
-        ind = 0;
+        frac = 0.0;
     }
-    if ( ind > num - 2 )
+    if ( frac > 1.0 )
     {
-        ind = num - 2;
+        frac = 1.0;
     }
-
-    double fract = indd - ( double )ind;
-    if ( fract < 0.0 )
-    {
-        fract = 0.0;
-    }
-    if ( fract > 1.0 )
-    {
-        fract = 1.0;
-    }
-
-    double uscale = m_UScaleMap[ind] + fract * ( m_UScaleMap[ind + 1] - m_UScaleMap[ind] );
-    return uscale;
 }
 
-double Surf::GetWScale( double u01 )      // u 0->1
+vec2d Surf::GetUWPrime( vec2d uw )
 {
-    if ( m_ScaleUFlag )
+    double VspMinU = m_SurfCore.GetMinU();
+    double VspMinW = m_SurfCore.GetMinW();
+
+    double VspMaxU = m_SurfCore.GetMaxU();
+    double VspMaxW = m_SurfCore.GetMaxW();
+
+    double VspdU = VspMaxU - VspMinU;
+    double VspdW = VspMaxW - VspMinW;
+
+    double u = ( uw.x() - VspMinU ) / VspdU;
+    double w = ( uw.y() - VspMinW ) / VspdW;
+
+    int iu, iw;
+    double fu, fw;
+    UtoIndexFrac( u, iu, fu );
+    UtoIndexFrac( w, iw, fw );
+
+    vec2d uwprime;
+    bi_lin_interp( m_STMap[ iu ][ iw ], m_STMap[ iu + 1 ][ iw ], m_STMap[ iu ][ iw + 1 ], m_STMap[ iu + 1 ][ iw + 1 ], fu, fw, uwprime );
+
+    return uwprime;
+}
+
+vec2d Surf::GetUW( vec2d uwprime )
+{
+    int num = m_STMap.size();
+
+    int res = m_UWMap.LookupPnt( uwprime );
+
+    double VspMinU = m_SurfCore.GetMinU();
+    double VspMinW = m_SurfCore.GetMinW();
+
+    double VspMaxU = m_SurfCore.GetMaxU();
+    double VspMaxW = m_SurfCore.GetMaxW();
+
+    double VspdU = VspMaxU - VspMinU;
+    double VspdW = VspMaxW - VspMinW;
+
+    vec2d retval;
+
+    if ( res >= 0 )
     {
-        return 1.0;
+        int iu = m_UWMap.m_PntNodes[res].m_iU;
+        int iw = m_UWMap.m_PntNodes[res].m_iV;
+        vec2d nearest = m_UWMap.m_PntNodes[res].m_UV;
+
+        if ( uwprime.x() < nearest.x() )
+        {
+            iu--;
+        }
+
+        iu = clamp( iu, 0, num - 2 );
+
+        if ( uwprime.y() < nearest.y() )
+        {
+            iw--;
+        }
+
+        iw = clamp( iw, 0, num - 2 );
+
+        //retval = invBilinear( uwprime, m_STMap[ iu ][ iw ], m_STMap[ iu + 1 ][ iw ], m_STMap[ iu ][ iw + 1 ], m_STMap[ iu + 1 ][ iw + 1 ] );
+
+        double fu, fw, u2, w2;
+        inverse_bi_lin_interp( m_STMap[ iu ][ iw ], m_STMap[ iu + 1 ][ iw ], m_STMap[ iu ][ iw + 1 ], m_STMap[ iu + 1 ][ iw + 1 ], uwprime, fu, fw, u2, w2 );
+
+        double iud = iu + fu;
+        double iwd = iw + fw;
+
+        double u01 = clamp( iud / ( double )( num - 1 ), 0.0, 1.0 );
+        double w01 = clamp( iwd / ( double )( num - 1 ), 0.0, 1.0 );
+
+        double u = VspMinU + u01 * VspdU;
+        double w = VspMinW + w01 * VspdW;
+
+        retval = vec2d( u, w );
+    }
+    else
+    {
+        printf( "No result\n" );
     }
 
-    int num = m_WScaleMap.size();
-    double indd = u01 * (double) ( num - 1 );
-    int ind = ( int ) indd;
-    if ( ind < 0 )
-    {
-        ind = 0;
-    }
-    if ( ind > num - 2 )
-    {
-        ind = num - 2;
-    }
+    return retval;
+}
 
-    double fract = indd - ( double )ind;
-    if ( fract < 0.0 )
-    {
-        fract = 0.0;
-    }
-    if ( fract > 1.0 )
-    {
-        fract = 1.0;
-    }
-
-    double wscale = m_WScaleMap[ind] + fract * ( m_WScaleMap[ind + 1] - m_WScaleMap[ind] );
-    return wscale;
+void Surf::CleanupDistMap()
+{
+    m_UWMap.Cleanup();
+    m_STMap.clear();
 }
 
 bool Surf::ValidUW( vec2d & uw, double slop ) const

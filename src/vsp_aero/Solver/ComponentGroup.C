@@ -518,7 +518,7 @@ void COMPONENT_GROUP::Update(void)
 
     // This routine is called for the quasi-unsteady analysis.. we 
     // basically just need to get back rates
-    
+   
     QUAT Omega;
     
     // Angular rate
@@ -563,7 +563,6 @@ void COMPONENT_GROUP::Update(void)
 void COMPONENT_GROUP::Update(VSPAERO_DOUBLE TimeStep, VSPAERO_DOUBLE CurrentTime)
 {
 
-            
     // Time step and Current time
             
     TimeStep_ = TimeStep;
@@ -600,7 +599,6 @@ void COMPONENT_GROUP::Update(VSPAERO_DOUBLE TimeStep, VSPAERO_DOUBLE CurrentTime
     }
 
 }
-
 
 /*##############################################################################
 #                                                                              #
@@ -767,7 +765,7 @@ void COMPONENT_GROUP::UpdateDynamicSystem(void)
 
     VSPAERO_DOUBLE Dot;
     QUAT Omega, DQuat, InvDQuat_, Half, dTime, Mass, Inertia;
-    MATRIX Force(3), Moment(3), OmegaVec(3);
+    MATRIX Force(3,1), Moment(3,1), OmegaVec(3,1);
 
     dTime.Init(TimeStep_);
     

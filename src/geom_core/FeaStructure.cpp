@@ -31,6 +31,8 @@ FeaStructure::FeaStructure( const string& geomID, int surf_index )
 
     m_FeaPartCount = 0;
     m_FeaSubSurfCount = 0;
+
+    m_FeaGridDensity.SetParentStruct( this );
 }
 
 FeaStructure::~FeaStructure()
@@ -62,6 +64,7 @@ void FeaStructure::Update()
     UpdateFeaParts();
     UpdateFeaSubSurfs();
     UpdateFeaBCs();
+    m_FeaGridDensity.Update();
 }
 
 void FeaStructure::ParmChanged( Parm* parm_ptr, int type )
@@ -5071,6 +5074,29 @@ void FeaProperty::Update()
             {
                 m_FeaMaterialID = "_Al7075T6";
             }
+        }
+
+        switch ( veh->m_StructUnit() )
+        {
+            case vsp::SI_UNIT:
+                m_LengthUnit.Set( vsp::LEN_M );
+                break;
+
+            case vsp::CGS_UNIT:
+                m_LengthUnit.Set( vsp::LEN_CM );
+                break;
+
+            case vsp::MPA_UNIT:
+                m_LengthUnit.Set( vsp::LEN_MM );
+                break;
+
+            case vsp::BFT_UNIT:
+                m_LengthUnit.Set( vsp::LEN_FT );
+                break;
+
+            case vsp::BIN_UNIT:
+                m_LengthUnit.Set( vsp::LEN_IN );
+                break;
         }
 
         // Mark index as -1 to deprecate its use.

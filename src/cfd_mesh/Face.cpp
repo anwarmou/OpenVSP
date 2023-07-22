@@ -398,6 +398,11 @@ bool Edge::ContainsNode( Node* in )
 
 Face* Edge::OtherFace( Face* f )
 {
+    if ( !f || !f0 || !f1 )
+    {
+        return NULL;
+    }
+
     if ( f == f0 )
     {
         return f1;
@@ -585,16 +590,16 @@ Edge* Face::FindEdgeWithout( Node* node_ptr )
     }
     if ( e3 )
     {
-        if ( e2->n0 != node_ptr && e2->n1 != node_ptr )
+        if ( e3->n0 != node_ptr && e3->n1 != node_ptr )
         {
-            return e2;
+            return e3;
         }
     }
 
     return NULL;
 }
 
-Edge* Face::FindLongEdge()
+Edge* Face::FindShortEdge()
 {
     if ( !e0 || !e1 || !e2 )
     {
@@ -829,19 +834,24 @@ bool Face::Contains( Node* a, Node* b )
         return false;
     }
 
-    if ( a == n0 || a == n1 || a == n2 )
-    {
-        if ( b == n0 || b == n1 || b == n2 )
-        {
-            return true;
-        }
-    }
-
     if ( n3 )
     {
-        if ( a == n3 || b == n3 )
+        if ( a == n0 || a == n1 || a == n2 || a == n3 )
         {
-            return true;
+            if ( b == n0 || b == n1 || b == n2 || b == n3 )
+            {
+                return true;
+            }
+        }
+    }
+    else
+    {
+        if ( a == n0 || a == n1 || a == n2 )
+        {
+            if ( b == n0 || b == n1 || b == n2 )
+            {
+                return true;
+            }
         }
     }
 
@@ -1035,7 +1045,7 @@ void Face::BuildRemovalSet( set < Face* > &remFaces, set < Edge* > &remEdges, se
 
     if ( e3 )
     {
-        if ( e2->BothAdjoiningFacesInterior() )
+        if ( e3->BothAdjoiningFacesInterior() )
         {
             remEdges.insert( e3 );
         }

@@ -470,16 +470,18 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_XFormLayout.SetSameLineFlag( false );
     m_XFormLayout.AddDividerBox( "Attach To Parent" );
 
-    m_XFormLayout.AddSubGroupLayout( m_AttachLayout, m_XFormLayout.GetW(), 4 * m_AttachLayout.GetStdHeight() + 3 * m_AttachLayout.GetGapHeight() );
+    m_XFormLayout.AddSubGroupLayout( m_AttachLayout, m_XFormLayout.GetW(), 10 * m_AttachLayout.GetStdHeight() + 5 * m_AttachLayout.GetGapHeight() );
 
     m_AttachLayout.SetFitWidthFlag( false );
     m_AttachLayout.SetSameLineFlag( true );
 
     m_AttachLayout.AddLabel( "Translate:", 74 );
-    m_AttachLayout.SetButtonWidth( ( m_AttachLayout.GetRemainX() ) / 3 );
+    m_AttachLayout.SetButtonWidth( ( m_AttachLayout.GetRemainX() ) / 5 );
     m_AttachLayout.AddButton( m_TransNoneButton, "None" );
     m_AttachLayout.AddButton( m_TransCompButton, "Comp" );
     m_AttachLayout.AddButton( m_TransUVButton, "UW" );
+    m_AttachLayout.AddButton( m_TransRSTButton, "RST" );
+    m_AttachLayout.AddButton( m_TransLMNButton, "LMN" );
     m_AttachLayout.ForceNewLine();
     m_AttachLayout.AddYGap();
 
@@ -487,11 +489,15 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_TransToggleGroup.AddButton( m_TransNoneButton.GetFlButton() );
     m_TransToggleGroup.AddButton( m_TransCompButton.GetFlButton() );
     m_TransToggleGroup.AddButton( m_TransUVButton.GetFlButton() );
+    m_TransToggleGroup.AddButton( m_TransRSTButton.GetFlButton() );
+    m_TransToggleGroup.AddButton( m_TransLMNButton.GetFlButton() );
 
     m_AttachLayout.AddLabel( "Rotate:", 74 );
     m_AttachLayout.AddButton( m_RotNoneButton, "None" );
     m_AttachLayout.AddButton( m_RotCompButton, "Comp" );
     m_AttachLayout.AddButton( m_RotUVButton, "UW" );
+    m_AttachLayout.AddButton( m_RotRSTButton, "RST" );
+    m_AttachLayout.AddButton( m_RotLMNButton, "LMN" );
     m_AttachLayout.ForceNewLine();
     m_AttachLayout.AddYGap();
 
@@ -499,12 +505,90 @@ GeomScreen::GeomScreen( ScreenMgr* mgr, int w, int h, const string & title ) :
     m_RotToggleGroup.AddButton( m_RotNoneButton.GetFlButton() );
     m_RotToggleGroup.AddButton( m_RotCompButton.GetFlButton() );
     m_RotToggleGroup.AddButton( m_RotUVButton.GetFlButton() );
+    m_RotToggleGroup.AddButton( m_RotRSTButton.GetFlButton() );
+    m_RotToggleGroup.AddButton( m_RotLMNButton.GetFlButton() );
 
     m_AttachLayout.SetFitWidthFlag( true );
     m_AttachLayout.SetSameLineFlag( false );
 
+    int actionToggleButtonWidth = 35;
+    int normalButtonWidth = 90;
+
+    m_AttachLayout.SetFitWidthFlag( false );
+    m_AttachLayout.SetSameLineFlag( true );
+
+    m_AttachLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_AttachLayout.AddButton( m_U01Toggle, "01" );
+    m_AttachLayout.AddButton( m_U0NToggle, "0N" );
+
+    m_AttachLayout.SetFitWidthFlag( true );
+
+    m_AttachLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
     m_AttachLayout.AddSlider( m_AttachUSlider, "U", 1, " %7.6f" );
+
+    m_UScaleToggleGroup.Init( this );
+    m_UScaleToggleGroup.AddButton( m_U0NToggle.GetFlButton() ); // 0 false added first
+    m_UScaleToggleGroup.AddButton( m_U01Toggle.GetFlButton() ); // 1 true added second
+
+    m_AttachLayout.ForceNewLine();
+    m_AttachLayout.SetFitWidthFlag( true );
+    m_AttachLayout.SetSameLineFlag( false );
+
+    m_AttachLayout.SetButtonWidth( normalButtonWidth );
+
     m_AttachLayout.AddSlider( m_AttachVSlider, "W", 1, " %7.6f" );
+    m_AttachLayout.AddYGap();
+
+    m_AttachLayout.SetFitWidthFlag( false );
+    m_AttachLayout.SetSameLineFlag( true );
+
+    m_AttachLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_AttachLayout.AddButton( m_R01Toggle, "01" );
+    m_AttachLayout.AddButton( m_R0NToggle, "0N" );
+
+    m_AttachLayout.SetFitWidthFlag( true );
+
+    m_AttachLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
+    m_AttachLayout.AddSlider( m_AttachRSlider, "R", 1, " %7.6f" );
+
+    m_RScaleToggleGroup.Init( this );
+    m_RScaleToggleGroup.AddButton( m_R0NToggle.GetFlButton() ); // 0 false added first
+    m_RScaleToggleGroup.AddButton( m_R01Toggle.GetFlButton() ); // 1 true added second
+
+    m_AttachLayout.ForceNewLine();
+    m_AttachLayout.SetFitWidthFlag( true );
+    m_AttachLayout.SetSameLineFlag( false );
+
+    m_AttachLayout.SetButtonWidth( normalButtonWidth );
+
+    m_AttachLayout.AddSlider( m_AttachSSlider, "S", 1, " %7.6f" );
+    m_AttachLayout.AddSlider( m_AttachTSlider, "T", 1, " %7.6f" );
+    m_AttachLayout.AddYGap();
+
+    m_AttachLayout.SetFitWidthFlag( false );
+    m_AttachLayout.SetSameLineFlag( true );
+
+    m_AttachLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_AttachLayout.AddButton( m_L01Toggle, "01" );
+    m_AttachLayout.AddButton( m_L0LenToggle, "0D" );
+
+    m_AttachLayout.SetFitWidthFlag( true );
+
+    m_AttachLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
+    m_AttachLayout.AddSlider( m_AttachLSlider, "L", 1, " %7.6f" );
+
+    m_LScaleToggleGroup.Init( this );
+    m_LScaleToggleGroup.AddButton( m_L0LenToggle.GetFlButton() ); // 0 false added first
+    m_LScaleToggleGroup.AddButton( m_L01Toggle.GetFlButton() ); // 1 true added second
+
+    m_AttachLayout.ForceNewLine();
+    m_AttachLayout.SetFitWidthFlag( true );
+    m_AttachLayout.SetSameLineFlag( false );
+
+    m_AttachLayout.SetButtonWidth( normalButtonWidth );
+
+    m_AttachLayout.AddSlider( m_AttachMSlider, "M", 1, " %7.6f" );
+    m_AttachLayout.AddSlider( m_AttachNSlider, "N", 1, " %7.6f" );
 
 
     //=============== SubSurface Tab ===================//
@@ -856,11 +940,81 @@ bool GeomScreen::Update()
     }
 
     //==== Attachments ====//
+    m_AttachUSlider.Activate();
+    m_UScaleToggleGroup.Activate();
+    m_AttachVSlider.Activate();
+    m_AttachRSlider.Activate();
+    m_RScaleToggleGroup.Activate();
+    m_AttachSSlider.Activate();
+    m_AttachTSlider.Activate();
+    m_AttachLSlider.Activate();
+    m_LScaleToggleGroup.Activate();
+    m_AttachMSlider.Activate();
+    m_AttachNSlider.Activate();
+
     m_TransToggleGroup.Update( geom_ptr->m_TransAttachFlag.GetID() );
     m_RotToggleGroup.Update( geom_ptr->m_RotAttachFlag.GetID() );
-    m_AttachUSlider.Update( geom_ptr->m_ULoc.GetID() );
-    m_AttachVSlider.Update( geom_ptr->m_WLoc.GetID() );
+    m_UScaleToggleGroup.Update( geom_ptr->m_U01.GetID() );
 
+    if ( geom_ptr->m_U01() )
+    {
+        m_AttachUSlider.Update( 1, geom_ptr->m_ULoc.GetID(), geom_ptr->m_U0NLoc.GetID());
+    }
+    else
+    {
+        m_AttachUSlider.Update( 2, geom_ptr->m_ULoc.GetID(), geom_ptr->m_U0NLoc.GetID());
+    }
+
+    m_AttachVSlider.Update( geom_ptr->m_WLoc.GetID() );
+    m_RScaleToggleGroup.Update( geom_ptr->m_R01.GetID() );
+
+    if ( geom_ptr->m_R01() )
+    {
+        m_AttachRSlider.Update( 1, geom_ptr->m_RLoc.GetID(), geom_ptr->m_R0NLoc.GetID());
+    }
+    else
+    {
+        m_AttachRSlider.Update( 2, geom_ptr->m_RLoc.GetID(), geom_ptr->m_R0NLoc.GetID());
+    }
+
+    m_AttachSSlider.Update( geom_ptr->m_SLoc.GetID() );
+    m_AttachTSlider.Update( geom_ptr->m_TLoc.GetID() );
+    m_LScaleToggleGroup.Update( geom_ptr->m_L01.GetID() );
+
+    if ( geom_ptr->m_L01() )
+    {
+        m_AttachLSlider.Update( 1, geom_ptr->m_LLoc.GetID(), geom_ptr->m_L0LenLoc.GetID());
+    }
+    else
+    {
+        m_AttachLSlider.Update( 2, geom_ptr->m_LLoc.GetID(), geom_ptr->m_L0LenLoc.GetID());
+    }
+
+    m_AttachMSlider.Update( geom_ptr->m_MLoc.GetID() );
+    m_AttachNSlider.Update( geom_ptr->m_NLoc.GetID() );
+
+    if ( geom_ptr->m_TransAttachFlag() != vsp::ATTACH_TRANS_UV && geom_ptr->m_RotAttachFlag() != vsp::ATTACH_ROT_UV )
+    {
+        m_AttachUSlider.Deactivate();
+        m_UScaleToggleGroup.Deactivate();
+        m_AttachVSlider.Deactivate();
+    }
+
+    if ( geom_ptr->m_TransAttachFlag() != vsp::ATTACH_TRANS_RST && geom_ptr->m_RotAttachFlag() != vsp::ATTACH_ROT_RST )
+    {
+        m_AttachRSlider.Deactivate();
+        m_RScaleToggleGroup.Deactivate();
+        m_AttachSSlider.Deactivate();
+        m_AttachTSlider.Deactivate();
+    }
+
+    if ( geom_ptr->m_TransAttachFlag() != vsp::ATTACH_TRANS_LMN && geom_ptr->m_RotAttachFlag() != vsp::ATTACH_ROT_LMN )
+    {
+        m_AttachLSlider.Deactivate();
+        m_LScaleToggleGroup.Deactivate();
+        m_AttachMSlider.Deactivate();
+        m_AttachNSlider.Deactivate();
+    }
 
     if ( geom_ptr->m_ShellFlag.Get() )
     {
@@ -869,6 +1023,21 @@ bool GeomScreen::Update()
     else
     {
         m_ShellMassAreaInput.Deactivate();
+    }
+
+    Vehicle* veh = VehicleMgr.GetVehicle();
+    if ( veh )
+    {
+        Geom* parent = veh->FindGeom( geom_ptr->GetParentID() );
+
+        if ( parent )
+        {
+            m_AttachLayout.GetGroup()->activate();
+        }
+        else
+        {
+            m_AttachLayout.GetGroup()->deactivate();
+        }
     }
 
     m_NumUSlider.Update( geom_ptr->m_TessU.GetID() );
@@ -3345,8 +3514,8 @@ ChevronScreen::ChevronScreen( ScreenMgr* mgr, int w, int h, const string & title
     m_ModifyLayout.AddYGap();
     m_ModifyLayout.AddDividerBox( "Extents" );
 
-    m_ChevronExtentModeChoice.AddItem( "Start \\/ End", vsp::CHEVRON_W01_SE );
-    m_ChevronExtentModeChoice.AddItem( "Center \\/ Width", vsp::CHEVRON_W01_CW );
+    m_ChevronExtentModeChoice.AddItem( "Start / End", vsp::CHEVRON_W01_SE );
+    m_ChevronExtentModeChoice.AddItem( "Center / Width", vsp::CHEVRON_W01_CW );
     m_ModifyLayout.AddChoice( m_ChevronExtentModeChoice, "Mode:" );
 
     m_ModifyLayout.SetChoiceButtonWidth( 0 );

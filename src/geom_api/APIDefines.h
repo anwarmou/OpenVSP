@@ -35,12 +35,18 @@ enum ATMOS_TYPE { ATMOS_TYPE_US_STANDARD_1976 = 0,
 
 enum ATTACH_TRANS_TYPE { ATTACH_TRANS_NONE = 0,
                          ATTACH_TRANS_COMP,
-                         ATTACH_TRANS_UV
+                         ATTACH_TRANS_UV,
+                         ATTACH_TRANS_RST,
+                         ATTACH_TRANS_LMN,
+                         ATTACH_TRANS_NUM_TYPES
 };
 
 enum ATTACH_ROT_TYPE { ATTACH_ROT_NONE = 0,
                        ATTACH_ROT_COMP,
-                       ATTACH_ROT_UV
+                       ATTACH_ROT_UV,
+                       ATTACH_ROT_RST,
+                       ATTACH_ROT_LMN,
+                       ATTACH_ROT_NUM_TYPES
 };
 
 enum BOR_MODE { BOR_FLOWTHROUGH,
@@ -59,6 +65,10 @@ enum CAP_TYPE { NO_END_CAP,
                 EDGE_END_CAP,
                 SHARP_END_CAP,
                 POINT_END_CAP,
+                ROUND_EXT_END_CAP_NONE,
+                ROUND_EXT_END_CAP_LE,
+                ROUND_EXT_END_CAP_TE,
+                ROUND_EXT_END_CAP_BOTH,
                 NUM_END_CAP_OPTIONS
               };
 
@@ -108,6 +118,10 @@ enum CFD_MESH_SOURCE_TYPE { POINT_SOURCE,
                             WLINE_SOURCE,
                             NUM_SOURCE_TYPES,
                           };
+
+enum CFD_VIS_TYPE { TAG,
+                    REASON
+                  };
 
 enum CF_LAM_EQN { CF_LAM_BLASIUS = 0,
                   CF_LAM_BLASIUS_W_HEAT,
@@ -228,12 +242,12 @@ enum ENGINE_LOC_MODE { ENGINE_LOC_INDEX,
                        ENGINE_LOC_U
                      };
 
-enum ENGINE_LOC_INDEX { ENGINE_LOC_INLET_LIP,
-                        ENGINE_LOC_INLET_FACE,
-                        ENGINE_LOC_OUTLET_LIP,
-                        ENGINE_LOC_OUTLET_FACE,
-                        ENGINE_LOC_NUM
-                      };
+enum ENGINE_LOC_INDEX_TYPES { ENGINE_LOC_INLET_LIP,
+                              ENGINE_LOC_INLET_FACE,
+                              ENGINE_LOC_OUTLET_LIP,
+                              ENGINE_LOC_OUTLET_FACE,
+                              ENGINE_LOC_NUM
+                            };
 
 // For inlet, all types are valid.  However, for outlet, only NATIVE through EXTEND are valid.
 // Both inlet and outlet, NATIVE is the default.  By making NATIVE the first entry, the Parm::Init
@@ -491,6 +505,30 @@ enum MASS_UNIT { MASS_UNIT_G = 0,
                  MASS_LBFSEC2IN, // lbf*sec^2/in
                  NUM_MASS_UNIT
                }; // Mass Units ENUM
+
+// Order is important.
+enum MESH_REASON { NO_REASON,
+                   MAX_LEN_CONSTRAINT,
+                   CURV_GAP,
+                   CURV_NCIRCSEG,
+                   SOURCES,
+                   MIN_LEN_CONSTRAINT,               // MAX_LEN_CONSTRAINT + MIN_LEN_INCREMENT
+                   MIN_LEN_CONSTRAINT_CURV_GAP,      // CURV_GAP + MIN_LEN_INCREMENT
+                   MIN_LEN_CONSTRAINT_CURV_NCIRCSEG, // CURV_NCIRCSEG + MIN_LEN_INCREMENT
+                   MIN_LEN_CONSTRAINT_SOURCES,       // Placeholder -- min len not applied to sources.
+                   GROW_LIMIT_MAX_LEN_CONSTRAINT,
+                   GROW_LIMIT_CURV_GAP,
+                   GROW_LIMIT_CURV_NCIRCSEG,
+                   GROW_LIMIT_SOURCES,
+                   GROW_LIMIT_MIN_LEN_CONSTRAINT,
+                   GROW_LIMIT_MIN_LEN_CONSTRAINT_CURV_GAP,
+                   GROW_LIMIT_MIN_LEN_CONSTRAINT_CURV_NCIRCSEG,
+                   GROW_LIMIT_MIN_LEN_CONSTRAINT_SOURCES,
+                   NUM_MESH_REASON,
+                   MIN_LEN_INCREMENT = MIN_LEN_CONSTRAINT - MAX_LEN_CONSTRAINT,
+                   GROW_LIMIT_INCREMENT = GROW_LIMIT_CURV_GAP - CURV_GAP,
+                   MIN_GROW_LIMIT = GROW_LIMIT_CURV_GAP
+                 };
 
 enum PARM_TYPE { PARM_DOUBLE_TYPE,
                  PARM_INT_TYPE,

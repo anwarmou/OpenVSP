@@ -570,11 +570,13 @@ bool Vehicle::CheckForVSPAERO( const string & path )
 
     if( !CheckForFile( path, m_VIEWERCmd ) )
     {
+#ifndef VSP_NO_GRAPHICS
         fprintf( stderr, "ERROR %d: VSPAERO Viewer Not Found. \n"
             "\tExpected here: %s\n",
             vsp::VSP_FILE_DOES_NOT_EXIST,
             ( path + string("/") + m_VIEWERCmd ).c_str() );
         ret_val = false;
+#endif
     }
     else
     {
@@ -2741,6 +2743,9 @@ string Vehicle::WriteVSPGeomFile( const string &file_name, int write_set, int de
         {
             MeshGeom *mg = ( MeshGeom * ) geom_vec[i];            // Cast
             offset = mg->WriteVSPGeomWakes( file_id, offset );
+
+            mg->m_SurfDirty = true;
+            mg->Update();
         }
     }
 
@@ -4608,15 +4613,10 @@ string Vehicle::CompGeom( int set, int degenset, int halfFlag, int intSubsFlag, 
         return id;
     }
 
-    if ( halfFlag )
-    {
-        mesh_ptr->AddHalfBox( "NEGATIVE_HALF" );
-    }
-
     if ( mesh_ptr->m_TMeshVec.size() )
     {
         vector< DegenGeom > dg;
-        mesh_ptr->IntersectTrim( dg, false, intSubsFlag );
+        mesh_ptr->IntersectTrim( dg, false, intSubsFlag, halfFlag );
     }
     else
     {
@@ -4624,17 +4624,6 @@ string Vehicle::CompGeom( int set, int degenset, int halfFlag, int intSubsFlag, 
         CutActiveGeomVec();
         DeleteClipBoard();
         id = "NONE";
-    }
-
-    if ( halfFlag )
-    {
-        // This check is to ensure any triangles remaining from the positive bodies on the symmetry plane are removed.
-        // Absolute tolerance here, would be perhaps better as a fraction of the triangle's edge lengths.  Comparison
-        // based on triangle center location, so it should be reliable.
-        mesh_ptr->IgnoreYLessThan( 1e-5 );
-
-        mesh_ptr->GetMeshByID( "NEGATIVE_HALF" )->m_DeleteMeFlag = true;
-        mesh_ptr->DeleteMarkedMeshes();
     }
 
     return id;
@@ -4650,7 +4639,6 @@ string Vehicle::CompGeomAndFlatten( int set, int halfFlag, int intSubsFlag, int 
     }
     MeshGeom* mesh_ptr = ( MeshGeom* )geom;
     mesh_ptr->FlattenTMeshVec();
-    mesh_ptr->SubTagTris( intSubsFlag );
     mesh_ptr->m_SurfDirty = true;
     mesh_ptr->Update();
     return id;
@@ -4725,18 +4713,20 @@ string Vehicle::MassProps( int set, int numSlices, int idir, bool hidegeom, bool
 
 string Vehicle::MassPropsAndFlatten( int set, int numSlices, int idir, bool hidegeom, bool writefile )
 {
-    string id = MassProps( set, numSlices, idir, hidegeom, writefile );
-    Geom* geom = FindGeom( id );
+    DeleteGeom( m_LastMassMeshID );
+    m_LastMassMeshID = MassProps( set, numSlices, idir, hidegeom, writefile );
+    Geom* geom = FindGeom( m_LastMassMeshID );
     if ( !geom )
     {
-        return string( "NONE" );
+        m_LastMassMeshID = "NONE";
+        return m_LastMassMeshID;
     }
     MeshGeom* mesh_ptr = ( MeshGeom* )geom;
     mesh_ptr->FlattenTMeshVec();
     mesh_ptr->FlattenSliceVec();
     mesh_ptr->m_SurfDirty = true;
     mesh_ptr->Update();
-    return id;
+    return m_LastMassMeshID;
 }
 
 string Vehicle::PSlice( int set, int numSlices, vec3d axis, bool autoBoundsFlag, double start, double end, bool measureduct )
@@ -5382,7 +5372,7 @@ void Vehicle::CreateDegenGeom( int set )
         MeshGeom* mesh_ptr = dynamic_cast<MeshGeom*> ( FindGeom( id ) );
         if ( mesh_ptr != NULL )
         {
-            mesh_ptr->IntersectTrim( m_DegenGeomVec, true, 0 );
+            mesh_ptr->IntersectTrim( m_DegenGeomVec, true, 0, false );
             DeleteGeom( id );
         }
     }

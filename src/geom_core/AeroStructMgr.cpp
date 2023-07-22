@@ -162,7 +162,7 @@ void AeroStructSingleton::FindCCX( const string & path )
     else // Check for ccx in path
     {
 #ifdef WIN32
-        system( "ccx > temp.txt" );
+        system( "ccx > temp.txt 2> nul" );
 
         // Get size of temp file
         FILE* fp = fopen( "temp.txt", "r" );
@@ -201,7 +201,7 @@ void AeroStructSingleton::FindCGX( const string & path )
     else // Check for ccx in path
     {
 #ifdef WIN32
-        system( "cgx > temp.txt" );
+        system( "cgx > temp.txt 2> nul" );
 
         // Get size of temp file
         FILE* fp = fopen( "temp.txt", "r" );
@@ -244,7 +244,7 @@ void AeroStructSingleton::TransferLoads( FILE * logFile )
     args.push_back( string( str ) );
 
 
-    string cmdStr = m_LoadsProcess.PrettyCmd( veh->GetVSPAEROPath(), veh->GetLOADSCmd(), args );
+    string cmdStr = ProcessUtil::PrettyCmd( veh->GetVSPAEROPath(), veh->GetLOADSCmd(), args );
     if( logFile )
     {
         fprintf( logFile, "%s", cmdStr.c_str() );
@@ -277,7 +277,7 @@ void AeroStructSingleton::ComputeStructure( FILE * logFile )
     args.push_back( GetBasename( m_FEAInputFile ) );
 
 
-    string cmdStr = m_CalculiXProcess.PrettyCmd( m_CalculiXPath, m_CalculiXCmd, args );
+    string cmdStr = ProcessUtil::PrettyCmd( m_CalculiXPath, m_CalculiXCmd, args );
     if( logFile )
     {
         fprintf( logFile, "%s", cmdStr.c_str() );

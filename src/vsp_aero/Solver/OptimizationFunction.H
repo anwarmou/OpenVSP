@@ -76,6 +76,11 @@
 #define OPT_WING_CY_VISCOUS                  2023
 #define OPT_WING_CZ_VISCOUS                  2024
 
+#define OPT_WING_X_QC                        2031
+#define OPT_WING_Y_QC                        2032
+#define OPT_WING_Z_QC                        2033
+#define OPT_WING_VECTOR_QC                   2034
+
 // Rotor
                                       
 #define OPT_ROTOR_CT_TOTAL                   3001
@@ -91,7 +96,7 @@
 
 // WRT free stream inputs
 
-#define OPT_GRADIENT_NUMBER_OF_INPUTS           15
+#define OPT_GRADIENT_NUMBER_OF_INPUTS           16
 
 #define OPT_GRADIENT_WRT_ALPHA                  1
 #define OPT_GRADIENT_WRT_BETA                   2
@@ -108,10 +113,11 @@
 #define OPT_GRADIENT_WRT_S_REF                 13
 #define OPT_GRADIENT_WRT_B_REF                 14
 #define OPT_GRADIENT_WRT_C_REF                 15
+#define OPT_GRADIENT_WRT_VREF                  16
 
 // WRT Control surfaces
                               
-#define OPT_GRADIENT_WRT_CONTROL_SURFS         16
+#define OPT_GRADIENT_WRT_CONTROL_SURFS         17
                 
 // Residual
                                            
@@ -274,9 +280,11 @@ public:
     /** Return average value of the i'th scalar function  **/
     
     VSPAERO_DOUBLE &FunctionAverage(int i) { return FunctionAverage_[i]; };
+    
+    /** User pass in vector for chain rule calculations **/
          
     double &UserVector(int i) { return UserVector_[i]; };     
-         
+          
 };
 
 #include "END_NAME_SPACE.H"

@@ -127,7 +127,7 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
     m_StructureTabLayout.AddChoice( m_ModelUnitChoice, "OpenVSP Model Unit System (Length)" );
 
     string squared( 1, (char) 178 );
-    string bin_name = "BIN (lbf sec" + squared + " \/ in, in)";
+    string bin_name = "BIN (lbf sec" + squared + " / in, in)";
     m_StructUnitChoice.AddItem( bin_name, vsp::BIN_UNIT );
     m_StructUnitChoice.AddItem( "BFT (slug, ft)", vsp::BFT_UNIT );
     m_StructUnitChoice.AddItem( "MPA (tonne, mm)", vsp::MPA_UNIT );
@@ -560,7 +560,9 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
     m_OrthoSubGroup.AddInput( m_MatE1Input, "E", "%5.3g" );
     m_OrthoSubGroup.SetButtonWidth( 0 );
     m_OrthoSubGroup.AddInput( m_MatE2Input, "", "%5.3g" );
+    m_MatE2Input.SetButtonNameUpdate( false );
     m_OrthoSubGroup.AddInput( m_MatE3Input, "", "%5.3g" );
+    m_MatE3Input.SetButtonNameUpdate( false );
 
 
     m_OrthoMatElasticModUnitChoice.AddItem( "psi", vsp::PRES_UNIT_PSI );
@@ -592,7 +594,9 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
     m_OrthoSubGroup.AddInput( m_MatA1Input, alpha, "%5.3g" );
     m_OrthoSubGroup.SetButtonWidth( 0 );
     m_OrthoSubGroup.AddInput( m_MatA2Input, "", "%5.3g" );
+    m_MatA2Input.SetButtonNameUpdate( false );
     m_OrthoSubGroup.AddInput( m_MatA3Input, "", "%5.3g" );
+    m_MatA3Input.SetButtonNameUpdate( false );
 
     m_OrthoMatThermalExCoeffUnitChoice.AddItem( "1/F", vsp::TEMP_UNIT_F );
     m_OrthoMatThermalExCoeffUnitChoice.AddItem( "1/R", vsp::TEMP_UNIT_R );
@@ -637,7 +641,9 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
     m_OrthoSubGroup.AddInput( m_MatG12Input, "G", "%5.3g" );
     m_OrthoSubGroup.SetButtonWidth( 0 );
     m_OrthoSubGroup.AddInput( m_MatG13Input, "", "%5.3g" );
+    m_MatG13Input.SetButtonNameUpdate( false );
     m_OrthoSubGroup.AddInput( m_MatG23Input, "", "%5.3g" );
+    m_MatG23Input.SetButtonNameUpdate( false );
 
     m_OrthoSubGroup.SetButtonWidth( little );
     m_OrthoSubGroup.AddButton( m_OrthoMatShearModUnit, "" );
@@ -666,7 +672,9 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
     m_OrthoSubGroup.AddInput( m_Matnu12Input, nu, "%5.3g", 2.0 * m_OrthoSubGroup.GetW() / 3.0 );
     m_OrthoSubGroup.SetButtonWidth( 0 );
     m_OrthoSubGroup.AddInput( m_Matnu13Input, "", "%5.3g", 2.0 * m_OrthoSubGroup.GetW() / 3.0 );
+    m_Matnu13Input.SetButtonNameUpdate( false );
     m_OrthoSubGroup.AddInput( m_Matnu23Input, "", "%5.3g", 2.0 * m_OrthoSubGroup.GetW() / 3.0 );
+    m_Matnu23Input.SetButtonNameUpdate( false );
 
 
 
@@ -1397,10 +1405,69 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
 
     m_MeshTabLayout.AddYGap();
 
-    m_MeshTabLayout.SetButtonWidth( 175 );
+    int actionToggleButtonWidth = 45;
+    int normalButtonWidth = 175;
+
+    m_MeshTabLayout.SetFitWidthFlag( false );
+    m_MeshTabLayout.SetSameLineFlag( true );
+
+    m_MeshTabLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_MeshTabLayout.AddButton( m_MaxAbsToggle, "Abs" );
+    m_MeshTabLayout.AddButton( m_MaxRelToggle, "Rel" );
+
+    m_MeshTabLayout.SetFitWidthFlag( true );
+
+    m_MeshTabLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
     m_MeshTabLayout.AddSlider( m_MaxEdgeLen, "Max Edge Len", 1.0, "%7.5f" );
+
+    m_MaxEdgeLenToggleGroup.Init( this );
+    m_MaxEdgeLenToggleGroup.AddButton( m_MaxAbsToggle.GetFlButton() );
+    m_MaxEdgeLenToggleGroup.AddButton( m_MaxRelToggle.GetFlButton() );
+
+
+    m_MeshTabLayout.ForceNewLine();
+
+    m_MeshTabLayout.SetFitWidthFlag( false );
+    m_MeshTabLayout.SetSameLineFlag( true );
+
+    m_MeshTabLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_MeshTabLayout.AddButton( m_MinAbsToggle, "Abs" );
+    m_MeshTabLayout.AddButton( m_MinRelToggle, "Rel" );
+
+    m_MeshTabLayout.SetFitWidthFlag( true );
+
+    m_MeshTabLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
     m_MeshTabLayout.AddSlider( m_MinEdgeLen, "Min Edge Len", 1.0, "%7.5f" );
+
+    m_MinEdgeLenToggleGroup.Init( this );
+    m_MinEdgeLenToggleGroup.AddButton( m_MinAbsToggle.GetFlButton() );
+    m_MinEdgeLenToggleGroup.AddButton( m_MinRelToggle.GetFlButton() );
+
+
+    m_MeshTabLayout.ForceNewLine();
+
+    m_MeshTabLayout.SetFitWidthFlag( false );
+    m_MeshTabLayout.SetSameLineFlag( true );
+
+    m_MeshTabLayout.SetButtonWidth( actionToggleButtonWidth );
+    m_MeshTabLayout.AddButton( m_GapAbsToggle, "Abs" );
+    m_MeshTabLayout.AddButton( m_GapRelToggle, "Rel" );
+
+    m_MeshTabLayout.SetFitWidthFlag( true );
+
+    m_MeshTabLayout.SetButtonWidth( normalButtonWidth - 2 * actionToggleButtonWidth );
     m_MeshTabLayout.AddSlider( m_MaxGap, "Max Gap", 1.0, "%7.5f" );
+
+    m_MaxGapToggleGroup.Init( this );
+    m_MaxGapToggleGroup.AddButton( m_GapAbsToggle.GetFlButton() );
+    m_MaxGapToggleGroup.AddButton( m_GapRelToggle.GetFlButton() );
+
+    m_MeshTabLayout.ForceNewLine();
+    m_MeshTabLayout.SetFitWidthFlag( true );
+    m_MeshTabLayout.SetSameLineFlag( false );
+
+    m_MeshTabLayout.SetButtonWidth( normalButtonWidth );
+
     m_MeshTabLayout.AddSlider( m_NumCircleSegments, "Num Circle Segments", 100.0, "%7.5f" );
     m_MeshTabLayout.AddSlider( m_GrowthRatio, "Growth Ratio", 2.0, "%7.5f" );
 
@@ -1503,8 +1570,19 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
     m_FemTabLayout.SetSameLineFlag( true );
 
     m_FemTabLayout.AddButton( m_DrawMeshButton, "Draw Mesh" );
-    m_FemTabLayout.AddButton( m_ColorElementsButton, "Color Elements" );
+
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetW() / 6.0 );
+
+    m_FemTabLayout.AddButton( m_ColorElementsButton, "Color" );
+    m_FemTabLayout.AddButton( m_ColorByTag, "By Tag" );
+    m_FemTabLayout.AddButton( m_ColorByReason, "By Reason" );
     m_FemTabLayout.ForceNewLine();
+
+    m_ColorByToggleGroup.Init( this );
+    m_ColorByToggleGroup.AddButton( m_ColorByTag.GetFlButton() );
+    m_ColorByToggleGroup.AddButton( m_ColorByReason.GetFlButton() );
+
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetW() / 2 );
 
     m_FemTabLayout.AddButton( m_DrawNodesToggle, "Draw Nodes" );
     m_FemTabLayout.AddButton( m_DrawElementOrientVecToggle, "Draw Element Orientation" );
@@ -1519,10 +1597,10 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
 
     m_FemTabLayout.AddDividerBox( "Element Sets" );
 
-    m_DrawPartSelectBrowser = m_FemTabLayout.AddCheckBrowser( browser_h );
+    m_DrawPartSelectBrowser = m_FemTabLayout.AddCheckBrowser( browser_h - 40 );
     m_DrawPartSelectBrowser->callback( staticScreenCB, this );
 
-    m_FemTabLayout.AddY( 125 );
+    m_FemTabLayout.AddY( 125 - 40 );
     m_FemTabLayout.AddYGap();
 
     m_FemTabLayout.SetSameLineFlag( true );
@@ -1533,6 +1611,65 @@ StructScreen::StructScreen( ScreenMgr* mgr ) : TabScreen( mgr, 550, 740, "FEA St
     m_FemTabLayout.AddButton( m_DrawAllButton, "Draw All Elements" );
     m_FemTabLayout.AddButton( m_HideAllButton, "Hide All Elements" );
     m_FemTabLayout.ForceNewLine();
+
+    m_FemTabLayout.SetFitWidthFlag( true );
+    m_FemTabLayout.SetSameLineFlag( false );
+
+    m_FemTabLayout.AddYGap();
+
+    m_FemTabLayout.AddDividerBox( "Mesh Edge Length Reason Key" );
+
+    vec3d c;
+    m_FemTabLayout.AddButton( m_MaxLenConstraintLabel, "Max Edge Len" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::MAX_LEN_CONSTRAINT ) );
+    m_MaxLenConstraintLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+
+    m_FemTabLayout.SetFitWidthFlag( false );
+    m_FemTabLayout.SetSameLineFlag( true );
+
+    m_FemTabLayout.SetButtonWidth( m_FemTabLayout.GetW() / 3.0 );
+
+    m_FemTabLayout.AddButton( m_GrowLimitCurvGapLabel, "Growth Ratio" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::GROW_LIMIT_CURV_GAP ) );
+    m_GrowLimitCurvGapLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_FemTabLayout.AddButton( m_GrowLimitNCircSegLabel, "Growth Ratio" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::GROW_LIMIT_CURV_NCIRCSEG ) );
+    m_GrowLimitNCircSegLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_FemTabLayout.AddButton( m_GrowLimitSourcesLabel, "Growth Ratio" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::GROW_LIMIT_SOURCES ) );
+    m_GrowLimitSourcesLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_FemTabLayout.ForceNewLine();
+
+    m_FemTabLayout.AddButton( m_CurvGapLabel, "Max Gap" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::CURV_GAP ) );
+    m_CurvGapLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_FemTabLayout.AddButton( m_NCircSegLabel, "Num Circle Segments" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::CURV_NCIRCSEG ) );
+    m_NCircSegLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_FemTabLayout.AddButton( m_SourcesLabel, "Sources" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::SOURCES ) );
+    m_SourcesLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+
+    m_FemTabLayout.ForceNewLine();
+
+    m_FemTabLayout.AddButton( m_MinLenCurvGapLabel, "Min Edge Len" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::MIN_LEN_CONSTRAINT_CURV_GAP ) );
+    m_MinLenCurvGapLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+    m_MinLenCurvGapLabel.SetLabelColor( FL_WHITE );
+
+    m_FemTabLayout.AddButton( m_MinLenCurvNCircSegLabel, "Min Edge Len" );
+    c = 255 * DrawObj::Color( DrawObj::reasonColorMap( vsp::MIN_LEN_CONSTRAINT_CURV_NCIRCSEG ) );
+    m_MinLenCurvNCircSegLabel.SetColor( fl_rgb_color( c.x(), c.y(), c.z() ) );
+    m_MinLenCurvNCircSegLabel.SetLabelColor( FL_WHITE );
+
+
+
 
     //=== CAD TAB ===//
     m_CadTabLayout.SetGroupAndScreen( cadTabGroup, this );
@@ -2611,6 +2748,13 @@ void StructScreen::UpdateUnitLabels()
 
 bool StructScreen::Update()
 {
+    if ( StructureMgr.ValidTotalFeaStructInd( StructureMgr.m_CurrStructIndex() ) )
+    {
+        vector < FeaStructure * > structVec = StructureMgr.GetAllFeaStructs();
+        FeaStructure *curr_struct = structVec[ StructureMgr.m_CurrStructIndex() ];
+        curr_struct->Update();
+    }
+
     Vehicle* veh = m_ScreenMgr->GetVehiclePtr();
 
     StructureMgr.Update();
@@ -2952,9 +3096,36 @@ bool StructScreen::Update()
             FeaStructure* curr_struct = structVec[StructureMgr.m_CurrStructIndex()];
 
             //==== Default Elem Size ====//
-            m_MaxEdgeLen.Update( curr_struct->GetFeaGridDensityPtr()->m_BaseLen.GetID() );
-            m_MinEdgeLen.Update( curr_struct->GetFeaGridDensityPtr()->m_MinLen.GetID() );
-            m_MaxGap.Update( curr_struct->GetFeaGridDensityPtr()->m_MaxGap.GetID() );
+            m_MaxEdgeLenToggleGroup.Update( curr_struct->GetFeaGridDensityPtr()->m_BaseAbsRel.GetID() );
+            if ( curr_struct->GetFeaGridDensityPtr()->m_BaseAbsRel() == vsp::ABS )
+            {
+                m_MaxEdgeLen.Update( 1, curr_struct->GetFeaGridDensityPtr()->m_BaseLen.GetID(), curr_struct->GetFeaGridDensityPtr()->m_BaseFrac.GetID() );
+            }
+            else
+            {
+                m_MaxEdgeLen.Update( 2, curr_struct->GetFeaGridDensityPtr()->m_BaseLen.GetID(), curr_struct->GetFeaGridDensityPtr()->m_BaseFrac.GetID() );
+            }
+
+            m_MinEdgeLenToggleGroup.Update( curr_struct->GetFeaGridDensityPtr()->m_MinAbsRel.GetID() );
+            if ( curr_struct->GetFeaGridDensityPtr()->m_MinAbsRel() == vsp::ABS )
+            {
+                m_MinEdgeLen.Update( 1, curr_struct->GetFeaGridDensityPtr()->m_MinLen.GetID(), curr_struct->GetFeaGridDensityPtr()->m_MinFrac.GetID() );
+            }
+            else
+            {
+                m_MinEdgeLen.Update( 2, curr_struct->GetFeaGridDensityPtr()->m_MinLen.GetID(), curr_struct->GetFeaGridDensityPtr()->m_MinFrac.GetID() );
+            }
+
+            m_MaxGapToggleGroup.Update( curr_struct->GetFeaGridDensityPtr()->m_MaxGapAbsRel.GetID() );
+            if ( curr_struct->GetFeaGridDensityPtr()->m_MaxGapAbsRel() == vsp::ABS )
+            {
+                m_MaxGap.Update( 1, curr_struct->GetFeaGridDensityPtr()->m_MaxGap.GetID(), curr_struct->GetFeaGridDensityPtr()->m_MaxGapFrac.GetID() );
+            }
+            else
+            {
+                m_MaxGap.Update( 2, curr_struct->GetFeaGridDensityPtr()->m_MaxGap.GetID(), curr_struct->GetFeaGridDensityPtr()->m_MaxGapFrac.GetID() );
+            }
+
             m_NumCircleSegments.Update( curr_struct->GetFeaGridDensityPtr()->m_NCircSeg.GetID() );
             m_GrowthRatio.Update( curr_struct->GetFeaGridDensityPtr()->m_GrowRatio.GetID() );
             m_Rig3dGrowthLimit.Update( curr_struct->GetFeaGridDensityPtr()->m_RigorLimit.GetID() );
@@ -2986,7 +3157,16 @@ bool StructScreen::Update()
 
             //===== Display Tab Toggle Update =====//
             m_DrawMeshButton.Update( curr_struct->GetStructSettingsPtr()->m_DrawMeshFlag.GetID() );
-            m_ColorElementsButton.Update( curr_struct->GetStructSettingsPtr()->m_ColorTagsFlag.GetID() );
+            m_ColorElementsButton.Update( curr_struct->GetStructSettingsPtr()->m_ColorFacesFlag.GetID() );
+
+            m_ColorByToggleGroup.Update( curr_struct->GetStructSettingsPtr()->m_ColorTagReason.GetID() );
+
+            m_ColorByToggleGroup.Deactivate();
+            if ( curr_struct->GetStructSettingsPtr()->m_ColorFacesFlag() )
+            {
+                m_ColorByToggleGroup.Activate();
+            }
+
             m_DrawNodesToggle.Update( curr_struct->GetStructSettingsPtr()->m_DrawNodesFlag.GetID() );
             m_DrawBCNodesToggle.Update( curr_struct->GetStructSettingsPtr()->m_DrawBCNodesFlag.GetID() );
             m_DrawElementOrientVecToggle.Update( curr_struct->GetStructSettingsPtr()->m_DrawElementOrientVecFlag.GetID() );
@@ -4445,4 +4625,24 @@ void StructScreen::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
         // Load Draw Objects for FeaMesh
         FeaMeshMgr.LoadDrawObjs( draw_obj_vec );
     }
+}
+
+bool StructScreen::GetVisBndBox( BndBox &bbox )
+{
+    bool anyvisible = false;
+
+    vector< DrawObj* > draw_obj_vec;
+    LoadDrawObjs( draw_obj_vec );
+
+    for(int j = 0; j < (int)draw_obj_vec.size(); j++)
+    {
+        if(draw_obj_vec[j]->m_Visible)
+        {
+            bbox.Update( draw_obj_vec[j]->m_PntVec );
+            bbox.Update( draw_obj_vec[j]->m_PntMesh );
+            anyvisible = true;
+        }
+    }
+
+    return anyvisible;
 }

@@ -304,6 +304,7 @@ TMesh::TMesh()
     m_PlateNum = -1;
     m_AreaCenter = vec3d(0,0,0);
     m_GuessVol = 0;
+    m_Wmin = DBL_MAX;
 }
 
 TMesh::~TMesh()
@@ -411,6 +412,7 @@ void TMesh::CopyAttributes( TMesh* m )
     m_ShellMassArea = m->m_ShellMassArea;
 
     m_SurfType = m->m_SurfType;
+    m_Wmin = m->m_Wmin;
 
     m_UWPnts = m->m_UWPnts;
     m_XYZPnts = m->m_XYZPnts;
@@ -848,6 +850,27 @@ void TMesh::IgnoreYLessThan( const double & ytol )
             {
                 tri->m_IgnoreTriFlag = true;
             }
+        }
+    }
+}
+
+void TMesh::IgnoreAll()
+{
+    for ( int t = 0 ; t < ( int )m_TVec.size() ; t++ )
+    {
+        TTri* tri = m_TVec[t];
+
+        //==== Do Interior Tris ====//
+        if ( tri->m_SplitVec.size() )
+        {
+            for ( int s = 0 ; s < ( int )tri->m_SplitVec.size() ; s++ )
+            {
+                tri->m_SplitVec[s]->m_IgnoreTriFlag = true;
+            }
+        }
+        else
+        {
+            tri->m_IgnoreTriFlag = true;
         }
     }
 }
@@ -1374,6 +1397,19 @@ TTri::~TTri()
 
 }
 
+bool TTri::CleanupEdgeVec()
+{
+    bool unexpected = false;
+    //==== Delete Split Edges ====//
+    for ( int i = 0 ; i < ( int )m_EVec.size() ; i++ )
+    {
+        delete m_EVec[i];
+        unexpected = true;
+    }
+    m_EVec.clear();
+    return unexpected;
+}
+
 void TTri::CopyFrom( const TTri* tri )
 {
     m_N0 = new TNode();
@@ -1561,6 +1597,10 @@ void TTri::SplitTri()
         uwflag = true;
     }
 
+    if ( CleanupEdgeVec() )
+    {
+        printf( "Unexpected m_EVec cleared in TTri::SplitTri().\n" );
+    }
     //==== Add Edges For Perimeter ====//
     for ( i = 0 ; i < 3 ; i++ )
     {
@@ -1864,6 +1904,8 @@ void TTri::SplitTri()
 
     //==== Use Triangle to Split Tri ====//
     TriangulateSplit( flattenAxis );
+
+    CleanupEdgeVec();
 
     if ( !uwflag )
     {
@@ -2262,11 +2304,12 @@ int TTri::WakeEdge()
     double tol = 1e-12;
     if ( m_TMesh )
     {
+        double wmin = m_TMesh->m_Wmin;
         if ( m_TMesh->m_SurfType == vsp::WING_SURF )
         {
-            bool n0 = m_N0->m_UWPnt.y() <= ( TMAGIC + tol );
-            bool n1 = m_N1->m_UWPnt.y() <= ( TMAGIC + tol );
-            bool n2 = m_N2->m_UWPnt.y() <= ( TMAGIC + tol );
+            bool n0 = m_N0->m_UWPnt.y() <= ( wmin + tol );
+            bool n1 = m_N1->m_UWPnt.y() <= ( wmin + tol );
+            bool n2 = m_N2->m_UWPnt.y() <= ( wmin + tol );
 
             if ( n0 && n1 )
             {
@@ -3809,6 +3852,27 @@ void TMesh::SubTag( int part_num, bool tag_subs )
     }
 }
 
+void TMesh::RefreshTagMap()
+{
+    for ( int t = 0 ; t < ( int )m_TVec.size(); t ++ )
+    {
+        TTri* tri = m_TVec[t];
+
+        for ( int st = 0; st < ( int )tri->m_SplitVec.size() ; st++ )
+        {
+            if ( !tri->m_SplitVec[st]->m_IgnoreTriFlag )
+            {
+                SubSurfaceMgr.m_TagCombos.insert( tri->m_SplitVec[st]->m_Tags );
+            }
+        }
+
+        if ( !tri->m_IgnoreTriFlag )
+        {
+            SubSurfaceMgr.m_TagCombos.insert( tri->m_Tags );
+        }
+    }
+}
+
 vec3d TMesh::CompPnt( const vec3d & uw_pnt )
 {
     // Search through uw pnts to figure out which quad the uw_pnt is in
@@ -3898,6 +3962,7 @@ void CreateTMeshVecFromPts( const Geom * geom,
     TMeshVec[itmesh]->m_PlateNum = platenum;
     TMeshVec[itmesh]->m_UWPnts = uw_pnts;
     TMeshVec[itmesh]->m_XYZPnts = pnts;
+    TMeshVec[itmesh]->m_Wmin = uw_pnts[0][0].y();
 
     if ( cfdsurftype == vsp::CFD_NEGATIVE )
     {

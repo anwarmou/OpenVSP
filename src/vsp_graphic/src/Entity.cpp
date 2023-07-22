@@ -64,11 +64,27 @@ void Entity::_predraw()
 {
     switch( getRenderStyle() )
     {
-    case Common::VSP_DRAW_MESH_SHADED:
+    case Common::VSP_DRAW_SOLID:
         _draw_Mesh( 0.f, 0.f, 0.f, 0.f );
         break;
 
+    case Common::VSP_DRAW_SHADED:
+        _draw_Mesh( 0.f, 0.f, 0.f, 0.f );
+        break;
+
+    case Common::VSP_DRAW_WIRE_FRAME:
+        // Do nothing so surface does not occlude picking.
+        break;
+
     case Common::VSP_DRAW_WIRE_FRAME_SOLID:
+        _draw_Mesh( 0.f, 0.f, 0.f, 0.f );
+        break;
+
+    case Common::VSP_DRAW_WIRE_FRAME_MAPPED:
+        _draw_Mesh( 0.f, 0.f, 0.f, 0.f );
+        break;
+
+    case Common::VSP_DRAW_MAPPED:
         _draw_Mesh( 0.f, 0.f, 0.f, 0.f );
         break;
 
@@ -80,7 +96,7 @@ void Entity::_predraw()
         _draw_Mesh( 0.f, 0.f, 0.f, 0.f );
         break;
 
-    case Common::VSP_DRAW_MESH_TEXTURED:
+    case Common::VSP_DRAW_TEXTURED:
         _draw_Mesh( 0.f, 0.f, 0.f, 0.f );
         break;
 
@@ -93,8 +109,12 @@ void Entity::_draw()
 {
     switch( getRenderStyle() )
     {
-    case Common::VSP_DRAW_MESH_SHADED:
-        _draw_Mesh_Shaded();
+    case Common::VSP_DRAW_SOLID:
+        _draw_Solid();
+        break;
+
+    case Common::VSP_DRAW_SHADED:
+        _draw_Shaded();
         break;
 
     case Common::VSP_DRAW_WIRE_FRAME:
@@ -105,6 +125,14 @@ void Entity::_draw()
         _draw_Wire_Frame_Solid();
         break;
 
+    case Common::VSP_DRAW_WIRE_FRAME_MAPPED:
+        _draw_Wire_Frame_Mapped();
+         break;
+
+    case Common::VSP_DRAW_MAPPED:
+        _draw_Mapped();
+         break;
+
     case Common::VSP_DRAW_WIRE_FRAME_SHADED:
         _draw_Wire_Frame_Shaded();
         break;
@@ -113,8 +141,8 @@ void Entity::_draw()
         _draw_Wire_Frame_Transparent_Back();
         break;
 
-    case Common::VSP_DRAW_MESH_TEXTURED:
-        _draw_Mesh_Textured();
+    case Common::VSP_DRAW_TEXTURED:
+        _draw_Textured();
         break;
 
     default:
@@ -122,7 +150,17 @@ void Entity::_draw()
     }
 }
 
-void Entity::_draw_Mesh_Shaded()
+void Entity::_draw_Solid()
+{
+    glEnable( GL_POLYGON_OFFSET_FILL );
+    glPolygonOffset( 1.f, 1.f );
+
+    _draw_Mesh( 1.f, 1.f, 1.f, 1.f );
+
+    glDisable( GL_POLYGON_OFFSET_FILL );
+}
+
+void Entity::_draw_Shaded()
 {
     if( _lighting )
     {
@@ -140,7 +178,7 @@ void Entity::_draw_Mesh_Shaded()
     glDisable( GL_LIGHTING );
 }
 
-void Entity::_draw_Mesh_Textured()
+void Entity::_draw_Textured()
 {
     if( _lighting )
     {
@@ -179,6 +217,28 @@ void Entity::_draw_Wire_Frame_Solid()
     glDisable( GL_POLYGON_OFFSET_FILL );
 
     _draw_Wire();
+}
+
+void Entity::_draw_Wire_Frame_Mapped()
+{
+    glEnable( GL_POLYGON_OFFSET_FILL );
+    glPolygonOffset( 1.f, 1.f );
+
+    _draw_Mesh();
+
+    glDisable( GL_POLYGON_OFFSET_FILL );
+
+    _draw_Wire();
+}
+
+void Entity::_draw_Mapped()
+{
+    glEnable( GL_POLYGON_OFFSET_FILL );
+    glPolygonOffset( 1.f, 1.f );
+
+    _draw_Mesh();
+
+    glDisable( GL_POLYGON_OFFSET_FILL );
 }
 
 void Entity::_draw_Wire_Frame_Shaded()
@@ -225,19 +285,19 @@ void Entity::_draw_Wire_Frame_Transparent_Back()
 
 void Entity::_draw_Mesh()
 {
-    bool cBufferEnabled = _getCBufferFlag();
+    bool meshCBufferEnabled = _getMeshCBufferFlag();
 
-    if( cBufferEnabled )
+    if( meshCBufferEnabled )
     {
-        _cBuffer->bind();
+        _meshColorBuffer->bind();
     }
 
     Color color = _getMeshColor();
     _draw_Mesh( color.red, color.green, color.blue, color.alpha );
 
-    if( cBufferEnabled )
+    if( meshCBufferEnabled )
     {
-        _cBuffer->unbind();
+        _meshColorBuffer->unbind();
     }
 }
 
@@ -259,11 +319,11 @@ void Entity::_draw_Mesh( float r, float g, float b, float a )
 
 void Entity::_draw_Wire()
 {
-    bool cBufferEnabled = _getCBufferFlag();
+    bool cBufferEnabled = _getLineCBufferFlag();
 
     if( cBufferEnabled )
     {
-        _cBuffer->bind();
+        _lineColorBuffer->bind();
     }
 
     float lineWidth = _getLineWidth();
@@ -272,7 +332,7 @@ void Entity::_draw_Wire()
 
     if( cBufferEnabled )
     {
-        _cBuffer->unbind();
+        _lineColorBuffer->unbind();
     }
 }
 

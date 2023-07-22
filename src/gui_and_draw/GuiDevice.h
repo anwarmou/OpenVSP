@@ -250,7 +250,6 @@ protected:
     virtual void SetValAndLimits( Parm* parm_ptr );
 
     Fl_Input* m_Input;
-    char m_Str[256];
     string m_Format;
 
     bool m_ParmButtonFlag;
@@ -294,7 +293,6 @@ protected:
     virtual void SetValAndLimits( Parm* parm_ptr );
 
     Fl_Output* m_Output;
-    char m_Str[256];
     string m_Format;
     string m_Suffix;
     bool m_NewFormat;
@@ -496,6 +494,7 @@ public:
     virtual void Init( VspScreen* screen, Fl_Button* button );
     virtual void DeviceCB( Fl_Widget* w );
     virtual void SetColor( Fl_Color c );
+    virtual void SetLabelColor( Fl_Color c );
     virtual Fl_Button* GetFlButton();
 
 protected:
@@ -728,7 +727,8 @@ public:
 
     virtual void Activate();
     virtual void Deactivate();
-
+    virtual void ActivateInput1();
+    virtual void ActivateInput2();
 
 protected:
     SliderAdjRange m_Slider;
@@ -779,7 +779,6 @@ protected:
     Input  m_FractInput;
 
     Fl_Input* m_ResultFlInput;
-    char m_Str[256];
     string m_Format;
 
     bool m_ParmButtonFlag;
@@ -907,7 +906,6 @@ protected:
     int m_MaxIndex;
     int m_BigInc;
     int m_SmallInc;
-    char m_Str[64];
 
 };
 

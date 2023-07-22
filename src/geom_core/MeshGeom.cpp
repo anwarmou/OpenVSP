@@ -1567,7 +1567,7 @@ void MeshGeom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
             break;
 
         case vsp::DRAW_TYPE::GEOM_DRAW_HIDDEN:
-            m_WireShadeDrawObj_vec[i].m_Type = DrawObj::VSP_HIDDEN_TRIS;
+            m_WireShadeDrawObj_vec[i].m_Type = DrawObj::VSP_WIRE_HIDDEN_TRIS;
             break;
 
         case vsp::DRAW_TYPE::GEOM_DRAW_SHADE:
@@ -1713,8 +1713,6 @@ void MeshGeom::Scale()
 {
     double currentScale = m_Scale() / m_LastScale();
     m_ScaleFromOrig *= currentScale;
-    m_ScaleMatrix.loadIdentity();
-    m_ScaleMatrix.scale( m_ScaleFromOrig() );
     m_LastScale = m_Scale();
 }
 
@@ -1823,7 +1821,7 @@ void MeshGeom::TransformMeshVec( vector<TMesh*> & meshVec, const Matrix4d & Tran
     }
 }
 
-void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int intSubsFlag )
+void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int intSubsFlag, bool halfFlag )
 {
     int i, j;
 
@@ -1935,8 +1933,15 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
                 sub_surf_meshes.clear();
             }
         }
+        // Tag meshes before regular intersection
+        SubTagTris( (bool)intSubsFlag );
 
         MergeRemoveOpenMeshes( &info, deleteopen );
+    }
+
+    if ( halfFlag )
+    {
+        AddHalfBox( "NEGATIVE_HALF" );
     }
 
     //==== Create Bnd Box for  Mesh Geoms ====//
@@ -1994,6 +1999,16 @@ void MeshGeom::IntersectTrim( vector< DegenGeom > &degenGeom, bool degen, int in
     m_Scale = 1;
     ApplyScale();
     UpdateBBox();
+
+    if ( halfFlag )
+    {
+        IgnoreYLessThan( 1e-5 );
+        GetMeshByID( "NEGATIVE_HALF" )->IgnoreAll();
+        GetMeshByID( "NEGATIVE_HALF" )->m_DeleteMeFlag = true;
+        DeleteMarkedMeshes();
+
+        RefreshTagMaps();
+    }
 
     //==== Compute Areas ====//
     m_TotalTheoArea = m_TotalWetArea = 0.0;
@@ -4103,6 +4118,10 @@ void MeshGeom::FlattenTMeshVec()
         {
             flatTMeshVec.push_back( tm );
         }
+        else
+        {
+            delete tm;
+        }
         delete m_TMeshVec[i];
     }
     m_TMeshVec.clear();
@@ -4120,6 +4139,10 @@ void MeshGeom::FlattenSliceVec()
         if ( tm->m_TVec.size() > 0 )
         {
             flatTMeshVec.push_back( tm );
+        }
+        else
+        {
+            delete tm;
         }
         delete m_SliceVec[i];
     }
@@ -4254,3 +4277,14 @@ void MeshGeom::SubTagTris( bool tag_subs )
 
 }
 
+void MeshGeom::RefreshTagMaps()
+{
+    SubSurfaceMgr.PartialClearTagMaps();
+
+    for ( int i = 0 ; i < ( int )m_TMeshVec.size() ; i++ )
+    {
+        m_TMeshVec[i]->RefreshTagMap();
+    }
+
+    SubSurfaceMgr.BuildSingleTagMap();
+}

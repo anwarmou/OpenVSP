@@ -19,6 +19,7 @@
 #include "SurfPatch.h"
 #include "MapSource.h"
 #include "SurfCore.h"
+#include "TwoDNN.h"
 
 #include <cassert>
 
@@ -60,17 +61,17 @@ public:
         return &m_SurfCore;
     }
 
-    double TargetLen( double u, double w, double gap, double radfrac );
+    double TargetLen( double u, double w, double gap, double radfrac, int &reason );
     void BuildTargetMap( vector< MapSource* > &sources, int sid );
     void WalkMap( int istart, int jstart, int kstart );
     void WalkMap( int istart, int jstart );
     void LimitTargetMap();
     void LimitTargetMap( const MSCloud &es_cloud, MSTree &es_tree, double minmap );
-    double InterpTargetMap( double u, double w );
+    double InterpTargetMap( double u, double w, int &reason );
     void UWtoTargetMapij( double u, double w, int &i, int &j, double &fraci, double &fracj );
     void UWtoTargetMapij( double u, double w, int &i, int &j );
 
-    void ApplyES( vec3d uw, double t );
+    void ApplyES( vec3d uw, double t, int reason );
 
     vec2d ClosestUW( const vec3d & pnt_in, double guess_u, double guess_w ) const;
     vec2d ClosestUW( const vec3d & pnt_in ) const;
@@ -178,8 +179,9 @@ public:
 
 
     void BuildDistMap();
-    double GetUScale( double w );
-    double GetWScale( double u );
+    void CleanupDistMap();
+    vec2d GetUWPrime( vec2d uw );
+    vec2d GetUW( vec2d uwprime );
 
     bool ValidUW( vec2d & uw, double slop = 1.0e-4 ) const;
 
@@ -358,9 +360,10 @@ protected:
     int m_NumMap;
     vector< vector< MapSource > > m_SrcMap;
 
-    bool m_ScaleUFlag;
-    vector< double > m_UScaleMap;
-    vector< double > m_WScaleMap;
+    void UtoIndexFrac( const double &u, int &indx, double &frac );
+
+    vector < vector < vec2d > > m_STMap;
+    TwoDNodeCloud m_UWMap;
 
     int m_FeaPartIndex; // Which FeaPart in the FeaStructure
     int m_FeaPartSurfNum; // Which surface in the FeaPart

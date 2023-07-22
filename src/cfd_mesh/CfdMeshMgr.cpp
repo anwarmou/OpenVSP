@@ -103,6 +103,12 @@ void CfdMeshMgrSingleton::GenerateMesh()
     // addOutputText( "Intersect\n" ); // Output in intersect() itself.
     Intersect();
 
+    addOutputText( "Degen Corners\n" );
+    FindDegenCorners();
+
+    addOutputText( "Add Degen Corner Chains\n" );
+    AddDegenCornerChains();
+
     addOutputText( "Binary Adaptation Curve Approximation\n" );
     BinaryAdaptIntCurves();
 
@@ -193,6 +199,10 @@ void CfdMeshMgrSingleton::CleanUp()
     }
     m_BadFaces.clear();
 
+    // These are freed elsewhere, just need to clear references to them.
+    m_DegenCorners.clear();
+    m_DegenCornerChains.clear();
+
     // Clean up DrawObj's
     m_MeshBadEdgeDO = DrawObj();
     m_MeshBadTriDO = DrawObj();
@@ -203,7 +213,11 @@ void CfdMeshMgrSingleton::CleanUp()
     m_BBoxLineStripSymSplit = DrawObj();
     m_BBoxLineSymSplit = DrawObj();
 
+    m_DegenCornerPointDO = DrawObj();
+    m_DegenCornerEdgeDO = DrawObj();
+
     m_TagDO.clear();
+    m_ReasonDO.clear();
 }
 
 void CfdMeshMgrSingleton::AdjustAllSourceLen( double mult )
@@ -463,6 +477,18 @@ void CfdMeshMgrSingleton::DeleteAllSources()
     }
 }
 
+void CfdMeshMgrSingleton::Update()
+{
+    if ( !GetMeshInProgress() )
+    {
+        UpdateSourcesAndWakes();
+    }
+
+    UpdateDomain();
+
+    m_Vehicle->GetCfdGridDensityPtr()->Update();
+}
+
 void CfdMeshMgrSingleton::UpdateSourcesAndWakes()
 {
     GetGridDensityPtr()->ClearSources();
@@ -638,7 +664,6 @@ void CfdMeshMgrSingleton::BuildGrid()
 
     for ( int i = 0 ; i < ( int )m_SurfVec.size() ; i++ )
     {
-        m_SurfVec[i]->BuildDistMap();
         m_SurfVec[i]->SetGridDensityPtr( GetGridDensityPtr() );
     }
 }
@@ -668,13 +693,15 @@ void CfdMeshMgrSingleton::BuildTargetMap( int output_type )
             Surf* srf = ( *s )->m_Surf;
             vec2d uw = ( *s )->m_UW;
             // Initialize source with strength from underlying surface map.
-            double str = srf->InterpTargetMap( uw.x(), uw.y() );
+            int reason = -1;
+            double str = srf->InterpTargetMap( uw.x(), uw.y(), reason );
 
             vec3d pt = ( *s )->m_Pnt;
 
             MapSource *ss = new MapSource;
             ss->m_pt = pt;
             ss->m_str = str;
+            ss->m_reason = reason;
 
             splitSources.push_back( ss );
         }
@@ -2636,14 +2663,27 @@ void CfdMeshMgrSingleton::MergeBorderEndPoints()
     list< ISegChain* >::iterator c;
     for ( c = m_ISegChainList.begin() ; c != m_ISegChainList.end(); ++c )
     {
-        cloud.m_IPnts.push_back( ( *c )->m_TessVec.front() ); // Add Front Point
-        cloud.m_IPnts.push_back( ( *c )->m_TessVec.back() );  // Add Back Point
+        if( (*c)->m_BorderFlag )
+        {
+            cloud.m_IPnts.push_back(( *c )->m_TessVec.front()); // Add Front Point
+            cloud.m_IPnts.push_back(( *c )->m_TessVec.back());  // Add Back Point
+        }
     }
+
+    for ( c = m_ISegChainList.begin() ; c != m_ISegChainList.end(); ++c )
+    {
+        if( !(*c)->m_BorderFlag )
+        {
+            cloud.m_IPnts.push_back(( *c )->m_TessVec.front()); // Add Front Point
+            cloud.m_IPnts.push_back(( *c )->m_TessVec.back());  // Add Back Point
+        }
+    }
+
 
     // tol_fract previously was compared to the distance between groups as a fraction of the local edge length.
     // However, it currently is simply compared to the distance between groups.
     // Consequently, while a reasonable value was previously 1e-2, a much smaller value is now appropriate.
-    double tol = GetGridDensityPtr()->m_MinLen / 100.0;
+    double tol = GetGridDensityPtr()->m_MinLen / 1000.0;
 
     MergeEndPointCloud( cloud, tol );
 }
@@ -3235,6 +3275,57 @@ void CfdMeshMgrSingleton::UpdateDrawObjs()
 {
     SurfaceIntersectionSingleton::UpdateDrawObjs();
 
+    unsigned int num_reason = vsp::NUM_MESH_REASON;
+    m_ReasonDO.resize( num_reason * 2 );
+
+    char str[256];
+    for ( int i = 0; i < num_reason; i++ )
+    {
+        snprintf( str, sizeof( str ), "%s_TREASON_%d", GetID().c_str(), i );
+        m_ReasonDO[i].m_GeomID = string( str );
+
+        snprintf( str, sizeof( str ), "%s_QREASON_%d", GetID().c_str(), i + num_reason );
+        m_ReasonDO[ i + num_reason ].m_GeomID = string( str );
+    }
+
+    for ( int i = 0 ; i < ( int )m_SurfVec.size() ; i++ )
+    {
+        vector< vec3d > pVec = m_SurfVec[i]->GetMesh()->GetSimpPntVec();
+        vector < SimpFace > fVec = m_SurfVec[ i ]->GetMesh()->GetSimpFaceVec();
+        for ( int f = 0 ; f < ( int ) fVec.size() ; f++ )
+        {
+            SimpFace* sface = &fVec[f];
+
+            if ( sface->m_reason >= 0 && sface->m_reason < vsp::NUM_MESH_REASON )
+            {
+                int ido = sface->m_reason;
+                if ( sface->m_isQuad )
+                {
+                    ido += num_reason;
+                }
+
+                vec3d norm = cross( pVec[sface->ind1] - pVec[sface->ind0], pVec[sface->ind2] - pVec[sface->ind0] );
+                norm.normalize();
+                m_ReasonDO[ ido ].m_PntVec.push_back( pVec[sface->ind0] );
+                m_ReasonDO[ ido ].m_PntVec.push_back( pVec[sface->ind1] );
+                m_ReasonDO[ ido ].m_PntVec.push_back( pVec[sface->ind2] );
+                m_ReasonDO[ ido ].m_NormVec.push_back( norm );
+                m_ReasonDO[ ido ].m_NormVec.push_back( norm );
+                m_ReasonDO[ ido ].m_NormVec.push_back( norm );
+                if ( sface->m_isQuad )
+                {
+                    m_ReasonDO[ ido ].m_PntVec.push_back( pVec[sface->ind3] );
+                    m_ReasonDO[ ido ].m_NormVec.push_back( norm );
+                }
+            }
+            else
+            {
+                printf( "Invalid reason %d\n", sface->m_reason );
+            }
+        }
+    }
+
+
     // Render Tag Colors
     unsigned int num_tags = SubSurfaceMgr.GetNumTags();
     m_TagDO.resize( num_tags * 2 );
@@ -3246,7 +3337,6 @@ void CfdMeshMgrSingleton::UpdateDrawObjs()
 
     int cnt = 0;
 
-    char str[256];
     for ( mit = tagMap.begin(); mit != tagMap.end() ; ++mit )
     {
         tag_tri_dobj_map[ mit->second ] = &m_TagDO[cnt];
@@ -3304,6 +3394,40 @@ void CfdMeshMgrSingleton::UpdateDrawObjs()
         }
     }
 
+#ifdef DEBUG_CFD_MESH
+    m_DegenCornerPointDO.m_GeomID = GetID() + "DegenCornerPts";
+    m_DegenCornerPointDO.m_Type = DrawObj::VSP_POINTS;
+    m_DegenCornerPointDO.m_PointSize = 10.0;
+    m_DegenCornerPointDO.m_PointColor = vec3d( 0, 0, 1 );
+
+    m_DegenCornerEdgeDO.m_GeomID = GetID() + "DegenCornerEdge";
+    m_DegenCornerEdgeDO.m_Type = DrawObj::VSP_LINES;
+    m_DegenCornerEdgeDO.m_LineColor = vec3d( 0, 0, 1 );
+    m_DegenCornerEdgeDO.m_LineWidth = 3.0;
+
+    m_DegenCornerPointDO.m_PntVec.clear();
+    m_DegenCornerEdgeDO.m_PntVec.clear();
+    for ( int i = 0; i < m_DegenCornerChains.size(); i++ )
+    {
+        ISegChain* dchain = m_DegenCornerChains[i];
+
+        // Add points
+        for ( int j = 0; j < dchain->m_ISegDeque.size(); j++ )
+        {
+            m_DegenCornerPointDO.m_PntVec.push_back( dchain->m_ISegDeque[j]->m_IPnt[0]->m_Pnt );
+            m_DegenCornerPointDO.m_PntVec.push_back( dchain->m_ISegDeque[j]->m_IPnt[1]->m_Pnt );
+        }
+
+        for ( int j = 0; j < dchain->m_TessVec.size() - 1; j++ )
+        {
+            m_DegenCornerEdgeDO.m_PntVec.push_back( dchain->m_TessVec[j]->m_Pnt );
+            m_DegenCornerEdgeDO.m_PntVec.push_back( dchain->m_TessVec[j+1]->m_Pnt );
+        }
+    }
+    m_DegenCornerPointDO.m_GeomChanged = true;
+    m_DegenCornerEdgeDO.m_GeomChanged = true;
+#endif
+
     // Render bad edges
     m_MeshBadEdgeDO.m_GeomID = GetID() + "BADEDGE";
     m_MeshBadEdgeDO.m_Type = DrawObj::VSP_LINES;
@@ -3324,12 +3448,12 @@ void CfdMeshMgrSingleton::UpdateDrawObjs()
 
 
     m_MeshBadTriDO.m_GeomID = GetID() + "BADTRI";
-    m_MeshBadTriDO.m_Type = DrawObj::VSP_HIDDEN_TRIS_CFD;
+    m_MeshBadTriDO.m_Type = DrawObj::VSP_CFD_HIDDEN_TRIS;
     m_MeshBadTriDO.m_LineColor = vec3d( 1, 0, 0 );
     m_MeshBadTriDO.m_LineWidth = 3.0;
 
     m_MeshBadQuadDO.m_GeomID = GetID() + "BADQUAD";
-    m_MeshBadQuadDO.m_Type = DrawObj::VSP_HIDDEN_QUADS_CFD;
+    m_MeshBadQuadDO.m_Type = DrawObj::VSP_CFD_HIDDEN_QUADS;
     m_MeshBadQuadDO.m_LineColor = vec3d( 1, 0, 0 );
     m_MeshBadQuadDO.m_LineWidth = 3.0;
 
@@ -3381,6 +3505,100 @@ void CfdMeshMgrSingleton::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
     m_BBoxLineSymSplit.m_Visible = m_BBoxLineStripSymSplit.m_Visible;
     draw_obj_vec.push_back( &m_BBoxLineSymSplit );
 
+    unsigned int num_reason = vsp::NUM_MESH_REASON;
+
+    if ( m_ReasonDO.size() == 2 * num_reason )
+    {
+        for ( int i = 0; i < num_reason; i++ )
+        {
+
+            if ( GetCfdSettingsPtr()->m_ColorFacesFlag && GetCfdSettingsPtr()->m_ColorTagReason == vsp::REASON )
+            {
+                m_ReasonDO[i].m_Visible = true;
+                m_ReasonDO[i + num_reason].m_Visible = true;
+
+                if ( GetCfdSettingsPtr()->m_DrawMeshFlag &&
+                     GetCfdSettingsPtr()->m_ColorFacesFlag ) // Both are visible.
+                {
+                    m_ReasonDO[i].m_Type = DrawObj::VSP_CFD_HIDDEN_TRIS;
+                    m_ReasonDO[i].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
+
+                    m_ReasonDO[i + num_reason].m_Type = DrawObj::VSP_CFD_HIDDEN_QUADS;
+                    m_ReasonDO[i + num_reason].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
+                }
+                else
+                {
+                    m_ReasonDO[i].m_Type = DrawObj::VSP_SHADED_TRIS;
+                    m_ReasonDO[i + num_reason].m_Type = DrawObj::VSP_SHADED_QUADS;
+                }
+            }
+            else
+            {
+                // Need to set some m_Type so objects are created in vsp_graphic on first time through.
+                m_ReasonDO[i].m_Type = DrawObj::VSP_CFD_HIDDEN_TRIS;
+                m_ReasonDO[i].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
+                m_ReasonDO[i].m_Visible = false;
+
+                m_ReasonDO[i + num_reason].m_Type = DrawObj::VSP_CFD_HIDDEN_QUADS;
+                m_ReasonDO[i + num_reason].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
+                m_ReasonDO[i + num_reason].m_Visible = false;
+            }
+
+            if ( GetCfdSettingsPtr()->m_ColorFacesFlag && GetCfdSettingsPtr()->m_ColorTagReason == vsp::REASON  )
+            {
+                vec3d rgb = DrawObj::Color( DrawObj::reasonColorMap( i ) );
+
+                for ( int icomp = 0; icomp < 3; icomp++ )
+                {
+                    m_ReasonDO[i].m_MaterialInfo.Ambient[icomp] = (float)rgb.v[icomp];
+                    m_ReasonDO[i].m_MaterialInfo.Diffuse[icomp] = 0;
+                    m_ReasonDO[i].m_MaterialInfo.Specular[icomp] = 0;
+                    m_ReasonDO[i].m_MaterialInfo.Emission[icomp] = 0;
+
+                    m_ReasonDO[i + num_reason].m_MaterialInfo.Ambient[icomp] = (float)rgb.v[icomp];
+                    m_ReasonDO[i + num_reason].m_MaterialInfo.Diffuse[icomp] = 0;
+                    m_ReasonDO[i + num_reason].m_MaterialInfo.Specular[icomp] = 0;
+                    m_ReasonDO[i + num_reason].m_MaterialInfo.Emission[icomp] = 0;
+                }
+                m_ReasonDO[i].m_MaterialInfo.Ambient[3] = 1.0f;
+                m_ReasonDO[i].m_MaterialInfo.Diffuse[3] = 1.0f;
+                m_ReasonDO[i].m_MaterialInfo.Specular[3] = 1.0f;
+                m_ReasonDO[i].m_MaterialInfo.Emission[3] = 1.0f;
+
+                m_ReasonDO[i].m_MaterialInfo.Shininess = 0; // 32.0f;
+
+
+                m_ReasonDO[i + num_reason].m_MaterialInfo.Ambient[3] = 1.0f;
+                m_ReasonDO[i + num_reason].m_MaterialInfo.Diffuse[3] = 1.0f;
+                m_ReasonDO[i + num_reason].m_MaterialInfo.Specular[3] = 1.0f;
+                m_ReasonDO[i + num_reason].m_MaterialInfo.Emission[3] = 1.0f;
+
+                m_ReasonDO[i + num_reason].m_MaterialInfo.Shininess = 0; // 32.0f;
+            }
+            else
+            {
+                for ( int icomp = 0; icomp < 4; icomp++ )
+                {
+                    m_ReasonDO[i].m_MaterialInfo.Ambient[icomp] = 1.0f;
+                    m_ReasonDO[i].m_MaterialInfo.Diffuse[icomp] = 1.0f;
+                    m_ReasonDO[i].m_MaterialInfo.Specular[icomp] = 1.0f;
+                    m_ReasonDO[i].m_MaterialInfo.Emission[icomp] = 1.0f;
+
+                    m_ReasonDO[i + num_reason].m_MaterialInfo.Ambient[icomp] = 1.0f;
+                    m_ReasonDO[i + num_reason].m_MaterialInfo.Diffuse[icomp] = 1.0f;
+                    m_ReasonDO[i + num_reason].m_MaterialInfo.Specular[icomp] = 1.0f;
+                    m_ReasonDO[i + num_reason].m_MaterialInfo.Emission[icomp] = 1.0f;
+                }
+                m_ReasonDO[i].m_MaterialInfo.Shininess = 1.0f;
+                m_ReasonDO[i + num_reason].m_MaterialInfo.Shininess = 1.0f;
+            }
+
+
+            draw_obj_vec.push_back( &m_ReasonDO[i] );
+            draw_obj_vec.push_back( &m_ReasonDO[i + num_reason] );
+        }
+    }
+
     unsigned int num_tags = SubSurfaceMgr.GetNumTags();
     // Calculate constants for color sequence.
     const int ncgrp = 6; // Number of basic colors
@@ -3392,27 +3610,18 @@ void CfdMeshMgrSingleton::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
         for ( int i = 0; i < num_tags; i++ )
         {
 
-            if ( GetCfdSettingsPtr()->m_DrawMeshFlag ||
-                 GetCfdSettingsPtr()->m_ColorTagsFlag )   // At least mesh or tags are visible.
+            if ( GetCfdSettingsPtr()->m_ColorFacesFlag && GetCfdSettingsPtr()->m_ColorTagReason == vsp::TAG )   // At least mesh or tags are visible.
             {
                 m_TagDO[i].m_Visible = true;
                 m_TagDO[i + num_tags].m_Visible = true;
 
                 if ( GetCfdSettingsPtr()->m_DrawMeshFlag &&
-                     GetCfdSettingsPtr()->m_ColorTagsFlag ) // Both are visible.
+                     GetCfdSettingsPtr()->m_ColorFacesFlag ) // Both are visible.
                 {
-                    m_TagDO[i].m_Type = DrawObj::VSP_HIDDEN_TRIS_CFD;
+                    m_TagDO[i].m_Type = DrawObj::VSP_CFD_HIDDEN_TRIS;
                     m_TagDO[i].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
 
-                    m_TagDO[i + num_tags].m_Type = DrawObj::VSP_HIDDEN_QUADS_CFD;
-                    m_TagDO[i + num_tags].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
-                }
-                else if ( GetCfdSettingsPtr()->m_DrawMeshFlag ) // Mesh only
-                {
-                    m_TagDO[i].m_Type = DrawObj::VSP_HIDDEN_TRIS_CFD;
-                    m_TagDO[i].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
-
-                    m_TagDO[i + num_tags].m_Type = DrawObj::VSP_HIDDEN_QUADS_CFD;
+                    m_TagDO[i + num_tags].m_Type = DrawObj::VSP_CFD_HIDDEN_QUADS;
                     m_TagDO[i + num_tags].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
                 }
                 else // Tags only
@@ -3421,19 +3630,30 @@ void CfdMeshMgrSingleton::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
                     m_TagDO[i + num_tags].m_Type = DrawObj::VSP_SHADED_QUADS;
                 }
             }
+            else if ( GetCfdSettingsPtr()->m_DrawMeshFlag && !GetCfdSettingsPtr()->m_ColorFacesFlag )
+            {
+                m_TagDO[i].m_Visible = true;
+                m_TagDO[i + num_tags].m_Visible = true;
+
+                m_TagDO[i].m_Type = DrawObj::VSP_CFD_HIDDEN_TRIS;
+                m_TagDO[i].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
+
+                m_TagDO[i + num_tags].m_Type = DrawObj::VSP_CFD_HIDDEN_QUADS;
+                m_TagDO[i + num_tags].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
+            }
             else
             {
                 // Need to set some m_Type so objects are created in vsp_graphic on first time through.
-                m_TagDO[i].m_Type = DrawObj::VSP_HIDDEN_TRIS_CFD;
+                m_TagDO[i].m_Type = DrawObj::VSP_CFD_HIDDEN_TRIS;
                 m_TagDO[i].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
                 m_TagDO[i].m_Visible = false;
 
-                m_TagDO[i + num_tags].m_Type = DrawObj::VSP_HIDDEN_QUADS_CFD;
+                m_TagDO[i + num_tags].m_Type = DrawObj::VSP_CFD_HIDDEN_QUADS;
                 m_TagDO[i + num_tags].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
                 m_TagDO[i + num_tags].m_Visible = false;
             }
 
-            if ( GetCfdSettingsPtr()->m_ColorTagsFlag )
+            if ( GetCfdSettingsPtr()->m_ColorFacesFlag && GetCfdSettingsPtr()->m_ColorTagReason == vsp::TAG )
             {
                 // Color sequence -- go around color wheel ncstep times with slight
                 // offset from ncgrp basic colors.
@@ -3491,7 +3711,6 @@ void CfdMeshMgrSingleton::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
             draw_obj_vec.push_back( &m_TagDO[i + num_tags] );
         }
     }
-
 
     map<int, DrawObj*> tag_tri_dobj_map;
     map<int, DrawObj*> tag_quad_dobj_map;
@@ -3569,6 +3788,9 @@ void CfdMeshMgrSingleton::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec )
     draw_obj_vec.push_back( &m_MeshBadEdgeDO );
     draw_obj_vec.push_back( &m_MeshBadTriDO );
     draw_obj_vec.push_back( &m_MeshBadQuadDO );
+
+    draw_obj_vec.push_back( &m_DegenCornerPointDO );
+    draw_obj_vec.push_back( &m_DegenCornerEdgeDO );
 }
 
 void CfdMeshMgrSingleton::UpdateBBoxDO( BndBox box )
@@ -3870,6 +4092,8 @@ void CfdMeshMgrSingleton::Subtag( Surf* surf )
             center = ( pnts[face.ind0] + pnts[face.ind1] + pnts[face.ind2] ) * 1 / 3.0;
         }
 
+        surf->InterpTargetMap( center.x(), center.y(), face.m_reason );
+
         for ( int s = 0; s < (int)simp_s_surfs.size(); s++ )
         {
             if ( simp_s_surfs[s].Subtag( vec3d( center.x(), center.y(), 0 ) ) && surf->GetCompID() >= 0 )
@@ -3878,6 +4102,163 @@ void CfdMeshMgrSingleton::Subtag( Surf* surf )
             }
         }
         SubSurfaceMgr.m_TagCombos.insert( face.m_Tags );
+    }
+}
+
+void CfdMeshMgrSingleton::FindDegenCorners()
+{
+    double tol = 1e-8;
+
+    m_DegenCorners.clear();
+
+    list< ISegChain* >::iterator c, d;
+    for ( c = m_ISegChainList.begin() ; c != m_ISegChainList.end(); ++c )
+    {
+        if ( ( *c )->m_BorderFlag )
+        {
+            d = c;
+            for ( ++d; d != m_ISegChainList.end(); ++d )
+            {
+                if ( ( *d )->m_BorderFlag )
+                {
+                    if (((( *c )->m_SurfA == ( *d )->m_SurfA ) || (( *c )->m_SurfA == ( *d )->m_SurfB )) &&
+                        ((( *c )->m_SurfB == ( *d )->m_SurfA ) || (( *c )->m_SurfB == ( *d )->m_SurfB )))
+                    {
+                        ISeg* frontSegC = ( *c )->m_ISegDeque.front();
+                        frontSegC->m_IPnt[0]->CompPnt();
+                        vec3d pC0 = frontSegC->m_IPnt[0]->m_Pnt;
+
+                        ISeg* frontSegD = ( *d )->m_ISegDeque.front();
+                        frontSegD->m_IPnt[0]->CompPnt();
+                        vec3d pD0 = frontSegD->m_IPnt[0]->m_Pnt;
+
+                        ISeg* backSegC = ( *c )->m_ISegDeque.back();
+                        backSegC->m_IPnt[1]->CompPnt();
+                        vec3d pC1 = backSegC->m_IPnt[1]->m_Pnt;
+
+                        ISeg* backSegD = ( *d )->m_ISegDeque.back();
+                        backSegD->m_IPnt[1]->CompPnt();
+                        vec3d pD1 = backSegD->m_IPnt[1]->m_Pnt;
+
+                        int cornerC = -1;
+                        int cornerD = -1;
+
+                        if( dist_squared( pC0, pD0 ) < tol )
+                        {
+                            cornerC = 0;
+                            cornerD = 0;
+
+                            m_DegenCorners.push_back( frontSegC->m_IPnt[0] );
+                        }
+                        if( dist_squared( pC1, pD1 ) < tol )
+                        {
+                            cornerC = 1;
+                            cornerD = 1;
+
+                            m_DegenCorners.push_back( backSegC->m_IPnt[1] );
+                        }
+                        if( dist_squared( pC0, pD1 ) < tol )
+                        {
+                            cornerC = 0;
+                            cornerD = 1;
+
+                            m_DegenCorners.push_back( frontSegC->m_IPnt[0] );
+                        }
+                        if( dist_squared( pC1, pD0 ) < tol )
+                        {
+                            cornerC = 1;
+                            cornerD = 0;
+
+                            m_DegenCorners.push_back( backSegC->m_IPnt[1] );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void CfdMeshMgrSingleton::AddDegenCornerChains()
+{
+    double degen_tol = 1.0e-6;
+
+    for ( int i = 0; i < m_DegenCorners.size(); i++ )
+    {
+        IPnt* corner = m_DegenCorners[i];
+
+        for ( int j = 0; j < corner->m_Puws.size(); j++ )
+        {
+            Puw* puw_corner = corner->m_Puws[j];
+
+            Surf* s = puw_corner->m_Surf;
+            vec2d uw0 = puw_corner->m_UW;
+            double u0 = uw0.x();
+            double w0 = uw0.y();
+
+            vector < vec3d > pts;
+            pts.push_back( vec3d( u0, w0, 0.0 ) );
+
+            // Build a vector of corner points, each double the distance from the corner as the prior one.
+            // Starting at .001 * minlen, we will end at 65 * minlen.
+            double l = GetGridDensityPtr()->m_MinLen * 0.001;
+            s->GetSurfCore()->FindCornerPtVec( pts, u0, w0, l );
+
+
+            vec3d uw1_3d = pts.back();
+            vec2d uw1 = vec2d( uw1_3d.x(), uw1_3d.y() );
+
+            Puw* puwstart0 = new Puw( s, uw0 );
+            Puw* puwstart1 = new Puw( s, uw0 );
+
+            Puw* puwend0 = new Puw( s, uw1 );
+            Puw* puwend1 = new Puw( s, uw1 );
+
+
+            m_DelPuwVec.push_back( puwstart0 );                 // Save to delete later
+            m_DelPuwVec.push_back( puwstart1 );
+            m_DelPuwVec.push_back( puwend0 );
+            m_DelPuwVec.push_back( puwend1 );
+
+            IPnt* p0 = new IPnt( puwstart0, puwstart1 );
+            IPnt* p1 = new IPnt( puwend0, puwend1 );
+
+            m_DelIPntVec.push_back( p0 );           // Save to delete later
+            m_DelIPntVec.push_back( p1 );
+
+            p0->CompPnt();
+            p1->CompPnt();
+
+            ISeg* seg1 = new ISeg( s, s, p0, p1 );
+
+            ISegChain* chain = new ISegChain;           // Create New Chain
+            chain->m_SurfA = s;
+            chain->m_SurfB = s;
+            chain->m_ISegDeque.push_back( seg1 );
+
+            chain->m_BorderFlag = false;
+
+            chain->m_ACurve.InterpolateLinear( pts );
+            chain->m_ACurve.SetSurf( s );
+
+            ICurve* icrv = new ICurve;
+            icrv->SetACurve( &(chain->m_ACurve) );
+            chain->m_ACurve.SetICurve( icrv );
+
+            chain->m_BCurve = chain->m_ACurve;
+            icrv->SetBCurve( &(chain->m_BCurve) );
+            m_ICurveVec.push_back( icrv );
+
+            if ( chain->Valid() && chain->m_ACurve.Length( 10 ) > degen_tol )
+            {
+                m_ISegChainList.push_back( chain );
+                m_DegenCornerChains.push_back( chain );
+            }
+            else
+            {
+                delete chain;
+                chain = NULL;
+            }
+        }
     }
 }
 
@@ -3892,7 +4273,8 @@ void CfdMeshMgrSingleton::UpdateDisplaySettings()
         GetCfdSettingsPtr()->m_DrawSymmFlag = m_Vehicle->GetCfdSettingsPtr()->m_DrawSymmFlag.Get();
         GetCfdSettingsPtr()->m_DrawFarFlag = m_Vehicle->GetCfdSettingsPtr()->m_DrawFarFlag.Get();
         GetCfdSettingsPtr()->m_DrawBadFlag = m_Vehicle->GetCfdSettingsPtr()->m_DrawBadFlag.Get();
-        GetCfdSettingsPtr()->m_ColorTagsFlag = m_Vehicle->GetCfdSettingsPtr()->m_ColorTagsFlag.Get();
+        GetCfdSettingsPtr()->m_ColorFacesFlag = m_Vehicle->GetCfdSettingsPtr()->m_ColorFacesFlag.Get();
+        GetCfdSettingsPtr()->m_ColorTagReason = m_Vehicle->GetCfdSettingsPtr()->m_ColorTagReason.Get();
 
         GetCfdSettingsPtr()->m_DrawBorderFlag = m_Vehicle->GetCfdSettingsPtr()->m_DrawBorderFlag.Get();
         GetCfdSettingsPtr()->m_DrawIsectFlag = m_Vehicle->GetCfdSettingsPtr()->m_DrawIsectFlag.Get();

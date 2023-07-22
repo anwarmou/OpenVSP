@@ -67,6 +67,7 @@ public:
     virtual bool Update();
 
     virtual void LoadDrawObjs( vector< DrawObj* > &draw_obj_vec );
+    virtual bool GetVisBndBox( BndBox &bbox );
 
     ProcessUtil* getFeaMeshProcess()
     {
@@ -412,9 +413,22 @@ private:
     SliderAdjRangeInput m_ZGTValSlider;
 
     //===== Mesh Tab Items =====//
-    SliderAdjRangeInput m_MaxEdgeLen;
-    SliderAdjRangeInput m_MinEdgeLen;
-    SliderAdjRangeInput m_MaxGap;
+
+    ToggleButton m_MaxAbsToggle;
+    ToggleButton m_MaxRelToggle;
+    ToggleRadioGroup m_MaxEdgeLenToggleGroup;
+
+    ToggleButton m_MinAbsToggle;
+    ToggleButton m_MinRelToggle;
+    ToggleRadioGroup m_MinEdgeLenToggleGroup;
+
+    ToggleButton m_GapAbsToggle;
+    ToggleButton m_GapRelToggle;
+    ToggleRadioGroup m_MaxGapToggleGroup;
+
+    SliderAdjRange2Input m_MaxEdgeLen;
+    SliderAdjRange2Input m_MinEdgeLen;
+    SliderAdjRange2Input m_MaxGap;
     SliderAdjRangeInput m_NumCircleSegments;
     SliderAdjRangeInput m_GrowthRatio;
 
@@ -454,6 +468,11 @@ private:
 
     ToggleButton m_DrawMeshButton;
     ToggleButton m_ColorElementsButton;
+
+    ToggleButton m_ColorByTag;
+    ToggleButton m_ColorByReason;
+    ToggleRadioGroup m_ColorByToggleGroup;
+
     ToggleButton m_DrawNodesToggle;
     ToggleButton m_DrawBCNodesToggle;
     ToggleButton m_DrawElementOrientVecToggle;
@@ -462,6 +481,19 @@ private:
 
     TriggerButton m_DrawAllButton;
     TriggerButton m_HideAllButton;
+
+    TriggerButton m_MaxLenConstraintLabel;
+
+    TriggerButton m_MinLenCurvGapLabel;
+    TriggerButton m_CurvGapLabel;
+    TriggerButton m_GrowLimitCurvGapLabel;
+
+    TriggerButton m_MinLenCurvNCircSegLabel;
+    TriggerButton m_NCircSegLabel;
+    TriggerButton m_GrowLimitNCircSegLabel;
+
+    TriggerButton m_SourcesLabel;
+    TriggerButton m_GrowLimitSourcesLabel;
 
     //===== CAD Items =====//
     ToggleButton m_SrfFile;

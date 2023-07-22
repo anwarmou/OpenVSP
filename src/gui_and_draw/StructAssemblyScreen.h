@@ -53,6 +53,7 @@ public:
     virtual void UpdateDrawPartBrowser();
 
     virtual void LoadDrawObjs( vector< DrawObj* > &draw_obj_vec );
+    virtual bool GetVisBndBox( BndBox &bbox );
 
     ProcessUtil* getFeaMeshProcess()
     {
@@ -156,6 +157,11 @@ private:
 
     ToggleButton m_DrawMeshButton;
     ToggleButton m_ColorElementsButton;
+
+    ToggleButton m_ColorByTag;
+    ToggleButton m_ColorByReason;
+    ToggleRadioGroup m_ColorByToggleGroup;
+
     ToggleButton m_DrawNodesToggle;
     ToggleButton m_DrawBCNodesToggle;
     ToggleButton m_DrawElementOrientVecToggle;

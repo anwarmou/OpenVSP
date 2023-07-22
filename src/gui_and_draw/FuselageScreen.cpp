@@ -36,11 +36,11 @@ FuselageScreen::FuselageScreen( ScreenMgr* mgr ) : ChevronScreen( mgr, 400, 715,
     m_DesignLayout.AddYGap();
     m_DesignLayout.AddDividerBox( "Tip Treatment" );
 
-    m_NoseCapTypeChoice.AddItem("None");
-    m_NoseCapTypeChoice.AddItem("Flat");
-    m_NoseCapTypeChoice.AddItem("Round");
-    m_NoseCapTypeChoice.AddItem("Edge");
-    m_NoseCapTypeChoice.AddItem("Sharp");
+    m_NoseCapTypeChoice.AddItem( "None", vsp::NO_END_CAP );
+    m_NoseCapTypeChoice.AddItem( "Flat", vsp::FLAT_END_CAP );
+    m_NoseCapTypeChoice.AddItem( "Round", vsp::ROUND_END_CAP );
+    m_NoseCapTypeChoice.AddItem( "Edge", vsp::EDGE_END_CAP );
+    m_NoseCapTypeChoice.AddItem( "Sharp", vsp::SHARP_END_CAP );
     m_DesignLayout.AddChoice(m_NoseCapTypeChoice, "Nose Cap Type");
 
     m_DesignLayout.AddSlider( m_NoseCapLenSlider, "Length", 1, "%6.5f" );
@@ -50,11 +50,11 @@ FuselageScreen::FuselageScreen( ScreenMgr* mgr ) : ChevronScreen( mgr, 400, 715,
 
     m_DesignLayout.AddYGap();
 
-    m_TailCapTypeChoice.AddItem("None");
-    m_TailCapTypeChoice.AddItem("Flat");
-    m_TailCapTypeChoice.AddItem("Round");
-    m_TailCapTypeChoice.AddItem("Edge");
-    m_TailCapTypeChoice.AddItem("Sharp");
+    m_TailCapTypeChoice.AddItem( "None", vsp::NO_END_CAP );
+    m_TailCapTypeChoice.AddItem( "Flat", vsp::FLAT_END_CAP );
+    m_TailCapTypeChoice.AddItem( "Round", vsp::ROUND_END_CAP );
+    m_TailCapTypeChoice.AddItem( "Edge", vsp::EDGE_END_CAP );
+    m_TailCapTypeChoice.AddItem( "Sharp", vsp::SHARP_END_CAP );
     m_DesignLayout.AddChoice(m_TailCapTypeChoice, "Tail Cap Type");
 
     m_DesignLayout.AddSlider( m_TailCapLenSlider, "Length", 1, "%6.5f" );
@@ -88,6 +88,9 @@ FuselageScreen::FuselageScreen( ScreenMgr* mgr ) : ChevronScreen( mgr, 400, 715,
     m_XSecLayout.AddYGap();
     int tess_w = m_XSecLayout.GetButtonWidth();
     m_XSecLayout.AddSlider( m_SectUTessSlider, "Num U", 20, " %5.0f" );
+    m_XSecLayout.AddSlider( m_FwdClusterSlider, "Fwd. Cluster", 1, "%6.5f" );
+    m_XSecLayout.AddSlider( m_AftClusterSlider, "Aft Cluster", 1, "%6.5f" );
+    m_XSecLayout.AddYGap();
 
     m_XSecLayout.SetButtonWidth( 50 );
     m_XSecLayout.AddSlider( m_XSecXSlider, "X", 1.0, "%6.5f" );
@@ -228,9 +231,13 @@ bool FuselageScreen::Update()
 
         //==== XSec ====//
         m_SectUTessSlider.Update( xs->m_SectTessU.GetID() );
+        m_FwdClusterSlider.Update( xs->m_FwdCluster.GetID() );
+        m_AftClusterSlider.Update( xs->m_AftCluster.GetID() );
         if ( firstxs )
         {
             m_SectUTessSlider.Deactivate();
+            m_FwdClusterSlider.Deactivate();
+            m_AftClusterSlider.Deactivate();
         }
 
         m_XSecXSlider.Update( xs->m_XLocPercent.GetID() );

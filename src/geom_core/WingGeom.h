@@ -67,6 +67,8 @@ public:
 
     WingSect( XSecCurve *xsc );
 
+    virtual void ParmChanged( Parm* parm_ptr, int type );
+
     virtual void SetScale( double scale );
     virtual void Update();
     virtual void UpdateFromWing();
@@ -192,6 +194,8 @@ public:
 
     virtual void ReadV2File( xmlNodePtr &root );
     virtual void OffsetXSecs( double off );
+
+    virtual void ChangeRC( Parm * p, WingSect * sect );
 
     //==== Planform Parms ====//
     Parm m_TotalSpan;

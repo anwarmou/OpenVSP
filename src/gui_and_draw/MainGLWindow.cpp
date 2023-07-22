@@ -504,7 +504,7 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             }
             break;
 
-        case DrawObj::VSP_HIDDEN_MESH:
+        case DrawObj::VSP_WIRE_HIDDEN_MESH:
             if( id == 0xFFFFFFFF )
             {
                 m_GEngine->getScene()->createObject( Common::VSP_OBJECT_ENTITY, &id );
@@ -549,6 +549,36 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             {
                 eObj->setVisibility( objects[i]->m_Visible );
                 eObj->setPrimType( Common::VSP_TRIANGLES );
+                eObj->setRenderStyle( Common::VSP_DRAW_SOLID );
+                eObj->setLineColor( red, green, blue );
+                eObj->setLineWidth( lineWidth );
+
+                eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
+                    objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
+                    objects[i]->m_MaterialInfo.Shininess );
+
+                if( objects[i]->m_GeomChanged )
+                {
+                    _loadTrisData( eObj, objects[i] );
+                }
+            }
+            break;
+
+        case DrawObj::VSP_WIRE_HIDDEN_TRIS:
+            if( id == 0xFFFFFFFF )
+            {
+                m_GEngine->getScene()->createObject( Common::VSP_OBJECT_ENTITY, &id );
+
+                ID idInfo;
+                idInfo.bufferID = id;
+                idInfo.geomID = objects[i]->m_GeomID;
+                m_ids.push_back( idInfo );
+            }
+            eObj = dynamic_cast<VSPGraphic::Entity*> ( m_GEngine->getScene()->getObject( id ) );
+            if( eObj )
+            {
+                eObj->setVisibility( objects[i]->m_Visible );
+                eObj->setPrimType( Common::VSP_TRIANGLES );
                 eObj->setRenderStyle( Common::VSP_DRAW_WIRE_FRAME_SOLID );
                 eObj->setLineColor( red, green, blue );
                 eObj->setLineWidth( lineWidth );
@@ -564,7 +594,67 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             }
             break;
 
-        case DrawObj::VSP_HIDDEN_TRIS_CFD:
+        case DrawObj::VSP_MAPPED_TRIS:
+            if( id == 0xFFFFFFFF )
+            {
+                m_GEngine->getScene()->createObject( Common::VSP_OBJECT_ENTITY, &id );
+
+                ID idInfo;
+                idInfo.bufferID = id;
+                idInfo.geomID = objects[i]->m_GeomID;
+                m_ids.push_back( idInfo );
+            }
+            eObj = dynamic_cast<VSPGraphic::Entity*> ( m_GEngine->getScene()->getObject( id ) );
+            if( eObj )
+            {
+                eObj->setVisibility( objects[i]->m_Visible );
+                eObj->setPrimType( Common::VSP_TRIANGLES );
+                eObj->setRenderStyle( Common::VSP_DRAW_MAPPED );
+                eObj->setLineColor( red, green, blue );
+                eObj->setLineWidth( lineWidth );
+
+                eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
+                    objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
+                    objects[i]->m_MaterialInfo.Shininess );
+
+                if( objects[i]->m_GeomChanged )
+                {
+                    _loadTrisData( eObj, objects[i] );
+                }
+            }
+            break;
+
+        case DrawObj::VSP_WIRE_MAPPED_TRIS:
+            if( id == 0xFFFFFFFF )
+            {
+                m_GEngine->getScene()->createObject( Common::VSP_OBJECT_ENTITY, &id );
+
+                ID idInfo;
+                idInfo.bufferID = id;
+                idInfo.geomID = objects[i]->m_GeomID;
+                m_ids.push_back( idInfo );
+            }
+            eObj = dynamic_cast<VSPGraphic::Entity*> ( m_GEngine->getScene()->getObject( id ) );
+            if( eObj )
+            {
+                eObj->setVisibility( objects[i]->m_Visible );
+                eObj->setPrimType( Common::VSP_TRIANGLES );
+                eObj->setRenderStyle( Common::VSP_DRAW_WIRE_FRAME_MAPPED );
+                eObj->setLineColor( red, green, blue );
+                eObj->setLineWidth( lineWidth );
+
+                eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
+                    objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
+                    objects[i]->m_MaterialInfo.Shininess );
+
+                if( objects[i]->m_GeomChanged )
+                {
+                    _loadTrisData( eObj, objects[i] );
+                }
+            }
+            break;
+
+        case DrawObj::VSP_CFD_HIDDEN_TRIS:
             if( id == 0xFFFFFFFF )
             {
                 m_GEngine->getScene()->createObject( Common::VSP_OBJECT_CFD_ENTITY, &id );
@@ -624,7 +714,7 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             }
             break;
 
-        case DrawObj::VSP_HIDDEN_QUADS:
+        case DrawObj::VSP_WIRE_HIDDEN_QUADS:
             if( id == 0xFFFFFFFF )
             {
                 m_GEngine->getScene()->createObject( Common::VSP_OBJECT_ENTITY, &id );
@@ -654,7 +744,7 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             }
             break;
 
-        case DrawObj::VSP_HIDDEN_QUADS_CFD:
+        case DrawObj::VSP_CFD_HIDDEN_QUADS:
             if( id == 0xFFFFFFFF )
             {
                 m_GEngine->getScene()->createObject( Common::VSP_OBJECT_CFD_ENTITY, &id );
@@ -699,7 +789,7 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             {
                 eObj->setVisibility( objects[i]->m_Visible );
                 eObj->setPrimType( Common::VSP_QUADS );
-                eObj->setRenderStyle( Common::VSP_DRAW_MESH_SHADED );
+                eObj->setRenderStyle( Common::VSP_DRAW_SHADED );
 
                 eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
                                    objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
@@ -772,6 +862,66 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             }
             break;
 
+        case DrawObj::VSP_MAPPED_QUADS:
+            if ( id == 0xFFFFFFFF )
+            {
+                m_GEngine->getScene()->createObject( Common::VSP_OBJECT_ENTITY, &id );
+
+                ID idInfo;
+                idInfo.bufferID = id;
+                idInfo.geomID = objects[i]->m_GeomID;
+                m_ids.push_back( idInfo );
+            }
+            eObj = dynamic_cast<VSPGraphic::Entity*> ( m_GEngine->getScene()->getObject( id ) );
+            if ( eObj )
+            {
+                eObj->setVisibility( objects[i]->m_Visible );
+                eObj->setPrimType( Common::VSP_QUADS );
+                eObj->setRenderStyle( Common::VSP_DRAW_MAPPED );
+                eObj->setLineColor( red, green, blue );
+                eObj->setLineWidth( lineWidth );
+
+                eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
+                                   objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
+                                   objects[i]->m_MaterialInfo.Shininess );
+
+                if ( objects[i]->m_GeomChanged )
+                {
+                    _loadQuadsData( eObj, objects[i] );
+                }
+            }
+            break;
+
+        case DrawObj::VSP_WIRE_MAPPED_QUADS:
+            if ( id == 0xFFFFFFFF )
+            {
+                m_GEngine->getScene()->createObject( Common::VSP_OBJECT_ENTITY, &id );
+
+                ID idInfo;
+                idInfo.bufferID = id;
+                idInfo.geomID = objects[i]->m_GeomID;
+                m_ids.push_back( idInfo );
+            }
+            eObj = dynamic_cast<VSPGraphic::Entity*> ( m_GEngine->getScene()->getObject( id ) );
+            if ( eObj )
+            {
+                eObj->setVisibility( objects[i]->m_Visible );
+                eObj->setPrimType( Common::VSP_QUADS );
+                eObj->setRenderStyle( Common::VSP_DRAW_WIRE_FRAME_MAPPED );
+                eObj->setLineColor( red, green, blue );
+                eObj->setLineWidth( lineWidth );
+
+                eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
+                                   objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
+                                   objects[i]->m_MaterialInfo.Shininess );
+
+                if ( objects[i]->m_GeomChanged )
+                {
+                    _loadQuadsData( eObj, objects[i] );
+                }
+            }
+            break;
+
         case DrawObj::VSP_SHADED_MESH:
             if( id == 0xFFFFFFFF )
             {
@@ -787,7 +937,7 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             {
                 eObj->setVisibility( objects[i]->m_Visible );
                 eObj->setPrimType( Common::VSP_QUADS );
-                eObj->setRenderStyle( Common::VSP_DRAW_MESH_SHADED );
+                eObj->setRenderStyle( Common::VSP_DRAW_SHADED );
 
                 eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
                     objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
@@ -815,7 +965,7 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             {
                 eObj->setVisibility( objects[i]->m_Visible );
                 eObj->setPrimType( Common::VSP_TRIANGLES );
-                eObj->setRenderStyle( Common::VSP_DRAW_MESH_SHADED );
+                eObj->setRenderStyle( Common::VSP_DRAW_SHADED );
 
                 eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
                     objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
@@ -843,7 +993,7 @@ void VspGlWindow::_update( std::vector<DrawObj *> objects )
             {
                 eObj->setVisibility( objects[i]->m_Visible );
                 eObj->setPrimType( Common::VSP_QUADS );
-                eObj->setRenderStyle( Common::VSP_DRAW_MESH_TEXTURED );
+                eObj->setRenderStyle( Common::VSP_DRAW_TEXTURED );
 
                 eObj->setMaterial( objects[i]->m_MaterialInfo.Ambient, objects[i]->m_MaterialInfo.Diffuse,
                     objects[i]->m_MaterialInfo.Specular, objects[i]->m_MaterialInfo.Emission,
@@ -1538,35 +1688,63 @@ void VspGlWindow::_loadTrisData( Renderable * destObj, DrawObj * drawObj )
 
     destObj->emptyVBuffer();
     destObj->appendVBuffer( data.data(), sizeof( float ) * data.size() );
+
+    if ( drawObj->m_WireColorVec.size() == drawObj->m_PntVec.size() )
+    {
+        std::vector<float> cdata( n * 4, 0.0f );
+
+        for ( int i = 0; i < ( int )drawObj->m_WireColorVec.size(); i++ )
+        {
+            const int j = i * 4;
+            cdata[ j + 0 ] = ( float )drawObj->m_WireColorVec[i].x();
+            cdata[ j + 1 ] = ( float )drawObj->m_WireColorVec[i].y();
+            cdata[ j + 2 ] = ( float )drawObj->m_WireColorVec[i].z();
+
+            cdata[ j + 3 ] = ( float )drawObj->m_WireAlphaVec[i];
+        }
+
+        destObj->emptyLineCBuffer();
+        destObj->appendLineCBuffer( cdata.data(), sizeof( float ) * cdata.size());
+        destObj->enableLineCBuffer( true );
+    }
+    else
+    {
+        destObj->emptyLineCBuffer();
+        destObj->enableLineCBuffer( false );
+    }
+
+    if ( drawObj->m_FaceColorVec.size() == drawObj->m_PntVec.size() )
+    {
+        std::vector<float> cdata( n * 4, 0.0f );
+
+        for ( int i = 0; i < ( int )drawObj->m_FaceColorVec.size(); i++ )
+        {
+            const int j = i * 4;
+            cdata[ j + 0 ] = ( float )drawObj->m_FaceColorVec[i].x();
+            cdata[ j + 1 ] = ( float )drawObj->m_FaceColorVec[i].y();
+            cdata[ j + 2 ] = ( float )drawObj->m_FaceColorVec[i].z();
+
+            cdata[ j + 3 ] = ( float )drawObj->m_FaceAlphaVec[i];
+        }
+
+        destObj->emptyMeshCBuffer();
+        destObj->appendMeshCBuffer( cdata.data(), sizeof( float ) * cdata.size());
+        destObj->enableMeshCBuffer( true );
+    }
+    else
+    {
+        destObj->emptyMeshCBuffer();
+        destObj->enableMeshCBuffer( false );
+    }
 }
 
-// Currently identical to _loadTrisData.  Should make more generic.  Possibly _loadVertNormData
-// Actual taxonomy is the way the data is stored in the drawObj (vector or mesh) and whether
+// Tri and Quad data is loaded identically.  Differences are actually based on
+// the way the data is stored in the drawObj (vector or mesh) and whether
 // it goes into a vertex buffer or a vertex and edge buffer.
 // In addition, the amount of data -- vert, vert & norm, or vert, norm & texture.
 void VspGlWindow::_loadQuadsData( Renderable * destObj, DrawObj * drawObj )
 {
-    assert( drawObj->m_PntVec.size() == drawObj->m_NormVec.size() );
-
-    unsigned int n = drawObj->m_PntVec.size();
-
-    std::vector<float> data( n * 8, 0.0f );
-
-    for ( int i = 0; i < ( int )drawObj->m_PntVec.size(); i++ )
-    {
-        const int j = i * 8;
-        data[ j + 0 ] = ( float )drawObj->m_PntVec[i].x();
-        data[ j + 1 ] = ( float )drawObj->m_PntVec[i].y();
-        data[ j + 2 ] = ( float )drawObj->m_PntVec[i].z();
-
-        data[ j + 3 ] = ( float )drawObj->m_NormVec[i].x();
-        data[ j + 4 ] = ( float )drawObj->m_NormVec[i].y();
-        data[ j + 5 ] = ( float )drawObj->m_NormVec[i].z();
-    }
-    destObj->setFacingCW( drawObj->m_FlipNormals );
-
-    destObj->emptyVBuffer();
-    destObj->appendVBuffer( data.data(), sizeof( float ) * data.size() );
+    _loadTrisData( destObj, drawObj );
 }
 
 void VspGlWindow::_loadMarkData( Renderable * destObj, DrawObj * drawObj )

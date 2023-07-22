@@ -34,9 +34,33 @@ public:
 
     Parm m_Offset;                  // Offset to Conformal Surface
 
+    IntParm m_UMinTrimTypeFlag;
+    IntParm m_UMaxTrimTypeFlag;
+
     BoolParm m_UTrimFlag;
     Parm m_UTrimMin;
     Parm m_UTrimMax;
+
+    Parm m_LTrimMin;
+    BoolParm m_L01Min;
+    Parm m_L0LenTrimMin;
+
+    Parm m_LTrimMax;
+    BoolParm m_L01Max;
+    Parm m_L0LenTrimMax;
+
+    IntParm m_CapUMinTrimOption;
+    IntParm m_CapUMaxTrimOption;
+
+    Parm m_CapUMinTrimLength;
+    Parm m_CapUMinTrimOffset;
+    Parm m_CapUMinTrimStrength;
+    BoolParm m_CapUMinTrimSweepFlag;
+
+    Parm m_CapUMaxTrimLength;
+    Parm m_CapUMaxTrimOffset;
+    Parm m_CapUMaxTrimStrength;
+    BoolParm m_CapUMaxTrimSweepFlag;
 
     BoolParm m_V1TrimFlag;
     Parm m_V1TrimBegin;
@@ -50,6 +74,17 @@ public:
     Parm m_ChordTrimMin;
     Parm m_ChordTrimMax;
 
+    BoolParm m_Side1TrimFlag;
+    Parm m_Side1Trim;
+
+    BoolParm m_Side2TrimFlag;
+    Parm m_Side2Trim;
+
+    BoolParm m_Side3TrimFlag;
+    Parm m_Side3Trim;
+
+    BoolParm m_Side4TrimFlag;
+    Parm m_Side4Trim;
 
     bool IsWingParent()                             { return m_WingParentFlag; }
 
@@ -77,9 +112,7 @@ protected:
     virtual double AdjustForSurfaceDist( const VspSurf & surf, const ConformalSpine & spine, double u, double offset, bool backward_flag );
 
     virtual void TrimU( VspSurf & surf );
-    virtual void TrimV(  VspSurf & surf );
-
-    virtual void CapTrimmedSurf( piecewise_surface_type & psurf, int match_index, int stretch_index );
+    virtual void TrimV( VspSurf & surf );
 
     virtual void SetWingTrimParms( VspSurf & surf );
 

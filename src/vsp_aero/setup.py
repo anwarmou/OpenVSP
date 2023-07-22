@@ -7,13 +7,15 @@ from Cython.Build import cythonize
 import numpy as np
 
 # Note: solverlib.a and adjointlib.a need to be built with the usual `-fPIC` flag.
-inc_dirs, lib_dirs, libs = [], [], []
+inc_dirs, lib_dirs, libs, def_macros = [], [], [], []
 
 ADEPT_CXXFLAGS = os.environ.get('ADEPT_CXXFLAGS')
 flags = ADEPT_CXXFLAGS.split()
 for flag in flags:
     if flag[:2] == '-I':
         inc_dirs.append(flag[2:])
+    if flag[:2] == '-D':
+        def_macros.append((flag[2:], None))
 
 ADEPT_LDFLAGS = os.environ.get('ADEPT_LDFLAGS')
 flags = ADEPT_LDFLAGS.split()
@@ -42,6 +44,7 @@ for module in cython_modules:
               language="c++",
               include_dirs=inc_dirs, library_dirs=lib_dirs, libraries=libs,
               runtime_library_dirs=lib_dirs,
+              define_macros=def_macros,
               extra_objects=[f"{VSPAERO_DIR}/Solver/solverlib.a", f"{VSPAERO_DIR}/Solver/adjointlib.a"],
               extra_compile_args=[],
               extra_link_args=[])
@@ -50,6 +53,7 @@ for module in cython_modules:
 optional_dependencies = {
     "testing": ["testflo>=1.4.7"],
     "openvsp": ["openvsp>=3.31.1"],
+    "mphys": ["mphys>=1.1.0", "openmdao>=3.25.0"],
 }
 
 # Add an optional dependency that concatenates all others
@@ -62,7 +66,7 @@ optional_dependencies["all"] = sorted(
 )
 
 setup(name='vspaero',
-      version='6.4.5',
+      version='6.4.8',
       install_requires=['numpy'],
       extras_require=optional_dependencies,
       packages=find_packages(include=['vspaero*']),

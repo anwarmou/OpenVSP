@@ -141,6 +141,8 @@ public:
 
     virtual void AddDefaultSources();
     virtual void AddDefaultSourcesCurrGeom();
+
+    virtual void Update();
     virtual void UpdateSourcesAndWakes();
     virtual void UpdateDomain();
 
@@ -211,6 +213,10 @@ public:
         return &m_CfdGridDensity;
     }
 
+    void FindDegenCorners();
+    void AddDegenCornerChains();
+
+
 protected:
 
     /*
@@ -232,6 +238,9 @@ protected:
     vector<Face*> m_BadFaces;
     vector< Node* > m_nodeStore;
 
+    vector< IPnt* > m_DegenCorners;
+    vector< ISegChain* > m_DegenCornerChains;
+
 private:
     DrawObj m_MeshBadEdgeDO;
     DrawObj m_MeshBadTriDO;
@@ -241,6 +250,10 @@ private:
     DrawObj m_BBoxLineStripSymSplit;
     DrawObj m_BBoxLineSymSplit;
     vector< DrawObj > m_TagDO;
+    vector< DrawObj > m_ReasonDO;
+
+    DrawObj m_DegenCornerPointDO;
+    DrawObj m_DegenCornerEdgeDO;
 
 };
 

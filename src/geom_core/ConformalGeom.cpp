@@ -31,18 +31,54 @@ ConformalGeom::ConformalGeom( Vehicle* vehicle_ptr ) : Geom( vehicle_ptr )
     m_UTrimMax.Init( "UTrimMax", "Design", this, 0.9, 0.0, 0.9999 );
     m_UTrimMax.SetDescript( "Max U Trim Value" );
 
+    m_UMinTrimTypeFlag.Init( "UMinTrimTypeFalg", "Design", this, 0, 0, 1 );
+    m_UMaxTrimTypeFlag.Init( "UMaxTrimTypeFalg", "Design", this, 0, 0, 1 );
+
+    m_LTrimMin.Init( "LTrimMin", "Design", this, 0.1, 0.0, 0.9999 );
+    m_L01Min.Init( "L01Min", "Design", this, true, false, true );
+    m_L0LenTrimMin.Init( "L0LenTrimMin", "Design", this, 0, 0, 1e12 );
+
+    m_LTrimMax.Init( "LTrimMax", "Design", this, 0.9, 0.0, 0.9999 );
+    m_L01Max.Init( "L01Max", "Design", this, true, false, true );
+    m_L0LenTrimMax.Init( "L0LenTrimMax", "Design", this, 0, 0, 1e12 );
+
+    // End Cap Options
+    m_CapUMinTrimOption.Init("CapUMinTrimOption", "EndCap", this, FLAT_END_CAP, NO_END_CAP, NUM_END_CAP_OPTIONS - 1 );
+    m_CapUMinTrimOption.SetDescript("Type of End Cap on UMin end");
+
+    m_CapUMinTrimLength.Init( "CapUMinTrimLength", "EndCap", this, 1, 0, 20 );
+    m_CapUMinTrimLength.SetDescript( "Scaled length of end cap" );
+    m_CapUMinTrimOffset.Init( "CapUMinTrimOffset", "EndCap", this, 0, -20, 20 );
+    m_CapUMinTrimOffset.SetDescript( "Scaled offset of end cap" );
+    m_CapUMinTrimStrength.Init( "CapUMinTrimStrength", "EndCap", this, 0.5, 0, 1 );
+    m_CapUMinTrimStrength.SetDescript( "Tangent strength of end cap" );
+    m_CapUMinTrimSweepFlag.Init( "CapUMinTrimSweepFlag", "EndCap", this, 0, 0, 1 );
+    m_CapUMinTrimSweepFlag.SetDescript( "Flag to stretch end cap length for sweep" );
+
+    m_CapUMaxTrimOption.Init("CapUMaxTrimOption", "EndCap", this, FLAT_END_CAP, NO_END_CAP, NUM_END_CAP_OPTIONS - 1 );
+    m_CapUMaxTrimOption.SetDescript("Type of End Cap on UMax end");
+
+    m_CapUMaxTrimLength.Init( "CapUMaxTrimLength", "EndCap", this, 1, 0, 20 );
+    m_CapUMaxTrimLength.SetDescript( "Scaled length of end cap" );
+    m_CapUMaxTrimOffset.Init( "CapUMaxTrimOffset", "EndCap", this, 0, -20, 20 );
+    m_CapUMaxTrimOffset.SetDescript( "Scaled offset of end cap" );
+    m_CapUMaxTrimStrength.Init( "CapUMaxTrimStrength", "EndCap", this, 0.5, 0, 1 );
+    m_CapUMaxTrimStrength.SetDescript( "Tangent strength of end cap" );
+    m_CapUMaxTrimSweepFlag.Init( "CapUMaxTrimSweepFlag", "EndCap", this, 0, 0, 1 );
+    m_CapUMaxTrimSweepFlag.SetDescript( "Flag to stretch end cap length for sweep" );
+
     m_V1TrimFlag.Init( "V1TrimFlag", "Design", this, false, 0, 1 );
     m_V1TrimFlag.SetDescript( "Trim in V Direction Flag" );
-    m_V1TrimBegin.Init( "V1TrimBegin", "Design", this, 0.3, 0.0, 1.0 );
+    m_V1TrimBegin.Init( "V1TrimBegin", "Design", this, 0.9, 0.0, 1.0 );
     m_V1TrimBegin.SetDescript( "Begin V Trim Value" );
-    m_V1TrimEnd.Init( "V1TrimEnd", "Design", this, 1.0, 0.0, 1.0 );
+    m_V1TrimEnd.Init( "V1TrimEnd", "Design", this, 0.1, 0.0, 1.0 );
     m_V1TrimEnd.SetDescript( "End V Trim Value" );
 
     m_V2TrimFlag.Init( "V2TrimFlag", "Design", this, false, 0, 1 );
     m_V2TrimFlag.SetDescript( "Trim in V Direction Flag" );
-    m_V2TrimBegin.Init( "V2TrimBegin", "Design", this, 0.25, 0.0, 1.0 );
+    m_V2TrimBegin.Init( "V2TrimBegin", "Design", this, 0.4, 0.0, 1.0 );
     m_V2TrimBegin.SetDescript( "Begin V Trim Value" );
-    m_V2TrimEnd.Init( "V2TrimEnd", "Design", this, 0.75, 0.0, 1.0 );
+    m_V2TrimEnd.Init( "V2TrimEnd", "Design", this, 0.6, 0.0, 1.0 );
     m_V2TrimEnd.SetDescript( "End V Trim Value" );
 
     m_ChordTrimFlag.Init( "ChordTrimFlag", "Design", this, false, 0, 1 );
@@ -51,6 +87,26 @@ ConformalGeom::ConformalGeom( Vehicle* vehicle_ptr ) : Geom( vehicle_ptr )
     m_ChordTrimMin.SetDescript( "Min Chord Trim Value" );
     m_ChordTrimMax.Init( "ChordTrimMax", "Design", this, 0.9, 0.0, 1.0 );
     m_ChordTrimMax.SetDescript( "Max Chord Trim Value" );
+
+    m_Side1TrimFlag.Init( "Side1TrimFlag", "Design", this, false, 0, 1 );
+    m_Side1TrimFlag.SetDescript( "Side1 trim flag" );
+    m_Side1Trim.Init( "Side1Trim", "Design", this, 0.1, 0.0, 1.0 );
+    m_Side1Trim.SetDescript( "Side1 Trim Value" );
+
+    m_Side2TrimFlag.Init( "Side2TrimFlag", "Design", this, false, 0, 1 );
+    m_Side2TrimFlag.SetDescript( "Side2 trim flag" );
+    m_Side2Trim.Init( "Side2Trim", "Design", this, 0.1, 0.0, 1.0 );
+    m_Side2Trim.SetDescript( "Side2 Trim Value" );
+
+    m_Side3TrimFlag.Init( "Side3TrimFlag", "Design", this, false, 0, 1 );
+    m_Side3TrimFlag.SetDescript( "Side3 trim flag" );
+    m_Side3Trim.Init( "Side3Trim", "Design", this, 0.1, 0.0, 1.0 );
+    m_Side3Trim.SetDescript( "Side3 Trim Value" );
+
+    m_Side4TrimFlag.Init( "Side4TrimFlag", "Design", this, false, 0, 1 );
+    m_Side4TrimFlag.SetDescript( "Side4 trim flag" );
+    m_Side4Trim.Init( "Side4Trim", "Design", this, 0.1, 0.0, 1.0 );
+    m_Side4Trim.SetDescript( "Side4 Trim Value" );
 
     m_WingParentFlag = false;
     m_TessU = 41;
@@ -192,11 +248,27 @@ void ConformalGeom::CopyDataFrom( Geom* geom_ptr )
 
     m_ULoc.Deactivate();
     m_WLoc.Deactivate();
+    m_RLoc.Deactivate();
+    m_SLoc.Deactivate();
+    m_TLoc.Deactivate();
+    m_LLoc.Deactivate();
+    m_MLoc.Deactivate();
+    m_NLoc.Deactivate();
 
     //==== Copy Cap Options ====//
     m_CapUMinOption = geom_ptr->m_CapUMinOption();
     m_CapUMinTess   = geom_ptr->m_CapUMinTess();
     m_CapUMaxOption = geom_ptr->m_CapUMaxOption();
+
+    m_CapUMinLength = geom_ptr->m_CapUMinLength();
+    m_CapUMinOffset = geom_ptr->m_CapUMinOffset();
+    m_CapUMinStrength = geom_ptr->m_CapUMinStrength();
+    m_CapUMinSweepFlag = geom_ptr->m_CapUMinSweepFlag();
+
+    m_CapUMaxLength = geom_ptr->m_CapUMaxLength();
+    m_CapUMaxOffset = geom_ptr->m_CapUMaxOffset();
+    m_CapUMaxStrength = geom_ptr->m_CapUMaxStrength();
+    m_CapUMaxSweepFlag = geom_ptr->m_CapUMaxSweepFlag();
 
     //=== Let User Change Tess
     //m_TessU = geom_ptr->m_TessU();
@@ -727,12 +799,68 @@ void ConformalGeom::SetWingTrimParms(  VspSurf & surf )
 
 }
 
+// Possibly disable spanwise offset for wings.  As option.  Probably future work.
+// Someday add span fraction coordinate for wings (eta).  do when spanwise coordinate for control surfaces is done.
+// Posibly make U1 and U2 trimming separate options - if compatible means can be figured out.
+
 //==== Trim In U Direction - Use Flat Cap ====//
 void ConformalGeom::TrimU( VspSurf & surf )
 {
     if ( !m_UTrimFlag() )
     {
         return;
+    }
+
+    double lmax = surf.GetLMax();
+
+    if ( m_UMinTrimTypeFlag() == 0 ) // Trim based on U.
+    {
+        double l, m, n;
+        surf.ConvertRSTtoLMN( m_UTrimMin(), 0.5, 0.5, l, m, n );
+        m_LTrimMin.Set( l );
+        m_L0LenTrimMin.Set( m_LTrimMin() * lmax );
+    }
+    else // Trim based on L.
+    {
+        if ( m_L01Min() )
+        {
+            m_L0LenTrimMin.Set( m_LTrimMin() * lmax );
+        }
+        else
+        {
+            double val = clamp( m_L0LenTrimMin(), 0.0, lmax );
+            m_L0LenTrimMin.Set( val );
+            m_LTrimMin.Set( val / lmax );
+        }
+
+        double r, s, t;
+        surf.ConvertLMNtoRST( m_LTrimMin(), 0.5, 0.5, r, s, t );
+        m_UTrimMin.Set( r );
+    }
+
+    if ( m_UMaxTrimTypeFlag() == 0 ) // Trim based on U.
+    {
+        double l, m, n;
+        surf.ConvertRSTtoLMN( m_UTrimMax(), 0.5, 0.5, l, m, n );
+        m_LTrimMax.Set( l );
+        m_L0LenTrimMax.Set( m_LTrimMax() * lmax );
+    }
+    else // Trim based on L.
+    {
+        if ( m_L01Max() )
+        {
+            m_L0LenTrimMax.Set( m_LTrimMax() * lmax );
+        }
+        else
+        {
+            double val = clamp( m_L0LenTrimMax(), 0.0, lmax );
+            m_L0LenTrimMax.Set( val );
+            m_LTrimMax.Set( val / lmax );
+        }
+
+        double r, s, t;
+        surf.ConvertLMNtoRST( m_LTrimMax(), 0.5, 0.5, r, s, t );
+        m_UTrimMax.Set( r );
     }
 
     // Prevent UTrim crossover.
@@ -770,201 +898,105 @@ void ConformalGeom::TrimU( VspSurf & surf )
     *bez_surface = s4;
 
     bez_surface->set_u0( u_min );
+    bez_surface->set_umax( ceil( bez_surface->get_umax() ) );
 
-    m_CapUMinOption = vsp::FLAT_END_CAP;
-    m_CapUMaxOption = vsp::FLAT_END_CAP;
+    m_CapUMinOption = m_CapUMinTrimOption();
+    m_CapUMaxOption = m_CapUMaxTrimOption();
+
+    m_CapUMinLength = m_CapUMinTrimLength();
+    m_CapUMinOffset = m_CapUMinTrimOffset();
+    m_CapUMinStrength = m_CapUMinTrimStrength();
+    m_CapUMinSweepFlag = m_CapUMinTrimSweepFlag();
+
+    m_CapUMaxLength = m_CapUMaxTrimLength();
+    m_CapUMaxOffset = m_CapUMaxTrimOffset();
+    m_CapUMaxStrength = m_CapUMaxTrimStrength();
+    m_CapUMaxSweepFlag = m_CapUMaxTrimSweepFlag();
 
 }
 
-//==== Trim In V Direction ====//
 void ConformalGeom::TrimV( VspSurf & surf )
 {
-    double cap_offset = 0.001;
+    double v_max = surf.GetWMax();
 
-    if (!m_V1TrimFlag() && !m_V2TrimFlag() )
-    {
-        return;
-    }
-
-    piecewise_surface_type* bez_surface = surf.GetBezierSurface();
-    piecewise_surface_type s1, s2, s3, s4, s5, s6, temp_surf;
-    piecewise_surface_type::index_type ip, jp, nupatch, nvpatch;
-
-    //==== Find Trim Values =====//
-    double v_max = bez_surface->get_vmax();
-    double tb1 = v_max*m_V1TrimBegin();
-    double te1 = v_max*m_V1TrimEnd();
-    double tb2 = v_max*m_V2TrimBegin();
-    double te2 = v_max*m_V2TrimEnd();
-
-    //==== Move A Bit To Allow For Cap ====//
-    if ( tb1 < cap_offset )
-    {
-        tb1 = cap_offset;
-    }
-    if ( tb2 < cap_offset )
-    {
-        tb2 = cap_offset;
-    }
-
-    s1 = *bez_surface;
     if ( m_V1TrimFlag() )
     {
-        s1.split_v( tb1 );
-        s1.split_v( te1 );
-        //==== Cap Split ====//
-        s1.split_v( tb1 - cap_offset );
+        double tb1 = v_max * m_V1TrimBegin();
+        double te1 = v_max * m_V1TrimEnd();
+
+        while ( tb1 >= v_max )
+        {
+            tb1 -= v_max;
+        }
+        while ( te1 >= v_max )
+        {
+            te1 -= v_max;
+        }
+
+        surf.TrimClosedV( tb1, te1 );
     }
 
-    if (  m_V2TrimFlag() )
+    if ( m_V2TrimFlag() )
     {
-        s1.split_v( tb2 );
-        s1.split_v( te2 );
+        double tb2 = v_max * m_V2TrimBegin();
+        double te2 = v_max * m_V2TrimEnd();
 
-        //==== Cap Split ====//
-        s1.split_v( tb2 - cap_offset );
+        while ( tb2 >= v_max )
+        {
+            tb2 -= v_max;
+        }
+        while ( te2 >= v_max )
+        {
+            te2 -= v_max;
+        }
+
+        surf.TrimClosedV( tb2, te2 );
     }
 
-    //==== Find Patches ====//
-    vector< double > pmap;
-    s1.get_pmap_v( pmap );
-    int b1, e1, b2, e2;
-    b1 = e1 = b2 = e2 = -1;
-    for ( int i = 0 ; i < pmap.size() ; i++ )
+    if ( m_Side1TrimFlag() )
     {
-        if ( m_V1TrimFlag() )
-        {
-            if ( std::abs( pmap[i] - tb1 )  < DBL_EPSILON )
-            {
-                b1 = i;
-            }
-            if ( std::abs( pmap[i] - te1 )  < DBL_EPSILON )
-            {
-                e1 = i;
-            }
-        }
-        if ( m_V2TrimFlag() )
-        {
-            if ( std::abs( pmap[i] - tb2 )  < DBL_EPSILON )
-            {
-                b2 = i;
-            }
-            if ( std::abs( pmap[i] - te2 )  < DBL_EPSILON )
-            {
-                e2 = i;
-            }
-        }
+        double b = v_max * ( 1.0 - m_Side1Trim() * 0.5 );
+        double e = v_max * m_Side1Trim() * 0.5;
+
+        b = clampCyclic( b, 0.0, v_max );
+        e = clampCyclic( e, 0.0, v_max );
+
+        surf.TrimClosedV( b, e );
     }
 
-    //==== Total Number Of Patches ====//
-    nupatch = s1.number_u_patches();
-    nvpatch = s1.number_v_patches();
-
-    //==== Build List Of Trim/No Trim Patches ====//
-    int start_index = 0;
-    vector< int > patch_types;
-    patch_types.resize( nvpatch, 0 );   // 0 - Use, 1 - Trim
-    for ( int i = 0 ; i < nvpatch ; i++ )
+    if ( m_Side2TrimFlag() )
     {
-        if ( b1 >= 0 && e1 >= 0 )
-        {
-            if ( b1 < e1 && ( i >=  b1 && i < e1 ) )
-            {
-                patch_types[i] = 1;
-            }
-            else if ( e1 < b1 && i < e1  )
-            {
-                patch_types[i] = 1;
-            }
-            else if ( e1 < b1 && i >= b1  )
-            {
-                patch_types[i] = 1;
-            }
-        }
-        if ( b2 >= 0 && e2 >= 0 )
-        {
-            if ( b2 < e2 && ( i >=  b2 && i < e2 ) )
-            {
-                patch_types[i] = 1;
-            }
-            else if ( e2 < b2 && i < e2  )
-            {
-                patch_types[i] = 1;
-            }
-            else if ( e2 < b2 && i >= b2  )
-            {
-                patch_types[i] = 1;
-            }
-        }
-        if ( patch_types[i] )
-        {
-            start_index = i;
-        }
+        double b = v_max * ( 0.5 - m_Side2Trim() * 0.5 );
+        double e = v_max * ( 0.5 + m_Side2Trim() * 0.5 );
+
+        b = clampCyclic( b, 0.0, v_max );
+        e = clampCyclic( e, 0.0, v_max );
+
+        surf.TrimClosedV( b, e );
     }
 
-    //==== Find Used Patches  ====//
-    vector< int > used_patch_vec;
-    for ( int i = 0 ; i < nvpatch ; i++ )
+    if ( m_Side3TrimFlag() )
     {
-        int index = (i + start_index)%nvpatch;
-        if ( patch_types[index] == 0 )
-        {
-            used_patch_vec.push_back(index);
-        }
+        double b = v_max * ( 0.25 - m_Side3Trim() * 0.5 );
+        double e = v_max * ( 0.25 + m_Side3Trim() * 0.5 );
+
+        b = clampCyclic( b, 0.0, v_max );
+        e = clampCyclic( e, 0.0, v_max );
+
+        surf.TrimClosedV( b, e );
     }
 
-    //===== Build Capped Surface ====//
-    piecewise_surface_type capped_surf;
-    capped_surf.init_uv( nupatch, used_patch_vec.size() );
-
-    for( ip = 0; ip < nupatch; ++ip )
+    if ( m_Side4TrimFlag() )
     {
-        for ( jp = 0 ; jp < used_patch_vec.size() ; ++jp )
-        {
-            int pid = used_patch_vec[jp];
-            surface_patch_type *patch = s1.get_patch( ip, pid );
-            capped_surf.set( *patch, ip, jp );
-        }
+        double b = v_max * ( 0.75 - m_Side4Trim() * 0.5 );
+        double e = v_max * ( 0.75 + m_Side4Trim() * 0.5 );
+
+        b = clampCyclic( b, 0.0, v_max );
+        e = clampCyclic( e, 0.0, v_max );
+
+        surf.TrimClosedV( b, e );
     }
 
-    //==== Cap Trimmed Part ====//
-    for ( int i = 1 ; i < (int)used_patch_vec.size() ; i++ )
-    {
-        //==== Look For Gap
-        if ( ( used_patch_vec[i] - used_patch_vec[i-1] ) > 1 )
-        {
-            CapTrimmedSurf( capped_surf, i, i-1 );
-        }
-    }
-
-    //==== Cap Last Trim
-    CapTrimmedSurf( capped_surf, 0, capped_surf.number_v_patches()-1 );
-    *bez_surface = capped_surf;
-
-}
-
-//==== Cap Trimmed Surface In V Direction ====//
-void ConformalGeom::CapTrimmedSurf( piecewise_surface_type & psurf, int match_index, int stretch_index )
-{
-    piecewise_surface_type::index_type nupatch;
-
-    nupatch = psurf.number_u_patches();
-    for ( int ip = 0 ; ip < nupatch ; ++ip )
-    {
-        surface_patch_type::index_type icp, nu, nv;
-
-        surface_patch_type *match_v_patch = psurf.get_patch( ip, match_index );
-        surface_patch_type *stretch_v_patch = psurf.get_patch( ip, stretch_index );
-
-        nu = match_v_patch->degree_u();
-        nv = match_v_patch->degree_v();
-
-        for( icp = 0; icp <= nu; ++icp )
-        {
-            surface_patch_type::point_type p = match_v_patch->get_control_point( icp, 0 );
-            stretch_v_patch->set_control_point( p, icp, nv );
-        }
-    }
 }
 
 //==== Find Distances At Point Along Curve To Surf =====//

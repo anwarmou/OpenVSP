@@ -410,8 +410,9 @@ void Input::SetValAndLimits( Parm* parm_ptr )
 
     if ( CheckValUpdate( new_val ) )
     {
-        snprintf( m_Str, sizeof( m_Str ), m_Format.c_str(), new_val );
-        m_Input->value( m_Str );
+        char buf[256];
+        snprintf( buf, sizeof( buf ), m_Format.c_str(), new_val );
+        m_Input->value( buf );
     }
     m_LastVal = new_val;
 
@@ -506,15 +507,16 @@ void Output::SetValAndLimits( Parm* parm_ptr )
 
     if ( CheckValUpdate( new_val ) || m_NewFormat )
     {
-        snprintf( m_Str, sizeof( m_Str ), m_Format.c_str(), new_val );
+        char buf[256];
+        snprintf( buf, sizeof( buf ), m_Format.c_str(), new_val );
 
         if ( m_Suffix != string() )
         {
-            string tmp = string( m_Str );
-            snprintf( m_Str, sizeof( m_Str ), "%s %s", tmp.c_str(), m_Suffix.c_str() );
+            string tmp = string( buf );
+            snprintf( buf, sizeof( buf ), "%s %s", tmp.c_str(), m_Suffix.c_str() );
         }
 
-        m_Output->value( m_Str );
+        m_Output->value( buf );
         m_NewFormat = false;
     }
     m_LastVal = new_val;
@@ -1006,6 +1008,18 @@ void SliderAdjRange2Input::Deactivate()
     {
         m_ParmButton.Deactivate();
     }
+}
+
+void SliderAdjRange2Input::ActivateInput1()
+{
+    m_Input1.Activate();
+    m_Input2.Deactivate();
+}
+
+void SliderAdjRange2Input::ActivateInput2()
+{
+    m_Input1.Deactivate();
+    m_Input2.Activate();
 }
 
 //=====================================================================//
@@ -1571,6 +1585,15 @@ void TriggerButton::SetColor( Fl_Color c )
     }
 }
 
+void TriggerButton::SetLabelColor( Fl_Color c )
+{
+    if ( m_Button )
+    {
+        m_Button->labelcolor( c );
+        m_Button->damage( 1 );
+    }
+}
+
 //==== Gets the underlying fl button ====//
 Fl_Button* TriggerButton::GetFlButton()
 {
@@ -1856,7 +1879,6 @@ FractParmSlider::FractParmSlider() : GuiDevice()
     m_Format = string( " %7.5f" );
 }
 
-
 //==== Init ====//
 void FractParmSlider::Init( VspScreen* screen, Fl_Slider* slider, Fl_Button* lbutton,
                             Fl_Button* rbutton, Fl_Input* fract_input, Fl_Input* result_input,
@@ -1935,8 +1957,9 @@ void FractParmSlider::SetValAndLimits( Parm* parm_ptr )
 
         if ( CheckValUpdate( new_val ) )
         {
-            snprintf( m_Str, sizeof( m_Str ), m_Format.c_str(), new_val );
-            m_ResultFlInput->value( m_Str );
+            char buf[256];
+            snprintf( buf, sizeof( buf ), m_Format.c_str(), new_val );
+            m_ResultFlInput->value( buf );
         }
         m_LastVal = new_val;
     }
@@ -2191,8 +2214,9 @@ void IndexSelector::SetIndex( int index )
 
     if ( m_Input  )
     {
-        snprintf( m_Str, sizeof( m_Str ), "   %d", m_Index );
-        m_Input->value( m_Str );
+        char buf[256];
+        snprintf( buf, sizeof( buf ), "   %d", m_Index );
+        m_Input->value( buf );
     }
 }
 
@@ -2438,6 +2462,8 @@ void ParmPicker::Deactivate()
 
 void ParmPicker::Update( )
 {
+    static string dummymenuentry = GenerateRandomID( 14 );
+
     int i;
     char str[256];
 
@@ -2458,7 +2484,8 @@ void ParmPicker::Update( )
     for ( i = 0 ; i < ( int )containerNameVec.size() ; i++ )
     {
         snprintf( str, sizeof( str ), "%d-%s", i,  containerNameVec[i].c_str() );
-        m_ContainerChoice->add( str );
+        m_ContainerChoice->add( dummymenuentry.c_str(), 0, 0, 0, 0 );
+        m_ContainerChoice->replace( i, str );
     }
     m_ContainerChoice->value( ind );
 
@@ -2468,7 +2495,8 @@ void ParmPicker::Update( )
     ind = LinkMgr.GetCurrGroupNameVec( m_ParmIDChoice, groupNameVec );
     for ( i = 0 ; i < ( int )groupNameVec.size() ; i++ )
     {
-        m_GroupChoice->add( groupNameVec[i].c_str() );
+        m_GroupChoice->add( dummymenuentry.c_str(), 0, 0, 0, 0 );
+        m_GroupChoice->replace( i, groupNameVec[i].c_str() );
     }
     m_GroupChoice->value( ind );
 
@@ -2479,7 +2507,8 @@ void ParmPicker::Update( )
     vector< string > parmNameVec = FindParmNames( parmIDVec );
     for ( i = 0 ; i < ( int )parmNameVec.size() ; i++ )
     {
-        m_ParmChoice->add( parmNameVec[i].c_str() );
+        m_ParmChoice->add( dummymenuentry.c_str(), 0, 0, 0, 0 );
+        m_ParmChoice->replace( i, parmNameVec[i].c_str() );
     }
     m_ParmChoice->value( ind );
 
@@ -3453,10 +3482,13 @@ void GeomPicker::Deactivate()
 
 void GeomPicker::Update( )
 {
+    static string dummymenuentry = GenerateRandomID( 14 );
+
     //==== Load Geom Choice ====//
     vector< string > allGeomVec = m_Vehicle->GetGeomVec();
     m_GeomVec.clear();
     m_GeomChoice->clear();
+    int add_count = 0;
     for ( int i = 0 ; i < ( int )allGeomVec.size() ; i++ )
     {
         Geom* g = m_Vehicle->FindGeom( allGeomVec[i] );
@@ -3499,7 +3531,9 @@ void GeomPicker::Update( )
 
                     char str[256];
                     snprintf( str, sizeof( str ), "%d_%s", i, g->GetName().c_str() );
-                    m_GeomChoice->add( str );
+                    m_GeomChoice->add( dummymenuentry.c_str(), 0, 0, 0, 0 );
+                    m_GeomChoice->replace( add_count, str );
+                    add_count++;
                 }
             }
         }

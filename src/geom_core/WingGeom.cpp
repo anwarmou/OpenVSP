@@ -658,6 +658,46 @@ WingSect::WingSect( XSecCurve *xsc ) : BlendWingSect( xsc)
     m_TipCluster.SetDescript( "Outboard Tess Cluster Control" );
 }
 
+//==== Parm Changed ====//
+void WingSect::ParmChanged( Parm* parm_ptr, int type )
+{
+    if ( parm_ptr == &m_RootChord )
+    {
+        XSecSurf *xss = dynamic_cast< XSecSurf * > ( GetParentContainerPtr() );
+        if ( xss )
+        {
+            WingGeom *wg = dynamic_cast< WingGeom * > ( xss->GetParentContainerPtr() );
+            if ( wg )
+            {
+                wg->ChangeRC( parm_ptr, this );
+            }
+        }
+    }
+
+    if ( type == Parm::SET )
+    {
+        m_LateUpdateFlag = true;
+
+        //==== Notify Parent Container (XSecSurf) ====//
+        ParmContainer* pc = GetParentContainerPtr();
+        if ( pc )
+        {
+            pc->ParmChanged( parm_ptr, type );
+        }
+
+        return;
+    }
+
+    Update();
+
+    //==== Notify Parent Container (XSecSurf) ====//
+    ParmContainer* pc = GetParentContainerPtr();
+    if ( pc )
+    {
+        pc->ParmChanged( parm_ptr, type );
+    }
+}
+
 //==== Set Scale ====//
 void WingSect::SetScale( double scale )
 {
@@ -2220,7 +2260,15 @@ void WingGeom::UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vecto
         tessvec.push_back( m_CapUMinTess() );
         rootc.push_back( 1.0 );
         tipc.push_back( 1.0 );
-        umerge.push_back( 1 );
+
+        if ( m_CapUMinOption() <= POINT_END_CAP )
+        {
+            umerge.push_back( 1 );
+        }
+        else
+        {
+            umerge.push_back( 2 );
+        }
     }
 
     for ( int i = 0; i < m_TessUVec.size(); i++ )
@@ -2236,7 +2284,15 @@ void WingGeom::UpdateTesselate( const vector<VspSurf> &surf_vec, int indx, vecto
         tessvec.push_back( m_CapUMinTess() );
         rootc.push_back( 1.0 );
         tipc.push_back( 1.0 );
-        umerge.push_back( 1 );
+
+        if ( m_CapUMaxOption() <= POINT_END_CAP )
+        {
+            umerge.push_back( 1 );
+        }
+        else
+        {
+            umerge.push_back( 2 );
+        }
     }
 
     surf_vec[indx].SetRootTipClustering( rootc, tipc );
@@ -2255,7 +2311,15 @@ void WingGeom::UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, 
         tessvec.push_back( m_CapUMinTess() );
         rootc.push_back( 1.0 );
         tipc.push_back( 1.0 );
-        umerge.push_back( 1 );
+
+        if ( m_CapUMinOption() <= POINT_END_CAP )
+        {
+            umerge.push_back( 1 );
+        }
+        else
+        {
+            umerge.push_back( 2 );
+        }
     }
 
     for ( int i = 0; i < m_TessUVec.size(); i++ )
@@ -2271,7 +2335,15 @@ void WingGeom::UpdateSplitTesselate( const vector<VspSurf> &surf_vec, int indx, 
         tessvec.push_back( m_CapUMinTess() );
         rootc.push_back( 1.0 );
         tipc.push_back( 1.0 );
-        umerge.push_back( 1 );
+
+        if ( m_CapUMaxOption() <= POINT_END_CAP )
+        {
+            umerge.push_back( 1 );
+        }
+        else
+        {
+            umerge.push_back( 2 );
+        }
     }
 
     surf_vec[indx].SetRootTipClustering( rootc, tipc );
@@ -2312,13 +2384,11 @@ void WingGeom::UpdateDrawObj()
 {
     Geom::UpdateDrawObj();
 
-    Matrix4d attachMat;
     Matrix4d relTrans;
-    attachMat = ComposeAttachMatrix();
-    relTrans = attachMat;
+    relTrans = m_AttachMatrix;
     relTrans.affineInverse();
     relTrans.matMult( m_ModelMatrix.data() );
-    relTrans.postMult( attachMat.data() );
+    relTrans.postMult( m_AttachMatrix.data() );
 
     unsigned int nxsec = m_XSecSurf.NumXSec();
     m_XSecDrawObj_vec.resize( nxsec, DrawObj() );
@@ -2335,11 +2405,10 @@ void WingGeom::UpdateHighlightDrawObj()
 {
     Matrix4d attachMat;
     Matrix4d relTrans;
-    attachMat = ComposeAttachMatrix();
-    relTrans = attachMat;
+    relTrans = m_AttachMatrix;
     relTrans.affineInverse();
     relTrans.matMult( m_ModelMatrix.data() );
-    relTrans.postMult( attachMat.data() );
+    relTrans.postMult( m_AttachMatrix.data() );
 
     m_HighlightXSecDrawObj.m_PntVec = m_XSecSurf.FindXSec( m_ActiveXSec() )->GetDrawLines( relTrans );
     m_HighlightXSecDrawObj.m_GeomChanged = true;
@@ -2807,4 +2876,16 @@ void WingGeom::OffsetXSecs( double off )
 
     GeomXSec::OffsetXSecs( off );
 
+}
+
+void WingGeom::ChangeRC( Parm * p, WingSect * sect )
+{
+    if ( sect == m_XSecSurf.FindXSec( 1 ) )
+    {
+        WingSect * ghost_sect = dynamic_cast< WingSect *> ( m_XSecSurf.FindXSec( 0 ) );
+        if ( ghost_sect )
+        {
+            ghost_sect->m_TipChord = p->Get();
+        }
+    }
 }

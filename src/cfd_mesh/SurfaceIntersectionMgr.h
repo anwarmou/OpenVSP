@@ -74,6 +74,7 @@
 #include "Vec3d.h"
 #include "DrawObj.h"
 #include "XferSurf.h"
+#include "BndBox.h"
 
 #include <cassert>
 
@@ -223,6 +224,7 @@ public:
 
     virtual void UpdateDrawObjs();
     virtual void LoadDrawObjs( vector< DrawObj* > & draw_obj_vec );
+    virtual bool GetVisBndBox( BndBox &bbox );
 
     virtual void UpdateDisplaySettings();
 
@@ -348,6 +350,11 @@ public:
     virtual void SetMeshInProgress( bool progress_flag )
     {
         m_MeshInProgress = progress_flag;
+    }
+
+    virtual int GetTotalNumSurfs()
+    {
+        return m_SurfVec.size();
     }
 
 protected:

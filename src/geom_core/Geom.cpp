@@ -483,19 +483,45 @@ GeomXForm::GeomXForm( Vehicle* vehicle_ptr ) : GeomBase( vehicle_ptr )
 
     // Attachment Parms
     m_AbsRelFlag.Init( "Abs_Or_Relitive_flag", "XForm", this, vsp::REL, vsp::ABS, vsp::REL );
-    m_TransAttachFlag.Init( "Trans_Attach_Flag", "Attach", this, vsp::ATTACH_TRANS_NONE, vsp::ATTACH_TRANS_NONE, vsp::ATTACH_TRANS_UV );
+    m_TransAttachFlag.Init( "Trans_Attach_Flag", "Attach", this, vsp::ATTACH_TRANS_NONE, vsp::ATTACH_TRANS_NONE, vsp::ATTACH_TRANS_NUM_TYPES - 1 );
     m_TransAttachFlag.SetDescript( "Determines relative translation coordinate system" );
-    m_RotAttachFlag.Init( "Rots_Attach_Flag", "Attach", this, vsp::ATTACH_ROT_NONE, vsp::ATTACH_ROT_NONE, vsp::ATTACH_ROT_UV );
+    m_RotAttachFlag.Init( "Rots_Attach_Flag", "Attach", this, vsp::ATTACH_ROT_NONE, vsp::ATTACH_ROT_NONE, vsp::ATTACH_ROT_NUM_TYPES - 1 );
     m_RotAttachFlag.SetDescript( "Determines relative rotation axes" );
-    m_ULoc.Init( "U_Attach_Location", "Attach", this, 1e-6, 1e-6, 1 - 1e-6 );
-    m_ULoc.SetDescript( "U Location of Parent's Surface" );
-    m_WLoc.Init( "V_Attach_Location", "Attach", this, 1e-6, 1e-6, 1 - 1e-6 );
-    m_WLoc.SetDescript( "V Location of Parent's Surface" );
+    m_ULoc.Init( "U_Attach_Location", "Attach", this, 0.0, 0.0, 1.0 );
+    m_ULoc.SetDescript( "U Location on parent's surface" );
+    m_U01.Init( "U_01", "Attach", this, true, false, true );
+    m_U01.SetDescript( "The U value is specified in [0, 1] basis or [0, N] basis." );
+    m_U0NLoc.Init( "U_Attach_Location0N", "Attach", this, 0, 0, 1e12 );
+    m_U0NLoc.SetDescript( "U Location on parent's surface on [0,N] basis." );
+    m_WLoc.Init( "V_Attach_Location", "Attach", this, 0.0, 0.0, 1.0 );
+    m_WLoc.SetDescript( "V Location on parent's surface" );
 
-    m_Scale.Init( "Scale", "XForm", this, 1, 1.0e-3, 1.0e3 );
+    m_RLoc.Init( "R_Attach_Location", "Attach", this, 0.0, 0.0, 1.0 );
+    m_RLoc.SetDescript( "R Location in parent's volume" );
+    m_R01.Init( "R_01", "Attach", this, true, false, true );
+    m_R01.SetDescript( "The R value is specified in [0, 1] basis or [0, N] basis." );
+    m_R0NLoc.Init( "R_Attach_Location0N", "Attach", this, 0, 0, 1e12 );
+    m_R0NLoc.SetDescript( "R Location in parent's volume on [0,N] basis." );
+    m_SLoc.Init( "S_Attach_Location", "Attach", this, 0.5, 0.0, 1.0 );
+    m_SLoc.SetDescript( "S Location in parent's volume" );
+    m_TLoc.Init( "T_Attach_Location", "Attach", this, 0.5, 0.0, 1.0 );
+    m_TLoc.SetDescript( "T Location in parent's volume" );
+
+    m_LLoc.Init( "L_Attach_Location", "Attach", this, 0.0, 0.0, 1.0 );
+    m_LLoc.SetDescript( "L Location in parent's volume" );
+    m_L01.Init( "L_01", "Attach", this, true, false, true );
+    m_L01.SetDescript( "The L value is specified in [0, 1] basis or dimensional basis." );
+    m_L0LenLoc.Init( "L_Attach_Location0Len", "Attach", this, 0, 0, 1e12 );
+    m_L0LenLoc.SetDescript( "L Location in parent's volume on [0,Len] basis." );
+    m_MLoc.Init( "M_Attach_Location", "Attach", this, 0.5, 0.0, 1.0 );
+    m_MLoc.SetDescript( "M Location in parent's volume" );
+    m_NLoc.Init( "N_Attach_Location", "Attach", this, 0.5, 0.0, 1.0 );
+    m_NLoc.SetDescript( "N Location in parent's volume" );
+
+    m_Scale.Init( "Scale", "XForm", this, 1, 1.0e-12, 1.0e12 );
     m_Scale.SetDescript( "Scale Geometry Size" );
 
-    m_LastScale.Init( "Last_Scale", "XForm", this, 1, 1.0e-3, 1.0e3 );
+    m_LastScale.Init( "Last_Scale", "XForm", this, 1, 1.0e-12, 1.0e12 );
     m_LastScale.SetDescript( "Last Scale Value" );
     m_LastScale = m_Scale();
 
@@ -513,7 +539,12 @@ GeomXForm::~GeomXForm()
 //==== Update ====//
 void GeomXForm::UpdateXForm()
 {
+    UpdateAttachParms();
+
     DeactivateXForms();
+
+    ComposeAttachMatrix();
+
     ComposeModelMatrix();
 
     double axlen = 1.0;
@@ -524,9 +555,7 @@ void GeomXForm::UpdateXForm()
         axlen = veh->m_AxisLength();
     }
 
-    Matrix4d attachedMat = ComposeAttachMatrix();
-
-    m_AttachOrigin = attachedMat.xform( vec3d( 0.0, 0.0, 0.0 ) );
+    m_AttachOrigin = m_AttachMatrix.xform( vec3d( 0.0, 0.0, 0.0 ) );
 
     m_AttachAxis.clear();
     m_AttachAxis.resize( 3 );
@@ -534,7 +563,185 @@ void GeomXForm::UpdateXForm()
     {
         vec3d pt = vec3d( 0.0, 0.0, 0.0 );
         pt.v[i] = axlen;
-        m_AttachAxis[i] = attachedMat.xform( pt );
+        m_AttachAxis[i] = m_AttachMatrix.xform( pt );
+    }
+}
+
+void GeomXForm::UpdateAttachParms()
+{
+    Geom* parent = m_Vehicle->FindGeom( GetParentID() );
+
+    if ( parent )
+    {
+        if ( parent->GetType().m_Type == MESH_GEOM_TYPE ||
+             parent->GetType().m_Type == WIRE_FRAME_GEOM_TYPE ||
+             parent->GetType().m_Type == BLANK_GEOM_TYPE ||
+             parent->GetType().m_Type == HINGE_GEOM_TYPE ||
+             parent->GetType().m_Type == HUMAN_GEOM_TYPE ||
+             parent->GetType().m_Type == PT_CLOUD_GEOM_TYPE )
+        {
+            return;
+        }
+
+        double umax = parent->GetMainUMapMax( 0 );
+        double lmax = parent->GetMainSurfPtr( 0 )->GetLMax();
+
+        m_U0NLoc.SetUpperLimit( umax );
+        m_R0NLoc.SetUpperLimit( umax );
+        m_L0LenLoc.SetUpperLimit( lmax );
+
+        if ( m_U01.Get() )
+        {
+            m_U0NLoc.Set( m_ULoc() * umax );
+        }
+        else
+        {
+            double val = clamp( m_U0NLoc(), 0.0, umax );
+            m_U0NLoc.Set( val );
+            m_ULoc.Set( val / umax );
+        }
+
+        if ( m_R01.Get() )
+        {
+            m_R0NLoc.Set( m_RLoc() * umax );
+        }
+        else
+        {
+            double val = clamp( m_R0NLoc(), 0.0, umax );
+            m_R0NLoc.Set( val );
+            m_RLoc.Set( val / umax );
+        }
+
+        if ( m_L01.Get() )
+        {
+            m_L0LenLoc.Set( m_LLoc() * lmax );
+        }
+        else
+        {
+            double val = clamp( m_L0LenLoc(), 0.0, lmax );
+            m_L0LenLoc.Set( val );
+            m_LLoc.Set( val / lmax );
+        }
+
+        // If UV is active in either way and RST is not active in any way, compute RST from UV.
+        if ( ( m_TransAttachFlag() == vsp::ATTACH_TRANS_UV || m_RotAttachFlag() == vsp::ATTACH_ROT_UV ) &&
+             ( m_TransAttachFlag() != vsp::ATTACH_TRANS_RST && m_RotAttachFlag() != vsp::ATTACH_ROT_RST ) )
+        {
+            double u, w;
+            u = m_ULoc();
+            w = m_WLoc();
+            double r, s, t;
+            r = u;
+            s = 2.0 * w;
+            if ( w > 0.5 )
+            {
+                s = 2.0 * ( 1.0 - w );
+            }
+            t = 0.5;
+
+            m_RLoc.Set( r );
+            m_R0NLoc.Set( m_RLoc() * umax );
+            m_SLoc.Set( s );
+            m_TLoc.Set( t );
+        }
+
+        // If UV is active in either way and LMN is not active in any way, compute LMN from UV.
+        if ( ( m_TransAttachFlag() == vsp::ATTACH_TRANS_UV || m_RotAttachFlag() == vsp::ATTACH_ROT_UV ) &&
+             ( m_TransAttachFlag() != vsp::ATTACH_TRANS_LMN && m_RotAttachFlag() != vsp::ATTACH_ROT_LMN ) )
+        {
+            double u, w;
+            u = m_ULoc();
+            w = m_WLoc();
+            double r, s, t;
+            r = u;
+            s = 2.0 * w;
+            if ( w > 0.5 )
+            {
+                s = 2.0 * ( 1.0 - w );
+            }
+            t = 0.5;
+
+
+            double l, m, n;
+
+            parent->ConvertRSTtoLMN( 0, r, s, t, l, m, n );
+            m_LLoc.Set( l );
+            m_L0LenLoc.Set( m_LLoc() * lmax );
+            m_MLoc.Set( m );
+            m_NLoc.Set( n );
+        }
+
+        // If RST is active in either way and LMN is not active in any way, compute LMN from RST.
+        if ( ( m_TransAttachFlag() == vsp::ATTACH_TRANS_RST || m_RotAttachFlag() == vsp::ATTACH_ROT_RST ) &&
+             ( m_TransAttachFlag() != vsp::ATTACH_TRANS_LMN && m_RotAttachFlag() != vsp::ATTACH_ROT_LMN ) )
+        {
+            double l, m, n;
+            parent->ConvertRSTtoLMN( 0, m_RLoc(), m_SLoc(), m_TLoc(), l, m, n );
+            m_LLoc.Set( l );
+            m_L0LenLoc.Set( m_LLoc() * lmax );
+            m_MLoc.Set( m );
+            m_NLoc.Set( n );
+        }
+
+        // If LMN is active in either way and RST is not active in any way, compute RST from LMN.
+        if ( ( m_TransAttachFlag() == vsp::ATTACH_TRANS_LMN || m_RotAttachFlag() == vsp::ATTACH_ROT_LMN ) &&
+             ( m_TransAttachFlag() != vsp::ATTACH_TRANS_RST && m_RotAttachFlag() != vsp::ATTACH_ROT_RST ) )
+        {
+            double r, s, t;
+            parent->ConvertLMNtoRST( 0, m_LLoc(), m_MLoc(), m_NLoc(), r, s, t );
+            m_RLoc.Set( r );
+            m_R0NLoc.Set( m_RLoc() * umax );
+            m_SLoc.Set( s );
+            m_TLoc.Set( t );
+        }
+
+        // If RST is active in either way and UV is not active in any way, compute UV from RST.
+        if ( ( m_TransAttachFlag() == vsp::ATTACH_TRANS_RST || m_RotAttachFlag() == vsp::ATTACH_ROT_RST ) &&
+             ( m_TransAttachFlag() != vsp::ATTACH_TRANS_UV && m_RotAttachFlag() != vsp::ATTACH_ROT_UV ) )
+        {
+            double u, w;
+            double r = m_RLoc();
+            double s = m_SLoc();
+            double t = m_TLoc();
+
+            u = r;
+            if ( t < 0.5 )
+            {
+                w = 0.5 * s;
+            }
+            else
+            {
+                w = 1.0 - 0.5 * s;
+            }
+
+            m_ULoc.Set( u );
+            m_U0NLoc.Set( m_ULoc() * umax );
+            m_WLoc.Set( w );
+        }
+
+        // If LMN is active in either way and UV is not active in any way, compute UV from LMN.
+        if ( ( m_TransAttachFlag() == vsp::ATTACH_TRANS_LMN || m_RotAttachFlag() == vsp::ATTACH_ROT_LMN ) &&
+             ( m_TransAttachFlag() != vsp::ATTACH_TRANS_UV && m_RotAttachFlag() != vsp::ATTACH_ROT_UV ) )
+        {
+            double u, w;
+            double r, s, t;
+
+            parent->ConvertLMNtoRST( 0, m_LLoc(), m_MLoc(), m_NLoc(), r, s, t );
+
+            u = r;
+            if ( t < 0.5 )
+            {
+                w = 0.5 * s;
+            }
+            else
+            {
+                w = 1.0 - 0.5 * s;
+            }
+
+            m_ULoc.Set( u );
+            m_U0NLoc.Set( m_ULoc() * umax );
+            m_WLoc.Set( w );
+        }
     }
 }
 
@@ -544,8 +751,6 @@ void GeomXForm::ComposeModelMatrix()
     m_ModelMatrix.loadIdentity();
     ComputeCenter();
 
-    // Get Attament Matrix
-    Matrix4d attachedMat = ComposeAttachMatrix();
 
     if (  m_AbsRelFlag() ==  vsp::REL || ( m_ignoreAbsFlag && m_applyIgnoreAbsFlag ) )
     {
@@ -559,7 +764,7 @@ void GeomXForm::ComposeModelMatrix()
         m_ModelMatrix.translatef( -m_Center.x(), -m_Center.y(), -m_Center.z() );
 
         // Apply Attached Matrix to Relative Matrix
-        m_ModelMatrix.postMult( attachedMat.data() );
+        m_ModelMatrix.postMult( m_AttachMatrix.data() );
 
         // Update Absolute Parameters
         double tempMat[16];
@@ -585,6 +790,7 @@ void GeomXForm::ComposeModelMatrix()
         m_ModelMatrix.translatef( -m_Center.x(), -m_Center.y(), -m_Center.z() );
 
         // Update Relative Parameters
+        Matrix4d attachedMat = m_AttachMatrix;
         double tempMat[16];
         attachedMat.affineInverse();
         attachedMat.matMult( m_ModelMatrix.data() );
@@ -601,10 +807,9 @@ void GeomXForm::ComposeModelMatrix()
 
 }
 
-Matrix4d GeomXForm::ComposeAttachMatrix()
+void GeomXForm::ComposeAttachMatrix()
 {
-    Matrix4d attachedMat;
-    attachedMat.loadIdentity();
+    m_AttachMatrix.loadIdentity();
 
     Geom* parent = m_Vehicle->FindGeom( GetParentID() );
 
@@ -613,15 +818,15 @@ Matrix4d GeomXForm::ComposeAttachMatrix()
         HingeGeom* hingeparent = dynamic_cast < HingeGeom* > ( parent );
         if ( hingeparent )
         {
-            attachedMat = hingeparent->GetJointMatrix();
-            return attachedMat;
+            m_AttachMatrix = hingeparent->GetJointMatrix();
+            return;
         }
     }
 
     // If both attachment flags set to none, return identity
     if ( m_TransAttachFlag() == vsp::ATTACH_TRANS_NONE && m_RotAttachFlag() == vsp::ATTACH_ROT_NONE )
     {
-        return attachedMat;
+        return;
     }
 
     if ( parent )
@@ -644,21 +849,53 @@ Matrix4d GeomXForm::ComposeAttachMatrix()
         {
             if ( !( parent->CompTransCoordSys( 0, m_ULoc(), m_WLoc(), transMat )) )
             {
-                revertCompTrans = true; // Blank components revert to the component matrix.
+                revertCompTrans = true; // Any Geom without a surface reverts to the component matrix.
             }
         }
 
-        if ( m_RotAttachFlag() == vsp::ATTACH_ROT_UV )
+        if ( m_TransAttachFlag() == vsp::ATTACH_TRANS_RST )
         {
-            if ( !( parent->CompRotCoordSys( 0, m_ULoc(), m_WLoc(), rotMat )) )
+            if ( !( parent->CompTransCoordSysRST( 0, m_RLoc(), m_SLoc(), m_TLoc(), transMat )) )
             {
-                revertCompRot = true; // For blank component.
+                revertCompTrans = true; // Any Geom without a surface reverts to the component matrix.
+            }
+        }
+
+        if ( m_TransAttachFlag() == vsp::ATTACH_TRANS_LMN )
+        {
+            if ( !( parent->CompTransCoordSysLMN( 0, m_LLoc(), m_MLoc(), m_NLoc(), transMat )) )
+            {
+                revertCompTrans = true; // Any Geom without a surface reverts to the component matrix.
             }
         }
 
         if ( m_TransAttachFlag() == vsp::ATTACH_TRANS_COMP || revertCompTrans )
         {
             transMat.translatef( tempMat[12], tempMat[13], tempMat[14] );
+        }
+
+        if ( m_RotAttachFlag() == vsp::ATTACH_ROT_UV )
+        {
+            if ( !( parent->CompRotCoordSys( 0, m_ULoc(), m_WLoc(), rotMat )) )
+            {
+                revertCompRot = true; // Any Geom without a surface reverts to the component matrix.
+            }
+        }
+
+        if ( m_RotAttachFlag() == vsp::ATTACH_ROT_RST )
+        {
+            if ( !( parent->CompRotCoordSysRST( 0, m_RLoc(), m_SLoc(), m_TLoc(), rotMat )) )
+            {
+                revertCompRot = true; // Any Geom without a surface reverts to the component matrix.
+            }
+        }
+
+        if ( m_RotAttachFlag() == vsp::ATTACH_ROT_LMN )
+        {
+            if ( !( parent->CompRotCoordSysLMN( 0, m_LLoc(), m_MLoc(), m_NLoc(), rotMat )) )
+            {
+                revertCompRot = true; // Any Geom without a surface reverts to the component matrix.
+            }
         }
 
         if ( m_RotAttachFlag() == vsp::ATTACH_ROT_COMP || revertCompRot )
@@ -669,10 +906,9 @@ Matrix4d GeomXForm::ComposeAttachMatrix()
         }
 
         transMat.matMult( rotMat.data() );
-        attachedMat = transMat;
+        m_AttachMatrix = transMat;
     }
 
-    return attachedMat;
 }
 
 //==== Set Rel or Abs Flag ====//
@@ -712,20 +948,61 @@ void GeomXForm::DeactivateXForms()
         m_ZRot.Activate();
     }
 
+    m_ULoc.Activate();
+    m_U0NLoc.Activate();
+    m_WLoc.Activate();
+    m_RLoc.Activate();
+    m_R0NLoc.Activate();
+    m_SLoc.Activate();
+    m_TLoc.Activate();
+    m_LLoc.Activate();
+    m_L0LenLoc.Activate();
+    m_MLoc.Activate();
+    m_NLoc.Activate();
+    m_TransAttachFlag.Activate();
+    m_RotAttachFlag.Activate();
+
     if ( IsParentJoint() )
     {
         m_ULoc.Deactivate();
         m_WLoc.Deactivate();
+        m_RLoc.Deactivate();
+        m_SLoc.Deactivate();
+        m_TLoc.Deactivate();
+        m_LLoc.Deactivate();
+        m_MLoc.Deactivate();
+        m_NLoc.Deactivate();
         m_TransAttachFlag.Deactivate();
         m_RotAttachFlag.Deactivate();
     }
+
+    if ( m_U01() )
+    {
+        m_U0NLoc.Deactivate();
+    }
     else
     {
-        m_ULoc.Activate();
-        m_WLoc.Activate();
-        m_TransAttachFlag.Activate();
-        m_RotAttachFlag.Activate();
+        m_ULoc.Deactivate();
     }
+
+    if ( m_R01() )
+    {
+        m_R0NLoc.Deactivate();
+    }
+    else
+    {
+        m_RLoc.Deactivate();
+    }
+
+    if ( m_L01() )
+    {
+        m_L0LenLoc.Deactivate();
+    }
+    else
+    {
+        m_LLoc.Deactivate();
+    }
+
 }
 
 Matrix4d GeomXForm::GetAncestorAttachMatrix( int gen )
@@ -740,7 +1017,7 @@ Matrix4d GeomXForm::GetAncestorAttachMatrix( int gen )
 
     if ( gen == 0 )
     {
-        return ComposeAttachMatrix();
+        return getAttachMatrix();
     }
 
     string id = GetAncestorID( gen );
@@ -748,7 +1025,7 @@ Matrix4d GeomXForm::GetAncestorAttachMatrix( int gen )
     GeomXForm* ancestPtr = m_Vehicle->FindGeom( id );
     if ( ancestPtr )
     {
-        return ancestPtr->ComposeAttachMatrix();
+        return ancestPtr->getAttachMatrix();
     }
 
     atmat.loadIdentity();
@@ -933,9 +1210,8 @@ Geom::Geom( Vehicle* vehicle_ptr ) : GeomXForm( vehicle_ptr )
     m_CapUMinSweepFlag.Init( "CapUMinSweepFlag", "EndCap", this, 0, 0, 1 );
     m_CapUMinSweepFlag.SetDescript( "Flag to stretch end cap length for sweep" );
 
-    m_CapUMinTess.Init("CapUMinTess", "EndCap", this, 3, 3, 51);
+    m_CapUMinTess.Init("CapUMinTess", "EndCap", this, 3, 2, 51);
     m_CapUMinTess.SetDescript("Number of tessellated curves on capped ends");
-    m_CapUMinTess.SetMultShift(2, 1);
 
     m_CapUMaxOption.Init("CapUMaxOption", "EndCap", this, NO_END_CAP, NO_END_CAP, NUM_END_CAP_OPTIONS-1);
     m_CapUMaxOption.SetDescript("Type of End Cap on UMax end");
@@ -1151,6 +1427,7 @@ void Geom::Update( bool fullupdate )
         for ( int i = 0; i < m_MainSurfVec.size(); i++ )
         {
             m_MainSurfVec[i].InitUMapping();
+            m_MainSurfVec[i].BuildLCurve();
         }
     }
 
@@ -1373,6 +1650,18 @@ void Geom::UpdateEndCaps()
             break;
         case SHARP_END_CAP:
             break;
+        case ROUND_EXT_END_CAP_NONE:
+            m_CapUMinStrength = 1.0;
+            break;
+        case ROUND_EXT_END_CAP_LE:
+            m_CapUMinStrength = 1.0;
+            break;
+        case ROUND_EXT_END_CAP_TE:
+            m_CapUMinStrength = 1.0;
+            break;
+        case ROUND_EXT_END_CAP_BOTH:
+            m_CapUMinStrength = 1.0;
+            break;
     }
 
     switch( m_CapUMaxOption() ){
@@ -1389,6 +1678,18 @@ void Geom::UpdateEndCaps()
             m_CapUMaxStrength = 0.0;
             break;
         case SHARP_END_CAP:
+            break;
+        case ROUND_EXT_END_CAP_NONE:
+            m_CapUMaxStrength = 1.0;
+            break;
+        case ROUND_EXT_END_CAP_LE:
+            m_CapUMaxStrength = 1.0;
+            break;
+        case ROUND_EXT_END_CAP_TE:
+            m_CapUMaxStrength = 1.0;
+            break;
+        case ROUND_EXT_END_CAP_BOTH:
+            m_CapUMaxStrength = 1.0;
             break;
     }
 }
@@ -1664,8 +1965,8 @@ void Geom::UpdateChildren( bool fullupdate )
                 }
                 // Parent surf changed and child is UV attached
                 else if ( m_UpdateSurf &&
-                      ( ( child->m_RotAttachFlag() == vsp::ATTACH_ROT_UV ) ||
-                        ( child->m_TransAttachFlag() == vsp::ATTACH_TRANS_UV ) ) )
+                      ( ( child->m_RotAttachFlag() >= vsp::ATTACH_ROT_UV ) ||
+                        ( child->m_TransAttachFlag() >= vsp::ATTACH_TRANS_UV ) ) )
                 {
                     child->m_XFormDirty = true;
                 }
@@ -3255,7 +3556,7 @@ void Geom::LoadMainDrawObjs( vector< DrawObj* > & draw_obj_vec )
 
             case DRAW_TYPE::GEOM_DRAW_HIDDEN:
                 m_WireShadeDrawObj_vec[i].m_LineColor = lineColor;
-                m_WireShadeDrawObj_vec[i].m_Type = DrawObj::VSP_HIDDEN_MESH;
+                m_WireShadeDrawObj_vec[i].m_Type = DrawObj::VSP_WIRE_HIDDEN_MESH;
                 draw_obj_vec.push_back( &m_WireShadeDrawObj_vec[i] );
                 break;
 
@@ -3399,7 +3700,7 @@ void Geom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
 
             case DRAW_TYPE::GEOM_DRAW_HIDDEN:
                 m_DegenSurfDrawObj_vec[i].m_LineColor = lineColor;
-                m_DegenSurfDrawObj_vec[i].m_Type = DrawObj::VSP_HIDDEN_QUADS;
+                m_DegenSurfDrawObj_vec[i].m_Type = DrawObj::VSP_WIRE_HIDDEN_QUADS;
                 draw_obj_vec.push_back( &m_DegenSurfDrawObj_vec[i] );
                 break;
 
@@ -3462,7 +3763,7 @@ void Geom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
 
             case vsp::DRAW_TYPE::GEOM_DRAW_HIDDEN:
                 m_DegenPlateDrawObj_vec[i].m_LineColor = lineColor;
-                m_DegenPlateDrawObj_vec[i].m_Type = DrawObj::VSP_HIDDEN_QUADS;
+                m_DegenPlateDrawObj_vec[i].m_Type = DrawObj::VSP_WIRE_HIDDEN_QUADS;
                 draw_obj_vec.push_back( &m_DegenPlateDrawObj_vec[i] );
                 break;
 
@@ -3525,7 +3826,7 @@ void Geom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
 
             case DRAW_TYPE::GEOM_DRAW_HIDDEN:
                 m_DegenCamberPlateDrawObj_vec[i].m_LineColor = lineColor;
-                m_DegenCamberPlateDrawObj_vec[i].m_Type = DrawObj::VSP_HIDDEN_QUADS;
+                m_DegenCamberPlateDrawObj_vec[i].m_Type = DrawObj::VSP_WIRE_HIDDEN_QUADS;
                 draw_obj_vec.push_back( &m_DegenCamberPlateDrawObj_vec[i] );
                 break;
 
@@ -3619,12 +3920,22 @@ void Geom::CreateDegenGeom( vector <VspSurf> &surf_vec, const int &nsurf, vector
         surf_vec[i].ResetUSkip();
         if ( m_CapUMinSuccess[ m_SurfIndxVec[i] ] )
         {
-            surf_vec[i].SetUSkipFirst( true );
+            int nskip = 1;
+            if ( m_CapUMinOption() >= ROUND_EXT_END_CAP_NONE )
+            {
+                nskip++;
+            }
+            surf_vec[i].SetUSkipFirst( nskip, true );
             urootcap = true;
         }
         if ( m_CapUMaxSuccess[ m_SurfIndxVec[i] ] )
         {
-            surf_vec[i].SetUSkipLast( true );
+            int nskip = 1;
+            if ( m_CapUMaxOption() >= ROUND_EXT_END_CAP_NONE )
+            {
+                nskip++;
+            }
+            surf_vec[i].SetUSkipLast( nskip, true );
         }
 
         //==== Tesselate Surface ====//
@@ -3952,6 +4263,76 @@ bool Geom::CompTransCoordSys( const int &indx, const double &u, const double &w,
         return true;
     }
     return false;
+}
+
+bool Geom::CompRotCoordSysRST( const int &indx, const double &r, const double &s, const double &t, Matrix4d &rotmat )
+{
+    VspSurf* surf_ptr = GetSurfPtr( indx );
+    if ( surf_ptr )
+    {
+        rotmat = surf_ptr->CompRotCoordSysRST( r, s, t );
+        return true;
+    }
+    return false;
+}
+
+bool Geom::CompTransCoordSysRST( const int &indx, const double &r, const double &s, const double &t, Matrix4d &transmat )
+{
+    VspSurf* surf_ptr = GetSurfPtr( indx );
+    if ( surf_ptr )
+    {
+        transmat = surf_ptr->CompTransCoordSysRST( r, s, t );
+        return true;
+    }
+    return false;
+}
+
+bool Geom::CompRotCoordSysLMN( const int &indx, const double &l, const double &m, const double &n, Matrix4d &rotmat )
+{
+    VspSurf* surf_ptr = GetSurfPtr( indx );
+    if ( surf_ptr )
+    {
+        rotmat = surf_ptr->CompRotCoordSysLMN( l, m, n );
+        return true;
+    }
+    return false;
+}
+
+bool Geom::CompTransCoordSysLMN( const int &indx, const double &l, const double &m, const double &n, Matrix4d &transmat )
+{
+    VspSurf* surf_ptr = GetSurfPtr( indx );
+    if ( surf_ptr )
+    {
+        transmat = surf_ptr->CompTransCoordSysLMN( l, m, n );
+        return true;
+    }
+    return false;
+}
+
+void Geom::ConvertRSTtoLMN( const int &indx, const double &r, const double &s, const double &t, double &l, double &m, double &n )
+{
+    VspSurf* surf_ptr = GetSurfPtr( indx );
+    if ( surf_ptr )
+    {
+        surf_ptr->ConvertRSTtoLMN( r, s, t, l, m, n );
+        return;
+    }
+    l = r;
+    m = s * 2.0;
+    n = t;
+}
+
+void Geom::ConvertLMNtoRST( const int &indx, const double &l, const double &m, const double &n, double &r, double &s, double &t )
+{
+    VspSurf* surf_ptr = GetSurfPtr( indx );
+    if ( surf_ptr )
+    {
+        surf_ptr->ConvertLMNtoRST( l, m, n, r, s, t );
+        return;
+    }
+    r = l;
+    s = m/2.0;
+    t = n;
 }
 
 double Geom::ProjPnt01I( const vec3d & pt, int &surf_indx, double &u, double &w )
@@ -4532,7 +4913,7 @@ void Geom::WritePMARCGeomFile(FILE *fp, int &ipatch, vector<int> &idpat)
             {
                 for ( int nn = 0; nn < 3; nn++ )
                 {
-                    fprintf(fp, "%10.4f ", pnts[ll][mm].v[nn]);
+                    fprintf(fp, "%16.8f ", pnts[ll][mm].v[nn]);
                 }
                 fprintf(fp, "\n");
             }
@@ -4579,7 +4960,7 @@ void Geom::WritePMARCWakeFile( FILE *fp, int &ipatch, vector<int> &idpat )
             }
 
             // Wake definition
-            fprintf(fp," &WAKE1   IDWAK=1,  IFLXW= 1,   ITRFTZ=1,  INTRW=1,  &END\n" );
+            fprintf(fp," &WAKE1   IDWAK=1,  IFLXW= 0,   ITRFTZ=1,  INTRW=1,  &END\n" );
             fprintf(fp," Wing Wake\n");
             // Wake separation information.  Patch 1, side 2.
             fprintf(fp," &WAKE2   KWPACH=%d, KWSIDE=2, KWLINE=0,  KWPAN1=0,\n", ipatch + 1 );
@@ -5247,13 +5628,12 @@ void GeomXSec::UpdateDrawObj()
 {
     Geom::UpdateDrawObj();
 
-    Matrix4d attachMat;
     Matrix4d relTrans;
-    attachMat = ComposeAttachMatrix();
-    relTrans = attachMat;
+
+    relTrans = m_AttachMatrix;
     relTrans.affineInverse();
     relTrans.matMult( m_ModelMatrix.data() );
-    relTrans.postMult( attachMat.data() );
+    relTrans.postMult( m_AttachMatrix.data() );
 
     unsigned int nxsec = m_XSecSurf.NumXSec();
     m_XSecDrawObj_vec.resize( nxsec, DrawObj() );
@@ -5275,13 +5655,11 @@ void GeomXSec::UpdateDrawObj()
 
 void GeomXSec::UpdateHighlightDrawObj()
 {
-    Matrix4d attachMat;
     Matrix4d relTrans;
-    attachMat = ComposeAttachMatrix();
-    relTrans = attachMat;
+    relTrans = m_AttachMatrix;
     relTrans.affineInverse();
     relTrans.matMult( m_ModelMatrix.data() );
-    relTrans.postMult( attachMat.data() );
+    relTrans.postMult( m_AttachMatrix.data() );
 
     XSec* axs = m_XSecSurf.FindXSec( m_ActiveXSec() );
     if ( axs )

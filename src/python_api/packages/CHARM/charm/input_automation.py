@@ -1,3 +1,19 @@
+# Copyright (c) 2023 United States Government as represented by the
+# Administrator of the National Aeronautics and Space Administration.  All Other
+# Rights Reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
 # Copyright (c) 2018-2020 Uber Technologies, Inc.
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -128,7 +144,7 @@ class CharmAirfoilSection:
 
 class CharmRotorSettings:
     def __init__(self, rpm=0.0, rotor_wake_template=None, initial_collective=None, ct=None,
-                 default_airfoil_opts=None, merge_wings=True, nspan_override=None,
+                 default_airfoil_opts=None, merge_wings=False, nspan_override=None,
                  airfoil_opts=None, iaero=1, irvflo=0, icoll=None, airfoil_r_o_Rs=None, nchord=1,
                  icnvct=None, flap_type=None, flap_length=None, flap_defl=None):
         """
@@ -1773,7 +1789,7 @@ def build_run_characteristics_file_from_template(rotor_files, template_filename=
                 current_values[1] = nrev
             if convgVec is not None:
                 current_values[2:-1] = convgVec[:]
-            run_char_file[npsi_line_num] = ("{:1.0f}      "*2 + "{:.6f}   "*3 + "{:1.0f}" + "\n").format(
+            run_char_file[npsi_line_num] = ("{:1.0f}      "*2 + "{:e}   "*3 + "{:1.0f}" + "\n").format(
                 *current_values)
         if re.search(sframe_expr, line):
             sframe_line_num = line_num + 1

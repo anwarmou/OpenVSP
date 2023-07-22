@@ -215,40 +215,25 @@ ParasiteDragScreen::ParasiteDragScreen( ScreenMgr* mgr ) : TabScreen( mgr,
     m_LamCfEqnChoice.UpdateItems();
 
     m_OptionsLayout.AddChoice( m_TurbCfEqnChoice, "Turb. Cf Eqn:" );
-    m_TurbCfEqnChoice.AddItem( "Explicit Fit of Spalding" );
-    m_TurbCfEqnChoice.AddItem( "Explicit Fit of Spalding-Chi" );
-    m_TurbCfEqnChoice.AddItem( "Explicit Fit of Schoenherr" );
-    m_TurbCfEqnChoice.AddItem( "Implicit Schoenherr" );
-    m_TurbCfEqnChoice.AddItem( "Implicit Karman-Schoenherr" );
-    m_TurbCfEqnChoice.AddItem( "Power Law Blasius" );
-    m_TurbCfEqnChoice.AddItem( "Power Law Prandtl Low Re" );
-    m_TurbCfEqnChoice.AddItem( "Power Law Prandtl Medium Re" );
-    m_TurbCfEqnChoice.AddItem( "Power Law Prandtl High Re" );
-    m_TurbCfEqnChoice.AddItem( "Schlichting Compressible" );
-    m_TurbCfEqnChoice.AddItem( "_Schultz-Grunow Estimate of Schoenherr" );
-
-    m_TurbCfEqnChoice.AddItem( "_Roughness Schlichting Avg" );
-
-    m_TurbCfEqnChoice.AddItem( "_Roughness Schlichting Avg Compressible" );
-
-    m_TurbCfEqnChoice.AddItem( "Heat Transfer White-Christoph" );
+    m_TurbCfEqnChoice.AddItem( "Explicit Fit of Spalding", vsp::CF_TURB_EXPLICIT_FIT_SPALDING );
+    m_TurbCfEqnChoice.AddItem( "Explicit Fit of Spalding-Chi", vsp::CF_TURB_EXPLICIT_FIT_SPALDING_CHI );
+    m_TurbCfEqnChoice.AddItem( "Explicit Fit of Schoenherr", vsp::CF_TURB_EXPLICIT_FIT_SCHOENHERR );
+    m_TurbCfEqnChoice.AddItem( "Implicit Schoenherr", vsp::CF_TURB_IMPLICIT_SCHOENHERR );
+    m_TurbCfEqnChoice.AddItem( "Implicit Karman-Schoenherr", vsp::CF_TURB_IMPLICIT_KARMAN_SCHOENHERR );
+    m_TurbCfEqnChoice.AddItem( "Power Law Blasius", vsp::CF_TURB_POWER_LAW_BLASIUS );
+    m_TurbCfEqnChoice.AddItem( "Power Law Prandtl Low Re", vsp::CF_TURB_POWER_LAW_PRANDTL_LOW_RE );
+    m_TurbCfEqnChoice.AddItem( "Power Law Prandtl Medium Re", vsp::CF_TURB_POWER_LAW_PRANDTL_MEDIUM_RE );
+    m_TurbCfEqnChoice.AddItem( "Power Law Prandtl High Re", vsp::CF_TURB_POWER_LAW_PRANDTL_HIGH_RE );
+    m_TurbCfEqnChoice.AddItem( "Schlichting Compressible", vsp::CF_TURB_SCHLICHTING_COMPRESSIBLE );
+    m_TurbCfEqnChoice.AddItem( "Schultz-Grunow Estimate of Schoenherr", vsp::CF_TURB_SCHULTZ_GRUNOW_SCHOENHERR );
+    m_TurbCfEqnChoice.SetFlagByVal( vsp::CF_TURB_SCHULTZ_GRUNOW_SCHOENHERR, FL_MENU_DIVIDER );
+    m_TurbCfEqnChoice.AddItem( "Roughness Schlichting Avg", vsp::CF_TURB_ROUGHNESS_SCHLICHTING_AVG );
+    m_TurbCfEqnChoice.SetFlagByVal( vsp::CF_TURB_ROUGHNESS_SCHLICHTING_AVG, FL_MENU_DIVIDER );
+    m_TurbCfEqnChoice.AddItem( "Roughness Schlichting Avg Compressible", vsp::CF_TURB_ROUGHNESS_SCHLICHTING_AVG_FLOW_CORRECTION );
+    m_TurbCfEqnChoice.SetFlagByVal( vsp::CF_TURB_ROUGHNESS_SCHLICHTING_AVG_FLOW_CORRECTION, FL_MENU_DIVIDER );
+    m_TurbCfEqnChoice.AddItem( "Heat Transfer White-Christoph", vsp::CF_TURB_HEATTRANSFER_WHITE_CHRISTOPH );
     m_TurbCfEqnChoice.UpdateItems();
 
-    int tmp[] = { vsp::CF_TURB_EXPLICIT_FIT_SPALDING,
-                  vsp::CF_TURB_EXPLICIT_FIT_SPALDING_CHI,
-                  vsp::CF_TURB_EXPLICIT_FIT_SCHOENHERR,
-                  vsp::CF_TURB_IMPLICIT_SCHOENHERR,
-                  vsp::CF_TURB_IMPLICIT_KARMAN_SCHOENHERR,
-                  vsp::CF_TURB_POWER_LAW_BLASIUS,
-                  vsp::CF_TURB_POWER_LAW_PRANDTL_LOW_RE,
-                  vsp::CF_TURB_POWER_LAW_PRANDTL_MEDIUM_RE,
-                  vsp::CF_TURB_POWER_LAW_PRANDTL_HIGH_RE,
-                  vsp::CF_TURB_SCHLICHTING_COMPRESSIBLE,
-                  vsp::CF_TURB_SCHULTZ_GRUNOW_SCHOENHERR,
-                  vsp::CF_TURB_ROUGHNESS_SCHLICHTING_AVG,
-                  vsp::CF_TURB_ROUGHNESS_SCHLICHTING_AVG_FLOW_CORRECTION,
-                  vsp::CF_TURB_HEATTRANSFER_WHITE_CHRISTOPH };
-    m_TurbChoiceToEnum.insert( m_TurbChoiceToEnum.begin(), tmp, &tmp[ sizeof( tmp ) / sizeof( *tmp ) ] );
 
     m_OptionsLayout.AddYGap();
 
@@ -298,7 +283,7 @@ ParasiteDragScreen::ParasiteDragScreen( ScreenMgr* mgr ) : TabScreen( mgr,
     m_FreestreamTypeChoice.AddItem( "Pres + Density Control" );
     m_FreestreamTypeChoice.AddItem( "Pres + Temp Control" );
     m_FreestreamTypeChoice.AddItem( "Density + Temp Control" );
-    m_FreestreamTypeChoice.AddItem( "Re\\/L + Mach Control" );
+    m_FreestreamTypeChoice.AddItem( "Re/L + Mach Control" );
     // TODO: Add Total Control of All Parameters
     m_FreestreamTypeChoice.UpdateItems();
     m_OptionsLayout.AddYGap();
@@ -315,10 +300,10 @@ ParasiteDragScreen::ParasiteDragScreen( ScreenMgr* mgr ) : TabScreen( mgr,
     // Velocity Input and Units
     m_OptionsLayout.AddSlider( m_FlowParmVinfSlider, "Vinf", 200.0, "%7.2f" );
     m_OptionsLayout.AddChoice( m_VinfUnitChoice, "" );
-    m_VinfUnitChoice.AddItem( "ft\\/s" );
-    m_VinfUnitChoice.AddItem( "m\\/s" );
+    m_VinfUnitChoice.AddItem( "ft/s" );
+    m_VinfUnitChoice.AddItem( "m/s" );
     m_VinfUnitChoice.AddItem( "mph" );
-    m_VinfUnitChoice.AddItem( "km\\/hr" );
+    m_VinfUnitChoice.AddItem( "km/hr" );
     m_VinfUnitChoice.AddItem( "KEAS" );
     m_VinfUnitChoice.AddItem( "KTAS" );
     m_VinfUnitChoice.AddItem( "Mach" );
@@ -359,9 +344,9 @@ ParasiteDragScreen::ParasiteDragScreen( ScreenMgr* mgr ) : TabScreen( mgr,
     // Pressure Input and Units
     m_OptionsLayout.AddSlider( m_FlowParmPresSlider, "Pres", 100.0, "%7.3f" );
     m_OptionsLayout.AddChoice( m_PresUnitChoice, "" );
-    temp = "lbf\\/ft" + squared;
+    temp = "lbf/ft" + squared;
     m_PresUnitChoice.AddItem( temp );
-    temp = "lbf\\/in" + squared;
+    temp = "lbf/in" + squared;
     m_PresUnitChoice.AddItem( temp );
     m_PresUnitChoice.AddItem( "Ba" );
     m_PresUnitChoice.AddItem( "Pa" );
@@ -454,7 +439,7 @@ ParasiteDragScreen::ParasiteDragScreen( ScreenMgr* mgr ) : TabScreen( mgr,
     m_excresTypeChoice.AddItem( "CD", vsp::EXCRESCENCE_CD );
     m_excresTypeChoice.AddItem( "% of CD_Geom", vsp::EXCRESCENCE_PERCENT_GEOM );
     m_excresTypeChoice.AddItem( "% Margin", vsp::EXCRESCENCE_MARGIN );
-    m_excresTypeChoice.AddItem( "Drag Area, D\\/q", vsp::EXCRESCENCE_DRAGAREA );
+    m_excresTypeChoice.AddItem( "Drag Area, D/q", vsp::EXCRESCENCE_DRAGAREA );
     m_excresTypeChoice.UpdateItems();
     m_ExcrescenceListLayout.AddButton( m_excresAdd, " Add Excrescence " );
 
@@ -752,8 +737,7 @@ void ParasiteDragScreen::UpdateChoiceDevices()
 
     ParasiteDragMgr.CorrectTurbEquation();
 
-    int indx = vector_find_val( m_TurbChoiceToEnum, ParasiteDragMgr.m_TurbCfEqnType() );
-    m_TurbCfEqnChoice.SetVal( indx );
+    m_TurbCfEqnChoice.SetVal( ParasiteDragMgr.m_TurbCfEqnType() );
 
     m_FreestreamTypeChoice.SetVal( ParasiteDragMgr.m_FreestreamType() );
     m_ModelLengthUnitChoice.SetVal( ParasiteDragMgr.m_LengthUnit() );
@@ -791,8 +775,8 @@ void ParasiteDragScreen::UpdateSrefChoice()
     map <string, int> WingCompIDMap;
     int iwing = 0;
 
-    // Find Correct Geoms from Active Set
-    vector <string> g_IDs = veh->GetGeomSet( ParasiteDragMgr.m_SetChoice() );
+    // Find Geoms from any set.  User may have a reference wing not included in analysis set.
+    vector <string> g_IDs = veh->GetGeomVec();
 
     if ( !ParasiteDragMgr.m_RefFlag() )
     {
@@ -1158,7 +1142,7 @@ void ParasiteDragScreen::GuiDeviceCallBack( GuiDevice* device )
     }
     else if ( device == &m_TurbCfEqnChoice )
     {
-        ParasiteDragMgr.m_TurbCfEqnType.Set( m_TurbChoiceToEnum[ m_TurbCfEqnChoice.GetVal() ] );
+        ParasiteDragMgr.m_TurbCfEqnType.Set( m_TurbCfEqnChoice.GetVal() );
     }
     else if ( device == &m_EqnDocumentation )
     {

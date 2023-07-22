@@ -31,6 +31,7 @@ protected:
 
     GroupLayout m_DesignLayout;
     GroupLayout m_TrimGroup;
+    GroupLayout m_SideGroup;
     GroupLayout m_WingGroup;
 
     SliderAdjRangeInput m_OffsetSlider;
@@ -38,6 +39,38 @@ protected:
     ToggleButton m_UTrimToggle;
     SliderAdjRangeInput m_UTrimMinSlider;
     SliderAdjRangeInput m_UTrimMaxSlider;
+
+    ToggleButton m_UMinUTrimButton;
+    ToggleButton m_UminLTrimButton;
+    ToggleRadioGroup m_UMinTrimToggleGroup;
+
+    ToggleButton m_L01MinTrimToggle;
+    ToggleButton m_L0LenMinTrimToggle;
+    ToggleRadioGroup m_LMinScaleTrimToggleGroup;
+
+    SliderAdjRange2Input m_LTrimMinSlider;
+
+    ToggleButton m_UMaxUTrimButton;
+    ToggleButton m_UmaxLTrimButton;
+    ToggleRadioGroup m_UMaxTrimToggleGroup;
+
+    ToggleButton m_L01MaxTrimToggle;
+    ToggleButton m_L0LenMaxTrimToggle;
+    ToggleRadioGroup m_LMaxScaleTrimToggleGroup;
+
+    SliderAdjRange2Input m_LTrimMaxSlider;
+
+    Choice m_NoseCapTypeChoice;
+    SliderAdjRangeInput m_NoseCapLenSlider;
+    SliderAdjRangeInput m_NoseCapOffsetSlider;
+    SliderAdjRangeInput m_NoseCapStrengthSlider;
+    ToggleButton m_NoseCapSweepFlagButton;
+
+    Choice m_TailCapTypeChoice;
+    SliderAdjRangeInput m_TailCapLenSlider;
+    SliderAdjRangeInput m_TailCapOffsetSlider;
+    SliderAdjRangeInput m_TailCapStrengthSlider;
+    ToggleButton m_TailCapSweepFlagButton;
 
     ToggleButton m_V1TrimToggle;
     SliderAdjRangeInput m_V1TrimMinSlider;
@@ -54,6 +87,18 @@ protected:
     ToggleButton m_ChordTrimToggle;
     SliderAdjRangeInput m_ChordTrimMinSlider;
     SliderAdjRangeInput m_ChordTrimMaxSlider;
+
+    ToggleButton m_Side1TrimToggle;
+    SliderAdjRangeInput m_Side1TrimSlider;
+
+    ToggleButton m_Side2TrimToggle;
+    SliderAdjRangeInput m_Side2TrimSlider;
+
+    ToggleButton m_Side3TrimToggle;
+    SliderAdjRangeInput m_Side3TrimSlider;
+
+    ToggleButton m_Side4TrimToggle;
+    SliderAdjRangeInput m_Side4TrimSlider;
 
 };
 

@@ -29,6 +29,9 @@
 #include "eli/geom/intersect/intersect_axis_surface.hpp"
 #include "eli/geom/intersect/intersect_segment_surface.hpp"
 
+#include "eli/geom/curve/bezier.hpp"
+#include "eli/geom/curve/piecewise.hpp"
+
 typedef piecewise_surface_type::index_type surface_index_type;
 typedef piecewise_surface_type::point_type surface_point_type;
 typedef piecewise_surface_type::rotation_matrix_type surface_rotation_matrix_type;
@@ -71,6 +74,8 @@ VspSurf::VspSurf()
     m_SkinClosedFlag = 0;
 
     m_UMapMax = -1;
+
+    m_Lmax = 0;
 }
 
 //===== Destructor  =====//
@@ -349,12 +354,20 @@ void VspSurf::FindRST( const vector < vec3d > & pt, vector < double > &r, vector
 
 void VspSurf::ConvertRSTtoLMN( const double &r, const double &s, const double &t, double &l, double &m, double &n ) const
 {
-    m_Surface.ConvertRSTtoLMN( r, s, t, l, m, n );
+    l = m_LCurve.CompPnt( r );
+    Vsp1DCurve mcurve;
+    BuildMCurve( r, mcurve );
+    m = mcurve.CompPnt( s );
+    n = t;
 }
 
 void VspSurf::ConvertLMNtoRST( const double &l, const double &m, const double &n, double &r, double &s, double &t ) const
 {
-    m_Surface.ConvertLMNtoRST( l, m, n, r, s, t );
+    r = m_LCurve.Invert( l );
+    Vsp1DCurve mcurve;
+    BuildMCurve( r, mcurve );
+    s = mcurve.Invert( m );
+    t = n;
 }
 
 double VspSurf::ProjectPt( const vec3d &inpt, const int &idir, double &u_out, double &w_out, vec3d &outpt ) const
@@ -441,11 +454,16 @@ void VspSurf::GetW01ConstCurve( VspCurve &c, const double &w01 ) const
 
 //===== Compute a Relative Rotation Transformation Matrix from Component's
 //      Coordinate System to a Surface Coordinate System ====//
-Matrix4d VspSurf::CompRotCoordSys( const double &u, const double &w )
+Matrix4d VspSurf::CompRotCoordSys( double u, double w )
 {
+    double tol = 1e-10;
+
     Matrix4d retMat; // Return Matrix
 
     double uprm = m_UMapping.Invert( u * m_UMapMax ) / GetUMax();
+
+    uprm = clamp( uprm, 0.0 + tol, 1.0 - tol );
+    w = clamp( w, 0.0 + tol, 1.0 - tol );
 
     // Get du and norm, cross them to get the last orthonormal vector
     vec3d du = CompTanU01( uprm, w );
@@ -457,50 +475,51 @@ Matrix4d VspSurf::CompRotCoordSys( const double &u, const double &w )
     {
         double tmagic01 = TMAGIC / GetWMax();
 
-        if ( du.mag() < 1e-6 ) // Zero direction vector
+        if ( du.mag() < tol ) // Zero direction vector
         {
             if ( w <= tmagic01 ) // Near TE lower
             {
-                du = CompTanU01( uprm, tmagic01 + 1e-6 );
+                du = CompTanU01( uprm, tmagic01 + tol );
                 du.normalize();
             }
 
             if ( w >= ( 0.5 - tmagic01 ) && w <= ( 0.5 + tmagic01 ) ) // Near leading edge
             {
-                du = CompTanU01( uprm, 0.5 + tmagic01 + 1e-6 );
+                du = CompTanU01( uprm, 0.5 + tmagic01 + tol );
                 du.normalize();
             }
 
             if ( w >= ( 1.0 - tmagic01 ) ) // Near TE upper
             {
-                du = CompTanU01( uprm, 1.0 - ( tmagic01 + 1e-6 ) );
+                du = CompTanU01( uprm, 1.0 - ( tmagic01 + tol ) );
                 du.normalize();
             }
         }
 
-        if ( norm.mag() < 1e-6 ) // Zero normal vector
+        if ( norm.mag() < tol ) // Zero normal vector
         {
             if ( w <= tmagic01 ) // Near TE lower
             {
-                norm = CompNorm01( uprm, tmagic01 + 1e-6 );
+                norm = CompNorm01( uprm, tmagic01 + tol );
                 norm.normalize();
             }
 
             if ( w >= ( 0.5 - tmagic01 ) && w <= ( 0.5 + tmagic01 ) ) // Near leading edge
             {
-                norm = CompNorm01( uprm, 0.5 + tmagic01 + 1e-6 );
+                norm = CompNorm01( uprm, 0.5 + tmagic01 + tol );
                 norm.normalize();
             }
 
             if ( w >= ( 1.0 - tmagic01 ) ) // Near TE upper
             {
-                norm = CompNorm01( uprm, 1.0 - ( tmagic01 + 1e-6 ) );
+                norm = CompNorm01( uprm, 1.0 - ( tmagic01 + tol ) );
                 norm.normalize();
             }
         }
     }
 
     vec3d dw = cross( norm, du );
+    dw.normalize();
 
     // Place axes in as cols of Rot mat
     retMat.setBasis( du, dw, norm );
@@ -519,6 +538,71 @@ Matrix4d VspSurf::CompTransCoordSys( const double &u, const double &w )
     vec3d cartCoords = CompPnt01( uprm, w );
     retMat.translatef( cartCoords.x(), cartCoords.y(), cartCoords.z() );
     return retMat;
+}
+
+Matrix4d VspSurf::CompRotCoordSysRST( double r, double s, double t )
+{
+    double tol = 1e-10;
+
+    Matrix4d retMat; // Return Matrix
+
+    double rprm = m_UMapping.Invert( r * m_UMapMax ) / GetUMax();
+
+    rprm = clamp( rprm, 0.0 + tol, 1.0 - tol );
+    s = clamp( s, 0.0 + tol, 1.0 - tol );
+    t = clamp( t, 0.0 + tol, 1.0 - tol );
+
+    vec3d dr = CompTanR( rprm, s, t );
+    vec3d ds = CompTanS( rprm, s, t );
+    vec3d dt = CompTanT( rprm, s, t );
+
+    dr.normalize();
+    ds.normalize();
+    dt.normalize();
+
+    vec3d norm = cross( dr, ds );
+    if ( norm.mag() < tol )
+    {
+        norm = dt;
+    }
+    norm.normalize();
+
+    vec3d d2 = cross( norm, dr );
+    if ( d2.mag() < tol )
+    {
+        d2 = ds;
+    }
+    d2.normalize();
+
+    // Place axes in as cols of Rot mat
+    retMat.setBasis( dr, d2, norm );
+    return retMat;
+}
+
+Matrix4d VspSurf::CompTransCoordSysRST( const double &r, const double &s, const double &t )
+{
+    Matrix4d retMat; // Return Matrix
+
+    double rprm = m_UMapping.Invert( r * m_UMapMax ) / GetUMax();
+
+    // Get x,y,z location of r, s, t coordinate and place in translation matrix
+    vec3d cartCoords = CompPntRST( rprm, s, t );
+    retMat.translatef( cartCoords.x(), cartCoords.y(), cartCoords.z() );
+    return retMat;
+}
+
+Matrix4d VspSurf::CompRotCoordSysLMN( const double &l, const double &m, const double &n )
+{
+    double r, s, t;
+    ConvertLMNtoRST( l, m, n, r, s, t );
+    return CompRotCoordSysRST( r, s, t );
+}
+
+Matrix4d VspSurf::CompTransCoordSysLMN( const double &l, const double &m, const double &n )
+{
+    double r, s, t;
+    ConvertLMNtoRST( l, m, n, r, s, t );
+    return CompTransCoordSysRST( r, s, t );
 }
 
 void VspSurf::CreateBodyRevolution( const VspCurve &input_crv, bool match_uparm )
@@ -1144,19 +1228,26 @@ void VspSurf::ResetUSkip() const
     }
 }
 
-void VspSurf::SetUSkipFirst( bool f )
+void VspSurf::SetUSkipFirst( int nskip, bool f )
 {
     if( !m_USkip.empty() )
     {
-        m_USkip.front() = f;
+        for ( int iskip = 0; iskip < m_USkip.size() && iskip < nskip; iskip++ )
+        {
+            m_USkip[ iskip ] = f;
+        }
     }
 }
 
-void VspSurf::SetUSkipLast( bool f )
+void VspSurf::SetUSkipLast( int nskip, bool f )
 {
     if( !m_USkip.empty() )
     {
-        m_USkip.back() = f;
+        int n = m_USkip.size();
+        for ( int iskip = 0; iskip < n && iskip < nskip; iskip++ )
+        {
+            m_USkip[ n - iskip - 1 ] = f;
+        }
     }
 }
 
@@ -1903,17 +1994,24 @@ void VspSurf::BuildFeatureLines( bool force_xsec_flag)
         double umin = m_Surface.get_u0();
         double umax = m_Surface.get_umax();
         double urng = umax - umin;
-        m_UFeature.push_back( umin );
-        m_UFeature.push_back( umax );
 
         if ( GetSurfType() == vsp::WING_SURF || force_xsec_flag )
         {
+            // Forget result of find_interior_feature_edges above.
+            m_UFeature.clear();
+
             // Force all patch boundaries in u direction.
+            // umin and umax are close to integers, but might not be exactly.  Furthermore, this code does not
+            // guarantee that umax is added.
             for ( double u = umin; u <= umax; u++ )
             {
                 m_UFeature.push_back( u );
             }
         }
+
+        // Make sure start/end are always included.
+        m_UFeature.push_back( umin );
+        m_UFeature.push_back( umax );
 
         // Add start/mid/end curves.
         double vmin = m_Surface.get_v0();
@@ -1979,61 +2077,15 @@ void VspSurf::BuildFeatureLines( bool force_xsec_flag)
 
 bool VspSurf::CapUMin(int CapType, double len, double str, double offset, const vec3d &pt, bool swflag)
 {
-    if (CapType == vsp::NO_END_CAP)
-    {
-        ResetUSkip();
-        return false;
-    }
-    multicap_creator_type cc;
-    bool rtn_flag;
-
-    int captype = multicap_creator_type::FLAT;
-
-    switch( CapType ){
-      case vsp::FLAT_END_CAP:
-        captype = multicap_creator_type::FLAT;
-        break;
-      case vsp::ROUND_END_CAP:
-        captype = multicap_creator_type::ROUND;
-        break;
-      case vsp::EDGE_END_CAP:
-        captype = multicap_creator_type::EDGE;
-        break;
-      case vsp::SHARP_END_CAP:
-        captype = multicap_creator_type::SHARP;
-        break;
-      case vsp::POINT_END_CAP:
-        captype = multicap_creator_type::POINT;
-        break;
-    }
-
-    surface_point_type p;
-    p << pt.x(), pt.y(), pt.z();
-
-    rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, multicap_creator_type::CAP_UMIN, len, offset, str, p, swflag );
-
-    m_UMapping.CapMin();
-
-    if (!rtn_flag)
-    {
-      ResetUSkip();
-      return false;
-    }
-
-    rtn_flag = cc.create(m_Surface);
-
-    if (!rtn_flag)
-    {
-      ResetUSkip();
-      return false;
-    }
-
-    m_Surface.set_u0( 0.0 );
-    ResetUSkip();
-    return true;
+    return CapUHandler( multicap_creator_type::CAP_UMIN, CapType, len, str, offset, pt, swflag );
 }
 
 bool VspSurf::CapUMax(int CapType, double len, double str, double offset, const vec3d &pt, bool swflag)
+{
+    return CapUHandler( multicap_creator_type::CAP_UMAX, CapType, len, str, offset, pt, swflag );
+}
+
+bool VspSurf::CapUHandler(int whichCap, int CapType, double len, double str, double offset, const vec3d &pt, bool swflag)
 {
     if (CapType == vsp::NO_END_CAP)
     {
@@ -2045,6 +2097,9 @@ bool VspSurf::CapUMax(int CapType, double len, double str, double offset, const 
 
     int captype = multicap_creator_type::FLAT;
 
+    bool extle = false;
+    bool extte = false;
+
     switch( CapType ){
       case vsp::FLAT_END_CAP:
         captype = multicap_creator_type::FLAT;
@@ -2061,14 +2116,98 @@ bool VspSurf::CapUMax(int CapType, double len, double str, double offset, const 
       case vsp::POINT_END_CAP:
         captype = multicap_creator_type::POINT;
         break;
+      case vsp::ROUND_EXT_END_CAP_NONE:
+        captype = multicap_creator_type::ROUND_EXT;
+        break;
+      case vsp::ROUND_EXT_END_CAP_LE:
+        captype = multicap_creator_type::ROUND_EXT;
+        extle = true;
+        break;
+      case vsp::ROUND_EXT_END_CAP_TE:
+        captype = multicap_creator_type::ROUND_EXT;
+        extte = true;
+        break;
+      case vsp::ROUND_EXT_END_CAP_BOTH:
+        captype = multicap_creator_type::ROUND_EXT;
+        extle = true;
+        extte = true;
+        break;
     }
 
     surface_point_type p;
     p << pt.x(), pt.y(), pt.z();
 
-    rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, multicap_creator_type::CAP_UMAX, len, offset, str, p, swflag );
+    if ( CapType >= vsp::ROUND_EXT_END_CAP_NONE )
+    {
+        piecewise_curve_type b, e, d, dsq;
 
-    m_UMapping.CapMax();
+        cc.set_ext_conditions( extle, extte );
+
+        rtn_flag = cc.set_conditions( m_Surface, multicap_creator_type::FLAT, 1.0, (typename multicap_creator_type::edge_cap_identifier) whichCap, len, 0, str, p, swflag );
+        rtn_flag = cc.create_curve( b );
+
+        rtn_flag = cc.set_conditions( m_Surface, multicap_creator_type::ROUND, 1.0, (typename multicap_creator_type::edge_cap_identifier) whichCap, len, 0, str, p, swflag );
+        rtn_flag = cc.create_curve( e );
+
+        b.scale( -1.0 );
+        d.sum( b, e );
+        dsq.square( d );
+
+        typedef piecewise_curve_type::onedpiecewisecurve onedpwc;
+        typedef onedpwc::point_type onedpt;
+        onedpwc sumsq;
+
+        sumsq = dsq.sumcompcurve();
+
+        // Negate to allow minimization instead of maximization.
+        sumsq.scale( -1.0 );
+
+        onedpwc sweepcurve;
+        cc.create_sweepfactor_sq_curve( sweepcurve );
+        cc.dirty_prep(); // Needed because we split the surface and need to re-load it later.
+
+
+        onedpwc objfun;
+        objfun.product( sumsq, sweepcurve );
+
+        double utmax;
+        double hmax = sqrt( -1.0 * eli::geom::intersect::minimum_dimension( utmax, objfun, 0 ) );
+
+        double xloc, wlow, wup;
+
+        wlow = utmax;
+        wup = GetWMax() - ( utmax - 0.0 );
+
+        SplitW( wup );
+        SplitW( wlow );
+
+        typedef onedpwc::curve_type onedcurve_type;
+        onedcurve_type c;
+
+        onedpt onedp;
+        objfun.get( c, 1 );
+        onedp = c.get_control_point( 0 );
+        double h_start = sqrt( -onedp.x() );
+
+        objfun.get( c, objfun.number_segments() - 2 );
+        onedp = c.get_control_point( c.degree() );
+        double h_end = sqrt( -onedp.x() );
+
+        // Need to pass wlow (which we do) and then search for i_hmax internally after surface has been split,
+        // flipped, and matched top to bottom.  This matching is likely throwing off the patch count.
+        cc.set_h_vals( wlow, hmax, h_start, h_end );
+    }
+
+    rtn_flag = cc.set_conditions(m_Surface, captype, 1.0, (typename multicap_creator_type::edge_cap_identifier) whichCap, len, offset, str, p, swflag );
+
+    if ( whichCap == multicap_creator_type::CAP_UMAX )
+    {
+        m_UMapping.CapMax();
+    }
+    else
+    {
+        m_UMapping.CapMin();
+    }
 
     if (!rtn_flag)
     {
@@ -2083,6 +2222,12 @@ bool VspSurf::CapUMax(int CapType, double len, double str, double offset, const 
       ResetUSkip();
       return false;
     }
+
+    if ( whichCap == multicap_creator_type::CAP_UMIN )
+    {
+        m_Surface.set_u0( 0.0 );
+    }
+
     ResetUSkip();
     return true;
 }
@@ -2270,6 +2415,19 @@ void VspSurf::TrimV( double v, bool before )
     {
         s2.set_v0( 0.0 );
         m_Surface = s2;
+    }
+}
+
+void VspSurf::TrimClosedV( double vstart, double vend )
+{
+    piecewise_surface_type s;
+
+    if ( vstart != vend )
+    {
+        if ( m_Surface.trim_v( vstart, vend, s ) ) // Success.
+        {
+            m_Surface = s;
+        }
     }
 }
 
@@ -2676,4 +2834,105 @@ double VspSurf::EvalUMapping( double u ) const
         return m_UMapping.CompPnt( u );
     }
     return u;
+}
+
+void VspSurf::BuildLCurve()
+{
+    double umin, vmin, umax, vmax, dv;
+    double vlow, vup;
+
+    m_Surface.get_parameter_min( umin, vmin );
+    m_Surface.get_parameter_max( umax, vmax );
+    dv = vmax - vmin;
+
+    vlow = vmin + 0.25 * dv;
+    vup = vmin + 0.75 * dv;
+
+    piecewise_curve_type c, clow, cup;
+
+    m_Surface.get_vconst_curve( clow, vlow );
+    m_Surface.get_vconst_curve( cup, vup );
+
+    c.sum( clow, cup );
+    c.scale( 0.5 );
+
+    VspCurve spine;
+    spine.SetCurve( c );
+
+    vector< vec3d > x;
+    vector< double > u;
+    spine.TessSegAdapt( x, u, 1e-2, 10 );
+
+    if ( x.size() > 0 )
+    {
+        vector < double > s;
+        s.resize( x.size(), 0.0 );
+        for ( int i = 1; i < x.size(); i++ )
+        {
+            vec3d dx = x[i] - x[i-1];
+            s[i] = s[i-1] + dx.mag();
+        }
+
+        m_Lmax = s[ x.size() - 1 ];
+
+        for ( int i = 0; i < x.size(); i++ )
+        {
+            s[i] /= m_Lmax;
+            u[i] /= umax;
+        }
+
+        m_LCurve.InterpolateLinear( s, u, false );
+    }
+    else
+    {
+        m_Lmax = 0;
+        m_LCurve = Vsp1DCurve();
+    }
+}
+
+void VspSurf::BuildMCurve( const double &r, Vsp1DCurve &mcurve ) const
+{
+    double umin, vmin, umax, vmax;
+    double vmid;
+
+    m_Surface.get_parameter_min( umin, vmin );
+    m_Surface.get_parameter_max( umax, vmax );
+    vmid = 0.5 * ( vmin + vmax );
+
+    double u = r * umax;
+
+    piecewise_curve_type cut, clow, cup, cspine;
+    m_Surface.get_uconst_curve( cut, u );
+
+    cut.split( clow, cup, vmid );
+    cup.reverse();
+
+    cspine.sum( clow, cup );
+    cspine.scale( 0.5 );
+
+    VspCurve spine;
+    spine.SetCurve( cspine );
+
+    vector< vec3d > x;
+    vector< double > s;
+    spine.TessAdapt( x, s, 1e-2, 10 );
+
+    vector < double > m;
+    m.resize( x.size(), 0.0 );
+    for ( int i = 1; i < x.size(); i++ )
+    {
+        vec3d dx = x[i] - x[i-1];
+        m[i] = m[ i - 1 ] + dx.mag();
+    }
+
+    double mmax = m[ x.size() - 1 ];
+    double vvmax = s[ x.size() - 1 ];
+
+    for ( int i = 0; i < x.size(); i++ )
+    {
+        m[i] /= mmax;
+        s[i] /= vvmax;
+    }
+
+    mcurve.InterpolateLinear( m, s, false );
 }

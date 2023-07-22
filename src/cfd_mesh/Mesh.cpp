@@ -430,12 +430,15 @@ int Mesh::Collapse( int num_iter )
         shortEdges.reserve( edgeList.size() );
         for ( e = edgeList.begin() ; e != edgeList.end(); ++e )
         {
-            if ( ValidCollapse( *e ) )
+            if ( *e )
             {
-                double rat = ( *e )->GetLength() / ( *e )->target_len;
-                if ( rat < 0.707 )
+                if ( ValidCollapse( *e ) )
                 {
-                    shortEdges.emplace_back( pair< Edge*, double >( ( *e ), rat ) );
+                    double rat = ( *e )->GetLength() / ( *e )->target_len;
+                    if ( rat < 0.707 )
+                    {
+                        shortEdges.emplace_back( pair< Edge*, double >( ( *e ), rat ) );
+                    }
                 }
             }
         }
@@ -492,7 +495,7 @@ int Mesh::RemoveRevFaces()
 
         if ( dprod < 0.0 )
         {
-            Edge* e = (*f)->FindLongEdge();
+            Edge* e = ( *f )->FindShortEdge();
 
             remEdges.push_back( e );
 
@@ -650,6 +653,7 @@ void Mesh::RemoveFace( Face* fptr )
     garbageFaceVec.push_back( fptr );
     faceList.erase( fptr->list_ptr );
     fptr->m_DeleteMeFlag = true;
+    fptr->EdgeForgetFace();
 }
 
 void Mesh::DumpGarbage()
@@ -926,6 +930,11 @@ bool Mesh::ThreeEdgesThreeFaces( Edge* edge )
 
 bool Mesh::ValidCollapse( Edge* edge )
 {
+    if ( !edge )
+    {
+        return false;
+    }
+
     if ( edge->m_DeleteMeFlag )
     {
         return false;
@@ -936,6 +945,14 @@ bool Mesh::ValidCollapse( Edge* edge )
         return false;
     }
 
+    if ( !edge->n0 || !edge->n1 )
+    {
+        return false;
+    }
+
+    Node* n0 = edge->n0;
+    Node* n1 = edge->n1;
+
     //////if ( edge->n0->fixed || edge->n1->fixed )
     //////  return false;
     if ( edge->n0->fixed && edge->n1->fixed )
@@ -943,28 +960,32 @@ bool Mesh::ValidCollapse( Edge* edge )
         return false;
     }
 
-    if ( !edge->f0 || !edge->f1 )
-    {
-        return false;
-    }
-
-    if ( edge->f0->m_DeleteMeFlag || edge->f1->m_DeleteMeFlag )
-    {
-        return false;
-    }
-
-    Node* n0 = edge->n0;
-    Node* n1 = edge->n1;
     Face* fa = edge->f0;
     Face* fb = edge->f1;
+
+    if ( !fa || !fb )
+    {
+        return false;
+    }
+
+    if ( fa->m_DeleteMeFlag || fb->m_DeleteMeFlag )
+    {
+        return false;
+    }
+
     Node* na = fa->OtherNodeTri( n0, n1 );
     Node* nb = fb->OtherNodeTri( n0, n1 );
+
+    if ( !na || !nb )
+    {
+        return false;
+    }
 
     //==== Check 3 Faces in a Face Case =====//
     Edge* e0a = fa->FindEdge( n0, na );
     Edge* e1a = fa->FindEdge( n1, na );
 
-    if ( !e0a || ! e1a )
+    if ( !e0a || !e1a )
     {
         return false;
     }
@@ -985,6 +1006,11 @@ bool Mesh::ValidCollapse( Edge* edge )
 
     Edge* e0b = fb->FindEdge( n0, nb );
     Edge* e1b = fb->FindEdge( n1, nb );
+
+    if ( !e0b || !e1b )
+    {
+        return false;
+    }
 
     Face* fb0 = e0b->OtherFace( fb );
     Face* fb1 = e1b->OtherFace( fb );
@@ -1418,7 +1444,8 @@ void Mesh::ComputeTargetEdgeLength( Edge* edge )
         vec3d cent = ( edge->n0->pnt + edge->n1->pnt ) * 0.5;
         vec2d uwcent = ( edge->n0->uw  + edge->n1->uw ) * 0.5;
 
-        edge->target_len = m_Surf->InterpTargetMap( uwcent.x(), uwcent.y() );
+        int reason = -1;
+        edge->target_len = m_Surf->InterpTargetMap( uwcent.x(), uwcent.y(), reason );
     }
 }
 
@@ -1509,13 +1536,30 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
 
 #ifdef DEBUG_CFD_MESH
     static int namecnt = 0;
-    FILE* fp;
+    FILE* fp = NULL;
+    static FILE* fpmas = NULL;
+
+    if ( namecnt == 0 )
+    {
+        char str2[256];
+        snprintf( str2, sizeof( str2 ), "%sSortedUnscaledMesh_UW.m", MeshMgr->m_DebugDir.c_str() );
+        fpmas = fopen( str2, "w" );
+
+        fprintf( fpmas, "clear all; format compact; close all;\n" );
+        fprintf( fpmas, "figure(1); hold on\n" );
+    }
 
     vector< vec2d > sorted = uw_points;
     sort( sorted.begin(), sorted.end(), vec2dCompare );
 
-    sprintf( str, "%sSortedUnscaledMesh_UW%d.m", MeshMgr->m_DebugDir.c_str(), namecnt );
+    snprintf( str, sizeof( str ), "%sSortedUnscaledMesh_UW%d.m", MeshMgr->m_DebugDir.c_str(), namecnt );
     fp = fopen( str, "w" );
+
+    if (fpmas )
+    {
+        snprintf( str, sizeof( str ), "SortedUnscaledMesh_UW%d.m", namecnt );
+        fprintf( fpmas, "run( '%s' );\n", str );
+    }
 
     fprintf( fp, "u = [" );
     for ( i = 0 ; i < sorted.size() ; i++ )
@@ -1550,6 +1594,17 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     fprintf( fp, "axis equal;\n" );
 
     fclose( fp );
+
+    if ( namecnt == MeshMgr->GetTotalNumSurfs() - 1 )
+    {
+        fprintf( fpmas, "figure(1)\n");
+        fprintf( fpmas, "axis off\n" );
+        fprintf( fpmas, "axis equal\n" );
+        fprintf( fpmas, "hold off\n" );
+
+        fclose( fpmas );
+        fpmas = NULL;
+    }
 #endif
 
     vec2d VspMinUW = vec2d( m_Surf->GetSurfCore()->GetMinU(), m_Surf->GetSurfCore()->GetMinW() );
@@ -1563,30 +1618,43 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     double VspdU = VspMaxU - VspMinU;
     double VspdW = VspMaxW - VspMinW;
 
-    for ( i = 0 ; i < num_pnts ; i++ )
-    {
-        uw_points[i] = uw_points[i] - VspMinUW;
-    }
-
-
     //==== Scale UW Pnts ====//
+    vector< vec2d > uw_prime( uw_points.size() );
     for ( i = 0 ; i < ( int )uw_points.size() ; i++ )
     {
-        double su = m_Surf->GetUScale( uw_points[i].y() / VspdW );
-        double sw = m_Surf->GetWScale( uw_points[i].x() / VspdU );
-        uw_points[i].set_x( su * uw_points[i].x() );
-        uw_points[i].set_y( sw * uw_points[i].y() );
+        uw_prime[i] = m_Surf->GetUWPrime( uw_points[i] );
     }
 
 #ifdef DEBUG_CFD_MESH
-    sprintf( str, "%sMesh_UW%d.m", MeshMgr->m_DebugDir.c_str(), namecnt );
+
+    static FILE* fpmas2 = NULL;
+
+    if ( namecnt == 0 )
+    {
+        char str2[256];
+        snprintf( str2, sizeof( str2 ), "%sMesh_UW.m", MeshMgr->m_DebugDir.c_str() );
+        fpmas2 = fopen( str2, "w" );
+
+        fprintf( fpmas2, "clear all; format compact; close all;\n" );
+        fprintf( fpmas2, "figure(1); hold on\n" );
+    }
+
+
+    snprintf( str, sizeof( str ), "%sMesh_UW%d.m", MeshMgr->m_DebugDir.c_str(), namecnt );
     fp = fopen( str, "w" );
+
+    if (fpmas )
+    {
+        snprintf( str, sizeof( str ), "Mesh_UW%d.m", namecnt );
+        fprintf( fpmas, "run( '%s' );\n", str );
+    }
+
     fprintf( fp, "u = [" );
     for ( i = 0 ; i < num_edges ; i++ )
     {
         int ind0 = segs_indexes[i].m_Index[0];
         int ind1 = segs_indexes[i].m_Index[1];
-        fprintf( fp, "%.19e %.19e", uw_points[ind0].x(), uw_points[ind1].x() );
+        fprintf( fp, "%.19e %.19e", uw_prime[ind0].x(), uw_prime[ind1].x() );
 
         if ( i < num_edges - 1 )
         {
@@ -1602,7 +1670,7 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     {
         int ind0 = segs_indexes[i].m_Index[0];
         int ind1 = segs_indexes[i].m_Index[1];
-        fprintf( fp, "%.19e %.19e", uw_points[ind0].y(), uw_points[ind1].y() );
+        fprintf( fp, "%.19e %.19e", uw_prime[ind0].y(), uw_prime[ind1].y() );
 
         if ( i < num_edges - 1 )
         {
@@ -1618,6 +1686,17 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     fprintf( fp, "axis equal;\n" );
 
     fclose( fp );
+
+    if ( namecnt == MeshMgr->GetTotalNumSurfs() - 1 )
+    {
+        fprintf( fpmas2, "figure(1)\n");
+        fprintf( fpmas2, "axis off\n" );
+        fprintf( fpmas2, "axis equal\n" );
+        fprintf( fpmas2, "hold off\n" );
+
+        fclose( fpmas2 );
+        fpmas2 = NULL;
+    }
 #endif
 
 
@@ -1660,9 +1739,9 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     int cnt = 0;
     for ( j = 0 ; j < num_pnts ; j++ )
     {
-        in.pointlist[cnt] = uw_points[j].x();
+        in.pointlist[cnt] = uw_prime[j].x();
         cnt++;
-        in.pointlist[cnt] = uw_points[j].y();
+        in.pointlist[cnt] = uw_prime[j].y();
         cnt++;
     }
 
@@ -1679,7 +1758,7 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     }
 
     //==== Constrained Delaunay Trianglulation ====//
-    double est_num_tris = ( uw_points.size() / 4 ) * ( uw_points.size() / 4 );
+    double est_num_tris = ( uw_prime.size() / 4 ) * ( uw_prime.size() / 4 );
     if ( est_num_tris < 1 )
     {
         est_num_tris = 1;
@@ -1690,9 +1769,9 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     }
 
     BndBox box;
-    for ( i = 0 ; i < ( int )uw_points.size() ; i++ )
+    for ( i = 0 ; i < ( int )uw_prime.size() ; i++ )
     {
-        vec3d uwpnt( uw_points[i].x(), uw_points[i].y(), 0 );
+        vec3d uwpnt( uw_prime[i].x(), uw_prime[i].y(), 0 );
         box.Update( uwpnt );
     }
 
@@ -1727,11 +1806,20 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
         vector< Node* > nodeVec;
         for ( i = 0; i < out.numberofpoints; i++ )
         {
-            double u = out.pointlist[i * 2];
-            double w = out.pointlist[i * 2 + 1];
-            double su = 1.0 / m_Surf->GetUScale( w / VspdW );
-            double sw = 1.0 / m_Surf->GetWScale( u / VspdU );
-            vec2d uw = vec2d( su * u + VspMinU, sw * w + VspMinW );
+            vec2d uw;
+            if ( i < num_pnts )
+            {
+                uw = uw_points[i];
+            }
+            else
+            {
+                double u = out.pointlist[ i * 2 ];
+                double w = out.pointlist[ i * 2 + 1 ];
+
+                vec2d uwprime = vec2d( u, w );
+                uw = m_Surf->GetUW( uwprime );
+            }
+
             vec3d pnt = m_Surf->CompPnt( uw.v[0], uw.v[1] );
             nodeVec.push_back( AddNode( pnt, uw ) );
         }
@@ -1804,8 +1892,29 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
     }
 
 #ifdef DEBUG_CFD_MESH
-        sprintf( str, "%sUWTriMeshOut%d.m", MeshMgr->m_DebugDir.c_str(), namecnt );
+        static FILE* fpmas3 = NULL;
+
+        if ( namecnt == 0 )
+        {
+            char str2[256];
+            snprintf( str2, sizeof( str2 ), "%sUWTriMeshOut.m", MeshMgr->m_DebugDir.c_str() );
+            fpmas3 = fopen( str2, "w" );
+
+            fprintf( fpmas3, "clear all; format compact; close all;\n" );
+            fprintf( fpmas3, "figure(2); hold on\n" );
+            fprintf( fpmas3, "figure(3); hold on\n" );
+            fprintf( fpmas3, "figure(4); hold on\n" );
+        }
+
+        snprintf( str, sizeof( str ), "%sUWTriMeshOut%d.m", MeshMgr->m_DebugDir.c_str(), namecnt );
         fp = fopen( str, "w" );
+
+        if (fpmas3 )
+        {
+            snprintf( str, sizeof( str ), "UWTriMeshOut%d.m", namecnt );
+            fprintf( fpmas3, "run( '%s' );\n", str );
+        }
+
         fprintf( fp, "clear all\nformat compact\n" );
         fprintf( fp, "t = [" );
         for ( i = 0 ; i < out.numberoftriangles ; i++ )
@@ -1849,11 +1958,20 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
         fprintf( fp, "u = [" );
         for ( i = 0; i < out.numberofpoints; i++ )
         {
-            double u = out.pointlist[i * 2];
-            double w = out.pointlist[i * 2 + 1];
-            double su = 1.0 / m_Surf->GetUScale( w / VspdW );
-            double sw = 1.0 / m_Surf->GetWScale( u / VspdU );
-            double uu = su * u + VspMinU;
+            vec2d uw;
+            if ( i < num_pnts )
+            {
+                uw = uw_points[i];
+            }
+            else
+            {
+                double u = out.pointlist[ i * 2 ];
+                double w = out.pointlist[ i * 2 + 1 ];
+
+                vec2d uwprime = vec2d( u, w );
+                uw = m_Surf->GetUW( uwprime );
+            }
+            double uu = uw.x();
 
             fprintf( fp, "%f", uu );
 
@@ -1866,11 +1984,20 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
         fprintf( fp, "w = [" );
         for ( i = 0; i < out.numberofpoints; i++ )
         {
-            double u = out.pointlist[i * 2];
-            double w = out.pointlist[i * 2 + 1];
-            double su = 1.0 / m_Surf->GetUScale( w / VspdW );
-            double sw = 1.0 / m_Surf->GetWScale( u / VspdU );
-            double ww = sw * w + VspMinW;
+            vec2d uw;
+            if ( i < num_pnts )
+            {
+                uw = uw_points[i];
+            }
+            else
+            {
+                double u = out.pointlist[ i * 2 ];
+                double w = out.pointlist[ i * 2 + 1 ];
+
+                vec2d uwprime = vec2d( u, w );
+                uw = m_Surf->GetUW( uwprime );
+            }
+            double ww = uw.y();
 
             fprintf( fp, "%f", ww );
 
@@ -1883,11 +2010,20 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
         fprintf( fp, "x = [" );
         for ( i = 0; i < out.numberofpoints; i++ )
         {
-            double u = out.pointlist[i * 2];
-            double w = out.pointlist[i * 2 + 1];
-            double su = 1.0 / m_Surf->GetUScale( w / VspdW );
-            double sw = 1.0 / m_Surf->GetWScale( u / VspdU );
-            vec2d uw = vec2d( su * u + VspMinU, sw * w + VspMinW );
+            vec2d uw;
+            if ( i < num_pnts )
+            {
+                uw = uw_points[i];
+            }
+            else
+            {
+                double u = out.pointlist[ i * 2 ];
+                double w = out.pointlist[ i * 2 + 1 ];
+
+                vec2d uwprime = vec2d( u, w );
+                uw = m_Surf->GetUW( uwprime );
+            }
+
             vec3d pnt = m_Surf->CompPnt( uw.v[0], uw.v[1] );
 
             fprintf( fp, "%f", pnt.x() );
@@ -1901,11 +2037,20 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
         fprintf( fp, "y = [" );
         for ( i = 0; i < out.numberofpoints; i++ )
         {
-            double u = out.pointlist[i * 2];
-            double w = out.pointlist[i * 2 + 1];
-            double su = 1.0 / m_Surf->GetUScale( w / VspdW );
-            double sw = 1.0 / m_Surf->GetWScale( u / VspdU );
-            vec2d uw = vec2d( su * u + VspMinU, sw * w + VspMinW );
+            vec2d uw;
+            if ( i < num_pnts )
+            {
+                uw = uw_points[i];
+            }
+            else
+            {
+                double u = out.pointlist[ i * 2 ];
+                double w = out.pointlist[ i * 2 + 1 ];
+
+                vec2d uwprime = vec2d( u, w );
+                uw = m_Surf->GetUW( uwprime );
+            }
+
             vec3d pnt = m_Surf->CompPnt( uw.v[0], uw.v[1] );
 
             fprintf( fp, "%f", pnt.y() );
@@ -1919,11 +2064,20 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
         fprintf( fp, "z = [" );
         for ( i = 0; i < out.numberofpoints; i++ )
         {
-            double u = out.pointlist[i * 2];
-            double w = out.pointlist[i * 2 + 1];
-            double su = 1.0 / m_Surf->GetUScale( w / VspdW );
-            double sw = 1.0 / m_Surf->GetWScale( u / VspdU );
-            vec2d uw = vec2d( su * u + VspMinU, sw * w + VspMinW );
+            vec2d uw;
+            if ( i < num_pnts )
+            {
+                uw = uw_points[i];
+            }
+            else
+            {
+                double u = out.pointlist[ i * 2 ];
+                double w = out.pointlist[ i * 2 + 1 ];
+
+                vec2d uwprime = vec2d( u, w );
+                uw = m_Surf->GetUW( uwprime );
+            }
+
             vec3d pnt = m_Surf->CompPnt( uw.v[0], uw.v[1] );
 
             fprintf( fp, "%f", pnt.z() );
@@ -1947,6 +2101,28 @@ void Mesh::InitMesh( vector< vec2d > & uw_points, vector< MeshSeg > & segs_index
         fprintf( fp, "axis equal\n" );
 
         fclose( fp );
+
+        if ( namecnt == MeshMgr->GetTotalNumSurfs() - 1 )
+        {
+            fprintf( fpmas3, "figure(2)\n");
+            fprintf( fpmas3, "axis off\n" );
+            fprintf( fpmas3, "axis equal\n" );
+            fprintf( fpmas3, "hold off\n" );
+
+            fprintf( fpmas3, "figure(3)\n");
+            fprintf( fpmas3, "axis off\n" );
+            fprintf( fpmas3, "axis equal\n" );
+            fprintf( fpmas3, "hold off\n" );
+
+            fprintf( fpmas3, "figure(4)\n");
+            fprintf( fpmas3, "axis off\n" );
+            fprintf( fpmas3, "axis equal\n" );
+            fprintf( fpmas3, "hold off\n" );
+
+            fclose( fpmas3 );
+            fpmas3 = NULL;
+        }
+
         namecnt++;
 #endif
 

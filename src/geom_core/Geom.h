@@ -266,8 +266,9 @@ public:
     virtual ~GeomXForm();
 
     virtual void UpdateXForm();
+    virtual void UpdateAttachParms();
     virtual void ComposeModelMatrix();
-    virtual Matrix4d ComposeAttachMatrix();
+    virtual void ComposeAttachMatrix();
     virtual void SetCenter( double x, double y, double z )      { m_Center.set_xyz( x, y, z ); }
     virtual void ComputeCenter()
     {
@@ -294,6 +295,11 @@ public:
     Matrix4d getModelMatrix()
     {
         return m_ModelMatrix;
+    }
+
+    Matrix4d getAttachMatrix()
+    {
+        return m_AttachMatrix;
     }
 
     virtual Matrix4d GetAncestorAttachMatrix( int gen );
@@ -323,7 +329,21 @@ public:
     IntParm m_RotAttachFlag;            // Flag to set rotation attachment
 
     Parm m_ULoc;                        // UV Attachment Parameters
+    Parm m_U0NLoc;
+    BoolParm m_U01;
     Parm m_WLoc;
+
+    Parm m_RLoc;                        // RST Attachment Parameters
+    BoolParm m_R01;
+    Parm m_R0NLoc;
+    Parm m_SLoc;
+    Parm m_TLoc;
+
+    Parm m_LLoc;                        // LMN Attachment Parameters
+    BoolParm m_L01;
+    Parm m_L0LenLoc;
+    Parm m_MLoc;
+    Parm m_NLoc;
 
     Parm m_Scale;                       // Scaling Parameter
     Parm m_LastScale;
@@ -336,6 +356,7 @@ protected:
     bool m_ignoreAbsFlag;
     bool m_applyIgnoreAbsFlag;          // Controls whether the ignoreAbsFlag is obeyed
     Matrix4d m_ModelMatrix;
+    Matrix4d m_AttachMatrix;
 
 };
 
@@ -450,6 +471,13 @@ public:
 
     virtual bool CompRotCoordSys( const int &indx, const double &u, const double &w, Matrix4d &rotmat );
     virtual bool CompTransCoordSys( const int &indx, const double &u, const double &w, Matrix4d &transmat );
+    virtual bool CompRotCoordSysRST( const int &indx, const double &r, const double &s, const double &t, Matrix4d &rotmat );
+    virtual bool CompTransCoordSysRST( const int &indx, const double &r, const double &s, const double &t, Matrix4d &transmat );
+    virtual bool CompRotCoordSysLMN( const int &indx, const double &l, const double &m, const double &n, Matrix4d &rotmat );
+    virtual bool CompTransCoordSysLMN( const int &indx, const double &l, const double &m, const double &n, Matrix4d &transmat );
+
+    virtual void ConvertRSTtoLMN( const int &indx, const double &r, const double &s, const double &t, double &l, double &m, double &n );
+    virtual void ConvertLMNtoRST( const int &indx, const double &l, const double &m, const double &n, double &r, double &s, double &t );
 
     virtual double ProjPnt01I( const vec3d & pt, int &surf_indx, double &u, double &w );
     virtual double AxisProjPnt01I( const int &iaxis, const vec3d &pt, int &surf_indx_out, double &u_out, double &w_out, vec3d &p_out );
@@ -660,7 +688,7 @@ public:
 
     //=== End Cap Parms ===//
     IntParm m_CapUMinOption;
-    LimIntParm m_CapUMinTess;
+    IntParm m_CapUMinTess;
     IntParm m_CapUMaxOption;
 
     Parm m_CapUMinLength;

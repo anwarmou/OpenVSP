@@ -203,6 +203,8 @@ void FeaMesh::UpdateDrawObjs()
         {
             for ( int j = 0; j < m_FeaElementVec.size(); j++ )
             {
+                vec3d c = DrawObj::Color( DrawObj::reasonColorMap( m_FeaElementVec[j]->GetReason() ) );
+
                 if ( m_FeaElementVec[j]->GetFeaPartIndex() == iprt && m_FeaElementVec[j]->GetFeaSSIndex() < 0 )
                 {
                     if ( m_FeaElementVec[j]->GetElementType() == FeaElement::FEA_TRI_3 || m_FeaElementVec[j]->GetElementType() == FeaElement::FEA_TRI_6 )
@@ -215,6 +217,15 @@ void FeaMesh::UpdateDrawObjs()
                         m_FeaTriElementDO[iprt].m_NormVec.push_back( norm );
                         m_FeaTriElementDO[iprt].m_NormVec.push_back( norm );
                         m_FeaTriElementDO[iprt].m_NormVec.push_back( norm );
+
+
+                        m_FeaTriElementDO[iprt].m_FaceColorVec.push_back( c );
+                        m_FeaTriElementDO[iprt].m_FaceColorVec.push_back( c );
+                        m_FeaTriElementDO[iprt].m_FaceColorVec.push_back( c );
+
+                        m_FeaTriElementDO[iprt].m_FaceAlphaVec.push_back( 1.0f );
+                        m_FeaTriElementDO[iprt].m_FaceAlphaVec.push_back( 1.0f );
+                        m_FeaTriElementDO[iprt].m_FaceAlphaVec.push_back( 1.0f );
                     }
                     else if ( m_FeaElementVec[j]->GetElementType() == FeaElement::FEA_QUAD_4 || m_FeaElementVec[j]->GetElementType() == FeaElement::FEA_QUAD_8 )
                     {
@@ -228,6 +239,16 @@ void FeaMesh::UpdateDrawObjs()
                         m_FeaQuadElementDO[iprt].m_NormVec.push_back( norm );
                         m_FeaQuadElementDO[iprt].m_NormVec.push_back( norm );
                         m_FeaQuadElementDO[iprt].m_NormVec.push_back( norm );
+
+                        m_FeaQuadElementDO[iprt].m_FaceColorVec.push_back( c );
+                        m_FeaQuadElementDO[iprt].m_FaceColorVec.push_back( c );
+                        m_FeaQuadElementDO[iprt].m_FaceColorVec.push_back( c );
+                        m_FeaQuadElementDO[iprt].m_FaceColorVec.push_back( c );
+
+                        m_FeaQuadElementDO[iprt].m_FaceAlphaVec.push_back( 1.0f );
+                        m_FeaQuadElementDO[iprt].m_FaceAlphaVec.push_back( 1.0f );
+                        m_FeaQuadElementDO[iprt].m_FaceAlphaVec.push_back( 1.0f );
+                        m_FeaQuadElementDO[iprt].m_FaceAlphaVec.push_back( 1.0f );
                     }
                 }
             }
@@ -343,6 +364,8 @@ void FeaMesh::UpdateDrawObjs()
 
         for ( int j = 0; j < m_FeaElementVec.size(); j++ )
         {
+            vec3d c = DrawObj::Color( DrawObj::reasonColorMap( m_FeaElementVec[j]->GetReason() ) );
+
             if (( m_FeaElementVec[j]->GetFeaSSIndex() == iss ) &&
                 ( m_FeaElementVec[j]->GetElementType() == FeaElement::FEA_TRI_3 || m_FeaElementVec[j]->GetElementType() == FeaElement::FEA_TRI_6 ) )
             {
@@ -354,6 +377,14 @@ void FeaMesh::UpdateDrawObjs()
                 m_SSTriElementDO[iss].m_NormVec.push_back( norm );
                 m_SSTriElementDO[iss].m_NormVec.push_back( norm );
                 m_SSTriElementDO[iss].m_NormVec.push_back( norm );
+
+                m_SSTriElementDO[iss].m_FaceColorVec.push_back( c );
+                m_SSTriElementDO[iss].m_FaceColorVec.push_back( c );
+                m_SSTriElementDO[iss].m_FaceColorVec.push_back( c );
+
+                m_SSTriElementDO[iss].m_FaceAlphaVec.push_back( 1.0f );
+                m_SSTriElementDO[iss].m_FaceAlphaVec.push_back( 1.0f );
+                m_SSTriElementDO[iss].m_FaceAlphaVec.push_back( 1.0f );
             }
             else if (( m_FeaElementVec[j]->GetFeaSSIndex() == iss ) &&
                      ( m_FeaElementVec[j]->GetElementType() == FeaElement::FEA_QUAD_4 || m_FeaElementVec[j]->GetElementType() == FeaElement::FEA_QUAD_8 ) )
@@ -368,6 +399,16 @@ void FeaMesh::UpdateDrawObjs()
                 m_SSQuadElementDO[iss].m_NormVec.push_back( norm );
                 m_SSQuadElementDO[iss].m_NormVec.push_back( norm );
                 m_SSQuadElementDO[iss].m_NormVec.push_back( norm );
+
+                m_SSQuadElementDO[iss].m_FaceColorVec.push_back( c );
+                m_SSQuadElementDO[iss].m_FaceColorVec.push_back( c );
+                m_SSQuadElementDO[iss].m_FaceColorVec.push_back( c );
+                m_SSQuadElementDO[iss].m_FaceColorVec.push_back( c );
+
+                m_SSQuadElementDO[iss].m_FaceAlphaVec.push_back( 1.0f );
+                m_SSQuadElementDO[iss].m_FaceAlphaVec.push_back( 1.0f );
+                m_SSQuadElementDO[iss].m_FaceAlphaVec.push_back( 1.0f );
+                m_SSQuadElementDO[iss].m_FaceAlphaVec.push_back( 1.0f );
             }
         }
 
@@ -484,45 +525,60 @@ void FeaMesh::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec, SimpleFeaMeshSetti
             m_CapFeaElementDO[iprt].m_LineWidth = 3.0;
 
             if ( st_settings->m_DrawMeshFlag ||
-                 st_settings->m_ColorTagsFlag )   // At least mesh or tags are visible.
+                 st_settings->m_ColorFacesFlag )   // At least mesh or tags are visible.
             {
                 if ( !m_FixPointFeaPartFlagVec[iprt] )
                 {
                     if ( st_settings->m_DrawMeshFlag &&
-                         st_settings->m_ColorTagsFlag ) // Both are visible.
+                         st_settings->m_ColorFacesFlag ) // Both are visible.
                     {
-                        m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_WIRE_SHADED_TRIS;
-                        m_FeaTriElementDO[iprt].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
+                        if ( st_settings->m_ColorTagReason == vsp::TAG )
+                        {
+                            m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_WIRE_SHADED_TRIS;
+                            m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_WIRE_SHADED_QUADS;
+                        }
+                        else
+                        {
+                            m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_WIRE_MAPPED_TRIS;
+                            m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_WIRE_MAPPED_QUADS;
+                        }
 
-                        m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_WIRE_SHADED_QUADS;
+                        m_FeaTriElementDO[iprt].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
                         m_FeaQuadElementDO[iprt].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
                     }
                     else if ( st_settings->m_DrawMeshFlag ) // Mesh only
                     {
-                        m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_HIDDEN_TRIS;
+                        m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_WIRE_HIDDEN_TRIS;
                         m_FeaTriElementDO[iprt].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
 
-                        m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_HIDDEN_QUADS;
+                        m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_WIRE_HIDDEN_QUADS;
                         m_FeaQuadElementDO[iprt].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
                     }
                     else // Tags only
                     {
-                        m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_SHADED_TRIS;
-
-                        m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_SHADED_QUADS;
+                        if ( st_settings->m_ColorTagReason == vsp::TAG )
+                        {
+                            m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_SHADED_TRIS;
+                            m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_SHADED_QUADS;
+                        }
+                        else
+                        {
+                            m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_MAPPED_TRIS;
+                            m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_MAPPED_QUADS;
+                        }
                     }
                 }
             }
             else
             {
-                m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_HIDDEN_TRIS;
+                m_FeaTriElementDO[iprt].m_Type = DrawObj::VSP_WIRE_HIDDEN_TRIS;
                 m_FeaTriElementDO[iprt].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
 
-                m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_HIDDEN_QUADS;
+                m_FeaQuadElementDO[iprt].m_Type = DrawObj::VSP_WIRE_HIDDEN_QUADS;
                 m_FeaQuadElementDO[iprt].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
             }
 
-            if ( st_settings->m_ColorTagsFlag )
+            if ( st_settings->m_ColorFacesFlag )
             {
                 // Color sequence -- go around color wheel ncstep times with slight
                 // offset from ncgrp basic colors.
@@ -587,8 +643,8 @@ void FeaMesh::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec, SimpleFeaMeshSetti
                 m_CapFeaElementDO[iprt].m_LineColor = vec3d( 0.0, 0.0, 0.0 );
             }
 
-            m_FeaTriElementDO[iprt].m_Visible = ( st_settings->m_DrawMeshFlag || st_settings->m_ColorTagsFlag ) && m_DrawElementFlagVec[iprt];
-            m_FeaQuadElementDO[iprt].m_Visible = ( st_settings->m_DrawMeshFlag || st_settings->m_ColorTagsFlag ) && m_DrawElementFlagVec[iprt];
+            m_FeaTriElementDO[iprt].m_Visible = ( st_settings->m_DrawMeshFlag || st_settings->m_ColorFacesFlag ) && m_DrawElementFlagVec[iprt];
+            m_FeaQuadElementDO[iprt].m_Visible = ( st_settings->m_DrawMeshFlag || st_settings->m_ColorFacesFlag ) && m_DrawElementFlagVec[iprt];
             m_FeaNodeDO[ iprt ].m_Visible = st_settings->m_DrawNodesFlag && m_DrawElementFlagVec[iprt];
             m_CapFeaElementDO[ iprt ].m_Visible = m_DrawCapFlagVec[ iprt ];
             m_ElOrientationDO[iprt].m_Visible = st_settings->m_DrawElementOrientVecFlag && m_DrawElementFlagVec[iprt];
@@ -614,39 +670,57 @@ void FeaMesh::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec, SimpleFeaMeshSetti
             m_SSCapFeaElementDO[iss].m_LineWidth = 3.0;
 
             if ( st_settings->m_DrawMeshFlag ||
-                 st_settings->m_ColorTagsFlag )   // At least mesh or tags are visible.
+                 st_settings->m_ColorFacesFlag )   // At least mesh or tags are visible.
             {
 
                 if ( st_settings->m_DrawMeshFlag &&
-                     st_settings->m_ColorTagsFlag ) // Both are visible.
+                     st_settings->m_ColorFacesFlag ) // Both are visible.
                 {
-                    m_SSTriElementDO[iss].m_Type = DrawObj::VSP_WIRE_SHADED_TRIS;
+                    if ( st_settings->m_ColorTagReason == vsp::TAG )
+                    {
+                        m_SSTriElementDO[iss].m_Type = DrawObj::VSP_WIRE_SHADED_TRIS;
+                        m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_WIRE_SHADED_QUADS;
+                    }
+                    else
+                    {
+                        m_SSTriElementDO[iss].m_Type = DrawObj::VSP_WIRE_MAPPED_TRIS;
+                        m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_WIRE_MAPPED_QUADS;
+                    }
+
                     m_SSTriElementDO[iss].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
-                    m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_WIRE_SHADED_QUADS;
                     m_SSQuadElementDO[iss].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
                 }
                 else if ( st_settings->m_DrawMeshFlag ) // Mesh only
                 {
-                    m_SSTriElementDO[iss].m_Type = DrawObj::VSP_HIDDEN_TRIS;
+                    m_SSTriElementDO[iss].m_Type = DrawObj::VSP_WIRE_HIDDEN_TRIS;
                     m_SSTriElementDO[iss].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
-                    m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_HIDDEN_QUADS;
+                    m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_WIRE_HIDDEN_QUADS;
                     m_SSQuadElementDO[iss].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
                 }
                 else // Tags only
                 {
-                    m_SSTriElementDO[iss].m_Type = DrawObj::VSP_SHADED_TRIS;
-                    m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_SHADED_QUADS;
+
+                    if ( st_settings->m_ColorTagReason == vsp::TAG )
+                    {
+                        m_SSTriElementDO[iss].m_Type = DrawObj::VSP_SHADED_TRIS;
+                        m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_SHADED_QUADS;
+                    }
+                    else
+                    {
+                        m_SSTriElementDO[iss].m_Type = DrawObj::VSP_MAPPED_TRIS;
+                        m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_MAPPED_QUADS;
+                    }
                 }
             }
             else
             {
-                m_SSTriElementDO[iss].m_Type = DrawObj::VSP_HIDDEN_TRIS;
+                m_SSTriElementDO[iss].m_Type = DrawObj::VSP_WIRE_HIDDEN_TRIS;
                 m_SSTriElementDO[iss].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
-                m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_HIDDEN_QUADS;
+                m_SSQuadElementDO[iss].m_Type = DrawObj::VSP_WIRE_HIDDEN_QUADS;
                 m_SSQuadElementDO[iss].m_LineColor = vec3d( 0.4, 0.4, 0.4 );
             }
 
-            if ( st_settings->m_ColorTagsFlag )
+            if ( st_settings->m_ColorFacesFlag )
             {
                 // Color sequence -- go around color wheel ncstep times with slight
                 // offset from ncgrp basic colors.
@@ -703,8 +777,8 @@ void FeaMesh::LoadDrawObjs( vector< DrawObj* > &draw_obj_vec, SimpleFeaMeshSetti
                 m_SSCapFeaElementDO[iss].m_LineColor = vec3d( 0.0, 0.0, 0.0 );
             }
 
-            m_SSTriElementDO[ iss ].m_Visible = ( st_settings->m_DrawMeshFlag || st_settings->m_ColorTagsFlag ) && m_DrawElementFlagVec[ iss + m_NumFeaParts ];
-            m_SSQuadElementDO[ iss ].m_Visible = ( st_settings->m_DrawMeshFlag || st_settings->m_ColorTagsFlag ) && m_DrawElementFlagVec[ iss + m_NumFeaParts ];
+            m_SSTriElementDO[ iss ].m_Visible = ( st_settings->m_DrawMeshFlag || st_settings->m_ColorFacesFlag ) && m_DrawElementFlagVec[ iss + m_NumFeaParts ];
+            m_SSQuadElementDO[ iss ].m_Visible = ( st_settings->m_DrawMeshFlag || st_settings->m_ColorFacesFlag ) && m_DrawElementFlagVec[ iss + m_NumFeaParts ];
 
             m_SSFeaNodeDO[ iss ].m_Visible = st_settings->m_DrawNodesFlag && m_DrawElementFlagVec[ iss + m_NumFeaParts];
             m_SSCapFeaElementDO[ iss ].m_Visible = m_DrawCapFlagVec[ iss + m_NumFeaParts];
@@ -2217,7 +2291,8 @@ void FeaMesh::UpdateDisplaySettings()
     if ( GetStructSettingsPtr() && fea_struct )
     {
         GetStructSettingsPtr()->m_DrawMeshFlag = fea_struct->GetStructSettingsPtr()->m_DrawMeshFlag.Get();
-        GetStructSettingsPtr()->m_ColorTagsFlag = fea_struct->GetStructSettingsPtr()->m_ColorTagsFlag.Get();
+        GetStructSettingsPtr()->m_ColorFacesFlag = fea_struct->GetStructSettingsPtr()->m_ColorFacesFlag.Get();
+        GetStructSettingsPtr()->m_ColorTagReason = fea_struct->GetStructSettingsPtr()->m_ColorTagReason.Get();
 
         GetStructSettingsPtr()->m_DrawNodesFlag = fea_struct->GetStructSettingsPtr()->m_DrawNodesFlag.Get();
         GetStructSettingsPtr()->m_DrawBCNodesFlag = fea_struct->GetStructSettingsPtr()->m_DrawBCNodesFlag.Get();

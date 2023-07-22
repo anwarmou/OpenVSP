@@ -1,3 +1,19 @@
+# Copyright (c) 2023 United States Government as represented by the
+# Administrator of the National Aeronautics and Space Administration.  All Other
+# Rights Reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
 # Copyright (c) 2020 Uber Technologies, Inc.
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,7 +35,11 @@
 # THE SOFTWARE.
 
 import os
-from charm.input_automation import *  # noqa
+# from charm.input_automation import *  # noqa
+from charm.input_automation import read_run_characteristics_template
+import math
+import re
+import io
 import numpy as np
 import utilities.units as u
 import matplotlib.pyplot as plt
@@ -35,7 +55,7 @@ RotorTuple = namedtuple("RotorTuple", "shaft_thrust_total shaft_power_total shaf
                                        shaft_roll_mom shaft_pitch_mom shaft_yaw_mom \
                                        wind_thrust_total  wind_power_total  wind_x_force  wind_side_force \
                                        aircraft_roll_mom aircraft_pitch_mom aircraft_yaw_mom \
-                                       collective tip_speed fom sigma \
+                                       collective tip_speed fom sigma wind_ideal_ind_power wind_rotor_eff \
                                        aircraft_x_force aircraft_y_force aircraft_z_force")
 
 
@@ -49,6 +69,7 @@ class CharmScanGridFrame:
     """
     Class to contain and plot results from a single scan grid
     """
+
     def __init__(self, x, y, z, u, v, w, cp, cp_prime, psis):
         self.x = x
         """
@@ -100,7 +121,7 @@ class CharmScanGridFrame:
         # determine x/y plotting dimensions xy, xz, yz
         uniqx = np.unique(self.x)
         uniqy = np.unique(self.y)
-        uniqz = np.unique(self.z)
+        # uniqz = np.unique(self.z)  # Unused at this time, JRW 3/24/2022
 
         self._invert_x = False
         self._invert_y = False
@@ -182,6 +203,7 @@ class CharmScanGridResults:
     """
     Holds all scan grid results frames
     """
+
     def __init__(self, num_psi, num_grids, grids):
         """
         Initializes scan grid results object
@@ -247,6 +269,7 @@ class RotorFrameResults:
     """
     Class to contain results for a single rotor in a particular frame of reference
     """
+
     def __init__(self, az, Fx, Fy, Fz, Mx, My, Mz):
         """
         Initializes rotor frame results
@@ -271,6 +294,7 @@ class CharmCQData:
     """
     Class to contain results from [name]cq.dat file
     """
+
     def __init__(self, ct, cqi, cqp, cqt, coll, cone, a1s, b1s):
         self.ct = ct
         self.cqi = cqi
@@ -451,8 +475,8 @@ class CharmPerfData:
             line = f.readline()  # variable values
             data = line.split()
             num_rotors = int(data[0])
-            rho = float(data[1])
-            speed_of_sound = float(data[2])
+            # rho = float(data[1])  # Unused at this time, JRW 3/24/2022
+            # speed_of_sound = float(data[2])  # Unused at this time, JRW 3/24/2022
 
             revolution = 0
 
@@ -484,7 +508,7 @@ class CharmPerfData:
                             line = f.readline()  # variable values
                             try:
                                 row_data = [float(d) for d in line.split()]
-                            except:
+                            except Exception:
                                 f.seek(cur_pos)
                                 skip = True
 
@@ -624,6 +648,20 @@ class CharmRotorResults:
         First and last value in the log file for this rotor.
         """
 
+        self.ideal_ind_power_wind = np.array([result.wind_ideal_ind_power for result in rotor_log_results])
+        """
+        Ideal induced powers (Energy Balance Method) in wind frame [hp] parsed from the log file.
+
+        First and last value in the log file for this rotor.
+        """
+
+        self.rotor_eff_wind = np.array([result.wind_rotor_eff for result in rotor_log_results])
+        """
+        Rotor efficiency (Energy Balance Method) in wind frame parsed from the log file.
+
+        First and last value in the log file for this rotor.
+        """
+
         self.xforces_wind = np.array([result.wind_x_force for result in rotor_log_results])
         """
         Total X-force in wind frame [lbs] parsed from the log file.
@@ -638,26 +676,29 @@ class CharmRotorResults:
         First and last value in the log file for this rotor.
         """
 
+        # TODO: This needs to be evaluated.  Why parse it at the hub level when it can be done at the aircraft level?
+        # Or, is this just misnamed as aircraft forces and moments pulled from elsewhere?
         self.fx_aircraft = np.array([result.aircraft_x_force*-1.0 for result in rotor_log_results])
         """
         Total X-force in aircraft frame [lbs] parsed from the log file. Note the sign on this value is changed
         from the log file. Positive value aligned with positive x-body axis (forward) of aircraft
-        
+
         First and last value in the log file for this rotor.
         """
 
         self.fy_aircraft = np.array([result.aircraft_y_force for result in rotor_log_results])
         """
         Total Y-force in aircraft frame [lbs] parsed from the log file.
-        
+
         First and last value in the log file for this rotor.
         """
 
+        # TODO: Same as above comment...
         self.fz_aircraft = np.array([result.aircraft_z_force*-1.0 for result in rotor_log_results])
         """
         Total Z-force in aircraft frame [lbs] parsed from the log file. Note the sign on this value is changed from log
         file. Positive value aligned with positive z-body axis (down) of the aircraft
-        
+
         First and last value in the log file for this rotor.
         """
 
@@ -711,6 +752,7 @@ class CharmResults:
     """
     Class to hold the results of a charm run
     """
+
     def __init__(self, rotor_results: List[CharmRotorResults], log_file, scan_grid: CharmScanGridResults,
                  aircraft_velocity, perf_data: CharmPerfData):
         """
@@ -757,13 +799,15 @@ class CharmResults:
             self.alpha = math.atan2(aircraft_velocity[2], aircraft_velocity[0]) * u.rad2deg
 
         cq_data = pd.DataFrame()
+        df_list = []
         for ir, res in enumerate(rotor_results):
             df_new = pd.DataFrame(vars(res.cq_data))
             df_new['rotor'] = ir+1
             df_new['rev'] = range(len(res.cq_data.a1s))
-            cq_data = cq_data.append(df_new, ignore_index=True)
+            df_list.append(df_new)
 
-        cq_data = cq_data.pivot('rev', 'rotor')
+        cq_data = pd.concat(df_list, ignore_index=True)
+        cq_data = cq_data.pivot(index='rev', columns='rotor')
 
         self.cq_data = cq_data
         """
@@ -815,7 +859,7 @@ def parse_charm_run(charm_dir, case_name, ignore_perfdat_errors=True):
         with open(case_name + ".log") as f:
             log_contents = f.read()
 
-        rotor_log_results = __parse_log_file(case_name + ".log")
+        rotor_log_results = _parse_log_file(case_name + ".log")
 
         rotor_results = []
         for i in range(num_rotors):
@@ -866,7 +910,7 @@ def parse_scan_grid_output(filename, freestream_velocity, num_rotors):
 
             if dim1_remaining > 0:
                 dim1_start_ind = num_grids-dim1_remaining
-                dim1_end_ind = dim1_start_ind + dim1_remaining if dims_available >= dim1_remaining else dim1_start_ind + dims_available
+                dim1_end_ind = dim1_start_ind + dim1_remaining if dims_available >= dim1_remaining else dim1_start_ind + dims_available  # noqa
                 dim1s[dim1_start_ind:dim1_end_ind] = dims[current_dim_start:(dim1_end_ind-dim1_start_ind)]
                 dim1_remaining -= (dim1_end_ind-dim1_start_ind)
                 current_dim_start += (dim1_end_ind-dim1_start_ind)
@@ -874,8 +918,9 @@ def parse_scan_grid_output(filename, freestream_velocity, num_rotors):
 
             if dim2_remaining > 0:
                 dim2_start_ind = num_grids-dim2_remaining
-                dim2_end_ind = dim2_start_ind + dim2_remaining if dims_available >= dim2_remaining else dim2_start_ind + dims_available
-                dim2s[dim2_start_ind:dim2_end_ind] = dims[current_dim_start:current_dim_start+(dim2_end_ind-dim2_start_ind)]
+                dim2_end_ind = dim2_start_ind + dim2_remaining if dims_available >= dim2_remaining else dim2_start_ind + dims_available  # noqa
+                dim2s[dim2_start_ind:dim2_end_ind] = dims[current_dim_start:current_dim_start +
+                                                          (dim2_end_ind-dim2_start_ind)]
                 dim2_remaining -= (dim2_end_ind-dim2_start_ind)
 
         line = f.readline()
@@ -940,7 +985,7 @@ def run_charm(files_to_write, case_name, run=True, print_log_stream=False, run_c
     import subprocess
     import signal
     from utilities.files import RunManager
-    with RunManager(**kwargs) as rd:
+    with RunManager(**kwargs):  # as rd:  # rd unused, commented out by JRW 3/25/2022
         for filename, file_contents in files_to_write.items():
             with open(filename, "w") as f:
                 f.write(file_contents)
@@ -1048,7 +1093,7 @@ def __parse_omega(rw_filename):
     return omega
 
 
-def __parse_log_file(log_filename):
+def _parse_log_file(log_filename):
     """
     Parses integrated rotor quantities from log file
     :param log_filename: name of the log file
@@ -1058,7 +1103,7 @@ def __parse_log_file(log_filename):
     with open(log_filename, "r") as f:
         # Count the number of rotors
         rotor_expr = re.compile(r"(^|\s)Rotor:\s+([0-9]+)")
-        first_rotor = __find_line(f, rotor_expr)
+        _ = __find_line(f, rotor_expr)
         num_rotors = 1
         while True:
             # Skip 7 lines
@@ -1082,13 +1127,14 @@ def __parse_log_file(log_filename):
         shaft_roll_mom_expr = re.compile(r"(^|\s)Roll moment  \(about \+x\)\s+(\S*)\s+(\S*)")
         shaft_pitch_mom_expr = re.compile(r"(^|\s)Pitch moment \(about \+y\)\s+(\S*)\s+(\S*)")
         shaft_yaw_mom_expr = re.compile(r"(^|\s)Yaw moment   \(about \+z\)\s+(\S*)\s+(\S*)")
-        shaft_angle_expr = re.compile(r"(^|\s+)Shaft angle (ALPHAS):")
 
         wind_axes_expr = re.compile(r"(^|\s)WIND AXES:")
         wind_thrust_expr = re.compile(r"(^|\s)Lift \(\+up\)\s+(\S*)\s+(\S*)")
         wind_x_force_expr = re.compile(r"(^|\s)X-force \(\+back\)\s+(\S*)\s+(\S*)")
         wind_side_force_expr = re.compile(r"(^|\s)Side force \(\+adv side\)\s+(\S*)\s+(\S*)")
         wind_power_expr = re.compile(r"(^|\s)Total Power \(energy balance\)\s+(\S*)\s+(\S*)")
+        wind_ideal_ind_power_expr = re.compile(r"(^|\s)Ideal Induced Power\s+(\S*)\s(\S*)")
+        wind_rotor_eff_expr = re.compile(r"(^|\s)Rotor efficiency\s+(\S+)")
 
         aircraft_loads_expr = re.compile(r"(^|\s)Hub loads \(aircraft frame\)")
         aircraft_x_force_expr = re.compile(r"(^|\s)Rearward force \(-x-dir\)\s+(\S*)\s+(\S*)")
@@ -1158,6 +1204,12 @@ def __parse_log_file(log_filename):
                 line = __find_line(f, wind_power_expr, integrated_perf_expr)
                 wind_power = float(re.search(wind_power_expr, line).groups()[1])
 
+                line = __find_line(f, wind_ideal_ind_power_expr, integrated_perf_expr)
+                wind_ideal_ind_power = float(re.search(wind_ideal_ind_power_expr, line).groups()[1])
+
+                line = __find_line(f, wind_rotor_eff_expr, integrated_perf_expr)
+                wind_rotor_eff = float(re.search(wind_rotor_eff_expr, line).groups()[1])
+
                 line = __find_line(f, aircraft_loads_expr, integrated_perf_expr)
                 if line != '':
                     line = __find_line(f, aircraft_x_force_expr, integrated_perf_expr)
@@ -1195,7 +1247,7 @@ def __parse_log_file(log_filename):
                         shaft_thrust, shaft_power, shaft_h_force, shaft_y_force, shaft_roll_mom,
                         shaft_pitch_mom, shaft_yaw_mom, wind_thrust, wind_power, wind_x_force, wind_side_force,
                         aircraft_roll_mom, aircraft_pitch_mom, aircraft_yaw_mom, collective, tip_speed, fom,
-                        sigma,
+                        sigma, wind_ideal_ind_power, wind_rotor_eff,
                         aircraft_x_force, aircraft_y_force, aircraft_z_force,
                     )
                 )

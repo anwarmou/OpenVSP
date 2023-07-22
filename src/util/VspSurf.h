@@ -149,8 +149,12 @@ public:
     void GetU01ConstCurve( VspCurve &c, const double &u01 ) const;
     void GetW01ConstCurve( VspCurve &c, const double &w01 ) const;
 
-    Matrix4d CompRotCoordSys( const double &u, const double &w );
+    Matrix4d CompRotCoordSys( double u, double w );
     Matrix4d CompTransCoordSys( const double &u, const double &w );
+    Matrix4d CompRotCoordSysRST( double r, double s, double t );
+    Matrix4d CompTransCoordSysRST(const double &r, const double &s, const double &t );
+    Matrix4d CompRotCoordSysLMN( const double &l, const double &m, const double &n );
+    Matrix4d CompTransCoordSysLMN( const double &l, const double &m, const double &n );
 
     vec3d CompPntRST( double r, double s, double t ) const;
     vec3d CompTanR( double r, double s, double t ) const;
@@ -197,6 +201,7 @@ public:
     }
     bool CapUMin(int capType, double len, double str, double offset, const vec3d &ptoff, bool swflag);
     bool CapUMax(int capType, double len, double str, double offset, const vec3d &ptoff, bool swflag);
+    bool CapUHandler(int whichCap, int CapType, double len, double str, double offset, const vec3d &pt, bool swflag);
     static bool CapWMin(int capType);
     static bool CapWMax(int capType);
     void FetchXFerSurf( const std::string &geom_id, int surf_ind, int comp_ind, int part_surf_num, vector< XferSurf > &xfersurfs, const vector < double > &usuppress = std::vector< double >(), const vector < double > &wsuppress = std::vector< double >() ) const;
@@ -234,6 +239,7 @@ public:
 
     void TrimU( double u, bool before );
     void TrimV( double v, bool before );
+    void TrimClosedV( double vstart, double vend );
 
     void ToSTEP_BSpline_Quilt( STEPutil * step, vector<SdaiB_spline_surface_with_knots *> &surfs, const string& label, bool splitsurf, bool mergepts, bool tocubic, double tol, bool trimte, const vector < double > &USplit, const vector < double > &WSplit ) const;
 
@@ -242,8 +248,8 @@ public:
     // Apply STEP or IGES settings to this VSPSurf in preparation for export
     vector < piecewise_surface_type > PrepCADSurfs( bool splitsurf, bool tocubic, double tol, bool trimTE, const vector < double >& USplit, const vector < double >& WSplit ) const;
 
-    void SetUSkipFirst( bool f );
-    void SetUSkipLast( bool f );
+    void SetUSkipFirst( int nskip, bool f );
+    void SetUSkipLast( int nskip, bool f );
 
     piecewise_surface_type* GetBezierSurface()           { return &m_Surface; }
 
@@ -318,6 +324,10 @@ public:
     double InvertUMapping( double u ) const;
     double EvalUMapping( double u ) const;
 
+    void BuildLCurve();
+    void BuildMCurve( const double &r, Vsp1DCurve &c ) const;
+    double GetLMax() const { return m_Lmax; };
+
 protected:
 
     void Tesselate( const vector<double> &utess, const vector<double> &vtess, std::vector< vector< vec3d > > & pnts,  std::vector< vector< vec3d > > & norms,  std::vector< vector< vec3d > > & uw_pnts ) const;
@@ -344,6 +354,9 @@ protected:
 
     Vsp1DCurve m_UMapping;
     double m_UMapMax;
+
+    double m_Lmax;
+    Vsp1DCurve m_LCurve;
 
     double m_LECluster;
     double m_TECluster;

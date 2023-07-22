@@ -369,28 +369,35 @@ bool FeaMeshMgrSingleton::CheckPropMat()
 {
     bool pass = true;
 
+    char buf[512];
+
     for ( size_t i = 0; i < m_SimplePropertyVec.size(); i++ )
     {
         if ( m_SimplePropertyVec[ i ].GetSimpFeaMatIndex() == -1 )
         {
+            snprintf( buf, sizeof( buf ), "Could not find material '%s' '%s'\n", m_SimplePropertyVec[ i ].m_FeaMatID.c_str(), m_SimplePropertyVec[ i ].m_MaterialName.c_str() );
+            addOutputText( string( buf ) );
             pass = false;
         }
     }
 
     for ( size_t i = 0; i < m_SimpleSubSurfaceVec.size(); i++ )
     {
-        if ( m_SimpleSubSurfaceVec[ i ].m_CreateBeamElements )
+        if ( m_SimpleSubSurfaceVec[ i ].m_KeepDelShellElements == vsp::FEA_KEEP )
         {
             if ( m_SimpleSubSurfaceVec[ i ].GetFeaPropertyIndex() == -1 )
             {
+                snprintf( buf, sizeof( buf ), "Could not find subsurface shell property '%s'\n", m_SimpleSubSurfaceVec[ i ].GetFeaPropertyID().c_str() );
+                addOutputText( string( buf ) );
                 pass = false;
             }
         }
-
-        if ( m_SimpleSubSurfaceVec[ i ].m_KeepDelShellElements == vsp::FEA_KEEP )
+        if ( m_SimpleSubSurfaceVec[ i ].m_CreateBeamElements )
         {
             if ( m_SimpleSubSurfaceVec[ i ].GetCapFeaPropertyIndex() == -1 )
             {
+                snprintf( buf, sizeof( buf ), "Could not find subsurface cap property '%s'\n", m_SimpleSubSurfaceVec[ i ].GetCapFeaPropertyID().c_str() );
+                addOutputText( string( buf ) );
                 pass = false;
             }
         }
@@ -402,6 +409,8 @@ bool FeaMeshMgrSingleton::CheckPropMat()
         {
             if ( GetMeshPtr()->m_FeaPartPropertyIndexVec[ i ] == -1 )
             {
+                snprintf( buf, sizeof( buf ), "Could not find part shell property '%s'\n", GetMeshPtr()->m_FeaPartPropertyIDVec[ i ].c_str() );
+                addOutputText( string( buf ) );
                 pass = false;
             }
         }
@@ -413,6 +422,8 @@ bool FeaMeshMgrSingleton::CheckPropMat()
         {
             if ( GetMeshPtr()->m_FeaPartCapPropertyIndexVec[ i ] == -1 )
             {
+                snprintf( buf, sizeof( buf ), "Could not find part cap property '%s'\n", GetMeshPtr()->m_FeaPartCapPropertyIDVec[ i ].c_str() );
+                addOutputText( string( buf ) );
                 pass = false;
             }
         }
@@ -505,6 +516,12 @@ void FeaMeshMgrSingleton::GenerateFeaMesh()
 
     // addOutputText( "Intersect\n" ); // Output in intersect() itself.
     Intersect();
+
+    addOutputText( "Degen Corners\n" );
+    FindDegenCorners();
+
+    addOutputText( "Add Degen Corner Chains\n" );
+    AddDegenCornerChains();
 
     addOutputText( "Binary Adaptation Curve Approximation\n" );
     BinaryAdaptIntCurves();
@@ -1011,6 +1028,8 @@ void FeaMeshMgrSingleton::BuildMeshOrientationLookup()
     }
 }
 
+// Although this appears to be an angle comparison (via the dot product), it is actually the signed distance
+// between the point and the plane.  Hence, a comparison to the mesh minimum length as a tolerance is appropriate.
 bool FeaMeshMgrSingleton::CullPtByTrimGroup( const vec3d &pt, const vector < vec3d > & pplane, const vector < vec3d > & nplane )
 {
     double tol = 0.01 * GetGridDensityPtr()->m_MinLen;
@@ -1019,7 +1038,7 @@ bool FeaMeshMgrSingleton::CullPtByTrimGroup( const vec3d &pt, const vector < vec
     for ( int iplane = 0; iplane < numplane; iplane++ )
     {
         vec3d u = pt - pplane[ iplane ];
-        double dp = dot( u, nplane[ iplane ] );
+        double dp = dot( u, nplane[ iplane ] );  // nplane is always a unit vector.
         if ( dp < tol )
         {
             return false;
@@ -1245,8 +1264,6 @@ void FeaMeshMgrSingleton::BuildFeaMesh()
             // Define FeaBeam elements
             for ( int j = 1; j < (int)ipntVec.size(); j++ )
             {
-                FeaBeam* beam = new FeaBeam;
-
                 vec3d start_pnt = ipntVec[j - 1];
                 vec3d end_pnt = ipntVec[j];
 
@@ -1255,6 +1272,27 @@ void FeaMeshMgrSingleton::BuildFeaMesh()
                 {
                     printf( "Warning: Collapsed Beam Element Skipped\n" );
                     break;
+                }
+
+                if ( GetMeshPtr()->m_TrimPt.size() > 0 ) // Skip if there are no trim groups.
+                {
+                    bool skipElement = false;
+                    vec3d mid_pnt = 0.5 * ( start_pnt + end_pnt );
+
+                    for ( int i = 0; i < GetMeshPtr()->m_TrimPt.size(); i++ )
+                    {
+                        // This seems convoluted, but it needs to be cumulative.
+                        if ( CullPtByTrimGroup( mid_pnt, GetMeshPtr()->m_TrimPt[ i ], GetMeshPtr()->m_TrimNorm[ i ] ) )
+                        {
+                            skipElement = true;
+                            break; // Once flagged for deletion, don't check further trim groups, go to next beam segment.
+                        }
+                    }
+
+                    if ( skipElement )
+                    {
+                        break;
+                    }
                 }
 
                 //// Use node point if close to beam endpoints (avoids tolerance errors in BuildIndMap and FindPntInd)
@@ -1277,6 +1315,7 @@ void FeaMeshMgrSingleton::BuildFeaMesh()
                 all_uw_vec.push_back( iuwVec[j - 1] );
                 all_uw_vec.push_back( iuwVec[j] );
 
+                FeaBeam* beam = new FeaBeam;
                 beam->Create( start_pnt, end_pnt, inormVec[ j - 1 ],  inormVec[ j ] );
                 beam->SetFeaPartIndex( FeaPartIndex );
                 beam->SetFeaSSIndex( ssindexVec[j] );
@@ -1448,6 +1487,7 @@ void FeaMeshMgrSingleton::BuildFeaMesh()
         }
         elem->SetFeaPartIndex( m_SurfVec[tri_surf_ind_vec[i]]->GetFeaPartIndex() );
         elem->SetFeaPartSurfNum( m_SurfVec[tri_surf_ind_vec[i]]->GetFeaPartSurfNum() );
+        elem->SetReason( all_face_vec[i].m_reason );
 
         vec2d closest_uw = m_SurfVec[tri_surf_ind_vec[i]]->ClosestUW( avg_pnt, uw_guess[0], uw_guess[1] );
 
@@ -2665,7 +2705,8 @@ void FeaMeshMgrSingleton::UpdateAssemblyDisplaySettings( const string &assembly_
     {
         m_AssemblySettings.m_DrawAsMeshFlag = fea_assembly->m_AssemblySettings.m_DrawAsMeshFlag.Get();
         m_AssemblySettings.m_DrawMeshFlag = fea_assembly->m_AssemblySettings.m_DrawMeshFlag.Get();
-        m_AssemblySettings.m_ColorTagsFlag = fea_assembly->m_AssemblySettings.m_ColorTagsFlag.Get();
+        m_AssemblySettings.m_ColorFacesFlag = fea_assembly->m_AssemblySettings.m_ColorFacesFlag.Get();
+        m_AssemblySettings.m_ColorTagReason = fea_assembly->m_AssemblySettings.m_ColorTagReason.Get();
 
         m_AssemblySettings.m_DrawNodesFlag = fea_assembly->m_AssemblySettings.m_DrawNodesFlag.Get();
         m_AssemblySettings.m_DrawBCNodesFlag = fea_assembly->m_AssemblySettings.m_DrawBCNodesFlag.Get();

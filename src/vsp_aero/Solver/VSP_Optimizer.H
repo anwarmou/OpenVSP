@@ -18,9 +18,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #else
+#include <io.h>
 #define open            _open
 #define O_WRONLY        _O_WRONLY
 #define close           _close
+#define dup             _dup
+#define dup2            _dup2
 #endif
 
 #include "VSPAERO_TYPES.H"
@@ -171,7 +174,8 @@ private:
     int NumberOfOptimizationFunctions_ ;
     int OptimizationFunction_[1001]    ;
     int OptimizationSet_[1001]         ;
-
+    int AdjointUsePreviousSolution_    ;
+    
     template <typename T>
     void LoadCaseFile(T &VSP);
     
@@ -191,7 +195,7 @@ private:
     int ArrayOffSet_;
     int MaxTempArraySize_;
     
-    double *TempArray_[3];
+    double *TempArray_[4];
 
     int stdoutfd;
 
@@ -256,7 +260,7 @@ public:
 
     /** Number of wake residual equations **/
     
-    int NumberOfAdjointWakeResidualEquations(void) { return Solver().NumberOfAdjointWakeResidualEquations(); };  
+    int NumberOfAdjointWakeResidualEquations(void) { return Solver().NumberOfAdjointWakeResidualEquations(); };
 
     /** Update the geometry (mesh) **/
     
@@ -333,10 +337,14 @@ public:
     
     int OptimizationFunctionLength(int Case) { return Solver().OptimizationFunctionLength(Case); };
 
-    /** Get total vector length for optimization function # Case... this is generally the function length X Number of time sample points for an unsteady case **/
+    /** Get the number of optimization averaging time steps **/
     
     int OptimizationNumberOfTimeSteps(int Case) { return Solver().OptimizationNumberOfTimeSteps(Case); };
     
+    /** Get the total function vector length ... this is the function length X the number of averaging time steps **/
+    
+    int OptimizationVectorLength(int Case) { return Solver().OptimizationVectorLength(Case); };
+        
     /** Setup everything for both the forward solver and adjoint **/
     
     void Setup(char *FileName);
@@ -356,7 +364,11 @@ public:
     /** Set free stream velocity **/
     
     void SetVinf(double Vinf);
-    
+
+    /** Set free stream velocity **/
+
+    void SetVref(double Vref);
+
     /** Set free stream density **/
     
     void SetDensity(double Density);
@@ -441,6 +453,22 @@ public:
     
     void TurnOffKarmanTsienCorrection(void);
     
+    /** Turn on flag for adjoint gmres solve to use previous solution as initial guess **/
+    
+    void AdjointTurnOnUsePreviousSolution(void);
+
+    /** Turn off flag for adjoint gmres solve to use previous solution as initial guess **/
+    
+    void AdjointTurnOffUsePreviousSolution(void);
+    
+    /** Turn on frozen wake option... usually just used for optimization cases **/
+    
+    void TurnOnFrozenWakes(void);    
+
+    /** Turn off frozen wake option... usually just used for optimization cases **/
+    
+    void TurnOffFrozenWakes(void);    
+            
     /** Set tolerance factor for GMRES solver, this scales the default residual reduction
      * ie... ResidualReduction = DefaultResidualReduction * User_GMRES_ToleranceFactor_**/
 
@@ -463,19 +491,29 @@ public:
     
     void SolveAdjoint(void);
     
-    /** Do a matrix-vector multiply and get the RHS for the forward problem... please do a forward solve first! **/
+    /** Do a matrix vector product using a user supplied vector... please do a forward solve first! **/
+
+    void CalculateForwardMatrixVectorProduct(double *VecIn, double *VecOut);
+
+    /** Calculate the right hand side of the forward equation **/
+
+    void CalculateForwardRightHandSide(double *RHS);
     
-    void CalculateMatrixVectorProductAndRightHandSide(double *VecIn, double *VecOut, double *RHS);
+    /** Do a transpose matrix vector product using a user supplied vector... please do a forward and adjoint solve first! **/
+
+    void CalculateAdjointMatrixVectorProduct(double *VecIn, double *VecOut);
+
+    /** Calculate partial of functions wrt gamma **/
+
+    void CalculateAdjointRightHandSide(int OptimizationCase, double *RHS);
+
+    void CalculateAdjointRightHandSide(double *RHS){ CalculateAdjointRightHandSide(1, RHS); }
     
-    /** Do a adjoint matrix-vector multiply and get the RHS for the forward problem... please do a forward and adjoint solve first! **/
-    
-    void CalculateAdjointMatrixVectorProductAndRightHandSide(double *VecIn, double *VecOut, double *RHS);
-    
-    /** Calculate the forward residual given a user supplied solution vector gammna **/
+    /** Calculate the forward residual given a user supplied solution vector gamma **/
     
     void CalculateForwardResidual(double *Gamma, double *Residual);
     
-    /** Update the optimization functions given a user supplied solution vector gammna **/
+    /** Update the optimization functions given a user supplied solution vector gamma **/
     
     void CalculateOptimizationFunctions(double *Gamma);
     
@@ -483,25 +521,33 @@ public:
     
     void SolveAdjointLinearSystem(double *Psi, double *RHS);
    
-    /** Calculate partial derivatives of optimization case = Case wrt the mesh and the input variables **/
+    /** Calculate partial derivatives of optimization case = Case wrt the mesh, the input variables, and gamma **/
     
-    void CalculateOptimizationFunctionPartials(int Case, double *pF_pMesh, double *pF_pInputVariable);
+    void CalculateOptimizationFunctionPartials(int Case, double *pF_pMesh, double *pF_pInputVariable, double *pF_pGamma);
     
     /** Solve for the adjoint residual partial products given the vector Psi **/
     
     void CalculateAdjointResidualPartialProducts(double *Psi, double *pR_pMesh, double *pR_pInputVariable);
-     
+
+    /** Calculate the mesh, the input variables, and gamma partial products given the vector pF_pForces **/
+
+    void CalculateNodalForcePartialProducts(double *pF_pForces, double* pF_pMesh, double *pF_pInputVariable, double *pF_pGamma);
+
     /** Apply the forward matrix preconditioner **/
     
-    void ApplyFowardMatrixPreconditioner(double *Vec) { Solver().ApplyMatrixPrecondition(Vec); };
+    void ApplyForwardMatrixPreconditioner(double *Vec) { Solver().ApplyMatrixPrecondition(Vec); };
     
     /** Apply the adjoint matrix preconditioner **/
     
     void ApplyAdjointMatrixPreconditioner(double *Vec) { Adjoint().ApplyMatrixPrecondition(Vec); };
         
-    /** Get solution vector for the foward solve **/
+    /** Get solution vector for the forward solve **/
     
     void GetForwardSolutionVector(double *Vec);
+
+    /** Set solution vector for the forward solve **/
+
+    void SetForwardSolutionVector(double *Vec);
 
     /** Get solution vector for the adjoint solve **/
     
@@ -724,7 +770,17 @@ public:
     /** Get the pressures at the nodes of the mesh, returns a vector of length NumberOfNodes **/
     
     void GetNodalPressures(double *Pressure);
-    
+
+    /** Get the forces at the nodes of the mesh, returns a vector of length 3 * NumberOfNodes **/
+
+    void GetNodalForces(double *Force);
+
+    /** Get connectivity information for vortex loops **/
+
+    int GetNodalConnectivityLength(void);
+
+    void GetNodalConnectivity(int*, int*);
+
     /** Get the spanwise chord and area distributions for wing = Wing **/
     
     void GetSpanWiseChordAndAreaForWing(int Wing, double *Chord, double *Area);
@@ -746,11 +802,18 @@ public:
     
     void WriteOutCart3dTriFile(void) { Solver().WriteOutCart3dTriFile(); };
 
-    /** Supress/resume stdout **/
+    /** Supress stdout **/
 
     void SupressStdout(void);
+    
+    /** Resume stdout **/
+    
     void ResumeStdout(void);
-
+    
+    /** Access to timing routines **/
+    
+    double myclock(void) { return VSPAERO_SOLVER::myclock(); };
+    
 };
 
 #endif

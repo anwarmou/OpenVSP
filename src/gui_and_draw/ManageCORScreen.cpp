@@ -1,6 +1,11 @@
 #include "ManageCORScreen.h"
 #include "ScreenMgr.h"
 
+#include "CfdMeshScreen.h"
+#include "SurfaceIntersectionScreen.h"
+#include "StructScreen.h"
+#include "StructAssemblyScreen.h"
+
 ManageCORScreen::ManageCORScreen( ScreenMgr * mgr ) : VspScreen( mgr )
 {
     m_SelectionFlag = false;
@@ -41,30 +46,63 @@ bool ManageCORScreen::Update()
     Vehicle* veh = m_ScreenMgr->GetVehiclePtr();
     std::vector< Geom* > geom_vec = veh->FindGeomVec( veh->GetGeomVec() );
 
+    std::vector< DrawObj* > geom_drawObj_vec;
     for(int i = 0; i < (int)geom_vec.size(); i++)
     {
-        std::vector< DrawObj* > geom_drawObj_vec;
         geom_vec[i]->LoadDrawObjs(geom_drawObj_vec);
+    }
 
-        for(int j = 0; j < (int)geom_drawObj_vec.size(); j++)
+    // Load Render Objects from CfdMeshScreen.
+    CfdMeshScreen * cfdScreen = dynamic_cast< CfdMeshScreen* >
+    ( m_ScreenMgr->GetScreen( ScreenMgr::VSP_CFD_MESH_SCREEN ) );
+    if( cfdScreen )
+    {
+        cfdScreen->LoadDrawObjs( geom_drawObj_vec );
+    }
+
+    // Load Render Objects from SurfaceIntersectionScreen.
+    SurfaceIntersectionScreen * surfScreen = dynamic_cast< SurfaceIntersectionScreen* >
+    ( m_ScreenMgr->GetScreen( ScreenMgr::VSP_SURFACE_INTERSECTION_SCREEN ) );
+    if( surfScreen )
+    {
+        surfScreen->LoadDrawObjs( geom_drawObj_vec );
+    }
+
+    // Load Render Objects from FeaStructScreen.
+    StructScreen * structScreen = dynamic_cast< StructScreen* >
+    ( m_ScreenMgr->GetScreen( ScreenMgr::VSP_STRUCT_SCREEN ) );
+    if( structScreen )
+    {
+        structScreen->LoadDrawObjs( geom_drawObj_vec );
+    }
+
+    // Load Render Objects from FeaStructAssemblyScreen.
+    StructAssemblyScreen * structAssemblyScreen = dynamic_cast< StructAssemblyScreen* >
+    ( m_ScreenMgr->GetScreen( ScreenMgr::VSP_STRUCT_ASSEMBLY_SCREEN ) );
+    if( structAssemblyScreen )
+    {
+        structAssemblyScreen->LoadDrawObjs( geom_drawObj_vec );
+    }
+
+    for(int j = 0; j < (int)geom_drawObj_vec.size(); j++)
+    {
+        if(geom_drawObj_vec[j]->m_Visible)
         {
-            if(geom_drawObj_vec[j]->m_Visible)
+            // Ignore bounding boxes & pick verts.
+            if( geom_drawObj_vec[j]->m_GeomID.compare(0, string(BBOXHEADER).size(), BBOXHEADER) != 0 &&
+                geom_drawObj_vec[j]->m_Type != DrawObj::VSP_PICK_VERTEX )
             {
-                // Ignore bounding boxes & pick verts.
-                if( geom_drawObj_vec[j]->m_GeomID.compare(0, string(BBOXHEADER).size(), BBOXHEADER) != 0 &&
-                    geom_drawObj_vec[j]->m_Type != DrawObj::VSP_PICK_VERTEX )
-                {
-                    DrawObj pickDO;
-                    pickDO.m_Type = DrawObj::VSP_PICK_VERTEX;
-                    pickDO.m_GeomID = PICKVERTEXHEADER + geom_drawObj_vec[j]->m_GeomID;
-                    pickDO.m_PickSourceID = geom_drawObj_vec[j]->m_GeomID;
-                    pickDO.m_FeedbackGroup = getFeedbackGroupName();
+                DrawObj pickDO;
+                pickDO.m_Type = DrawObj::VSP_PICK_VERTEX;
+                pickDO.m_GeomID = PICKVERTEXHEADER + geom_drawObj_vec[j]->m_GeomID;
+                pickDO.m_PickSourceID = geom_drawObj_vec[j]->m_GeomID;
+                pickDO.m_FeedbackGroup = getFeedbackGroupName();
 
-                    m_PickList.push_back(pickDO);
-                }
+                m_PickList.push_back(pickDO);
             }
         }
     }
+
     return true;
 }
 

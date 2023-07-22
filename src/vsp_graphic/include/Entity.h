@@ -75,13 +75,21 @@ protected:
 
 protected:
     /*!
+    * Draw solid mesh.
+    */
+    virtual void _draw_Solid();
+    /*!
+    * Draw mapped mesh.
+    */
+    virtual void _draw_Mapped();
+    /*!
     * Draw shaded mesh.
     */
-    virtual void _draw_Mesh_Shaded();
+    virtual void _draw_Shaded();
     /*!
     * Draw textured mesh.
     */
-    virtual void _draw_Mesh_Textured();
+    virtual void _draw_Textured();
     /*!
     * Draw wire frame.
     */
@@ -90,6 +98,8 @@ protected:
     * Draw hidden.
     */
     virtual void _draw_Wire_Frame_Solid();
+
+    virtual void _draw_Wire_Frame_Mapped();
 
     virtual void _draw_Wire_Frame_Shaded();
 

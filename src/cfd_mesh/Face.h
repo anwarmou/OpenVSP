@@ -165,7 +165,7 @@ public:
 
     Edge* FindEdge( Node* nn0, Node* nn1 );
     Edge* FindEdgeWithout( Node* node_ptr );
-    Edge* FindLongEdge();
+    Edge* FindShortEdge();
 
     void ReplaceNode( Node* curr_node, Node* replace_node );
     void ReplaceEdge( Edge* curr_edge, Edge* replace_edge );
@@ -238,6 +238,7 @@ public:
     {
         m_isQuad = false;
         ind0 = ind1 = ind2 = ind3 = -1;
+        m_reason = -1;
     }
     int ind0;
     int ind1;
@@ -245,6 +246,7 @@ public:
     int ind3;
     bool m_isQuad;
     vector<int> m_Tags;
+    int m_reason;
 };
 
 #endif

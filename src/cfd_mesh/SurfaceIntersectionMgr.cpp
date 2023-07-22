@@ -190,7 +190,6 @@ void WakeMgrSingleton::CreateWakesAppendBorderCurves( vector< ICurve* >& border_
     vector< SCurve* > scurve_vec;
     for ( i = 0; i < (int)wake_surfs.size(); i++ )
     {
-        wake_surfs[i]->BuildDistMap();
         wake_surfs[i]->SetGridDensityPtr( grid_density_ptr );
         wake_surfs[i]->FindBorderCurves();
         wake_surfs[i]->LoadSCurves( scurve_vec );
@@ -632,7 +631,7 @@ void SurfaceIntersectionSingleton::addOutputText( string str, int output_type )
         static auto tprev = std::chrono::high_resolution_clock::now();
         auto tnow = std::chrono::high_resolution_clock::now();
         char buf[256];
-        sprintf( buf, " %.3f ms\n", std::chrono::duration_cast< std::chrono::microseconds >( tnow - tprev ).count() / 1000.0 );
+        snprintf( buf, sizeof( buf ), " %.3f ms\n", std::chrono::duration_cast< std::chrono::microseconds >( tnow - tprev ).count() / 1000.0 );
         tprev = tnow;
         str.insert( 0, buf );
 #endif
@@ -2845,7 +2844,7 @@ void SurfaceIntersectionSingleton::DebugWriteChains( const char* name, bool tess
     if ( true )
     {
         char str2[256];
-        sprintf( str2, "%s.m", name );
+        snprintf( str2, sizeof( str2 ), "%s%s.m", m_DebugDir.c_str(), name );
         FILE* fpmas = fopen( str2, "w" );
 
         fprintf( fpmas, "clear all; format compact; close all;\n" );
@@ -2855,9 +2854,10 @@ void SurfaceIntersectionSingleton::DebugWriteChains( const char* name, bool tess
         for ( int i = 0 ; i < ( int )m_SurfVec.size() ; i++ )
         {
             char str[256];
-            sprintf( str, "%s%s%d.m", m_DebugDir.c_str(), name, i );
+            snprintf( str, sizeof( str ), "%s%s%d.m", m_DebugDir.c_str(), name, i );
             FILE* fp = fopen( str, "w" );
 
+            snprintf( str, sizeof( str ), "%s%d.m", name, i );
             fprintf( fpmas, "run( '%s' );\n", str );
 
             int cnt = 0;
@@ -2901,7 +2901,7 @@ void SurfaceIntersectionSingleton::DebugWriteChains( const char* name, bool tess
                         {
                             uw1 = ( *c )->m_ISegDeque[j]->m_IPnt[0]->GetPuw( m_SurfVec[i] )->m_UW;
                             pt = ( *c )->m_ISegDeque[j]->m_IPnt[0]->GetPuw( m_SurfVec[i] )->m_Surf->CompPnt( uw1[0], uw1[1] );
-                            fprintf( fp, "%.19e;\n", pt.x();
+                            fprintf( fp, "%.19e;\n", pt.x() );
                         }
                         uw1 = ( *c )->m_ISegDeque[j]->m_IPnt[0]->GetPuw( m_SurfVec[i] )->m_UW;
                         pt = ( *c )->m_ISegDeque[j]->m_IPnt[0]->GetPuw( m_SurfVec[i] )->m_Surf->CompPnt( uw1[0], uw1[1] );
@@ -3025,7 +3025,7 @@ void SurfaceIntersectionSingleton::DebugWriteChains( const char* name, bool tess
         for ( int i = 0 ; i < ( int )m_SurfVec.size() ; i++ )
         {
             char str[256];
-            sprintf( str, "%s%s%d.dat", m_DebugDir.c_str(), name, i );
+            snprintf( str, sizeof( str ), "%s%s%d.dat", m_DebugDir.c_str(), name, i );
             FILE* fp = fopen( str, "w" );
 
             int cnt = 0;
@@ -3453,6 +3453,26 @@ void SurfaceIntersectionSingleton::LoadDrawObjs( vector< DrawObj* > &draw_obj_ve
 
     WakeMgr.Show( GetSettingsPtr()->m_DrawSourceWakeFlag );
     WakeMgr.LoadDrawObjs( draw_obj_vec);
+}
+
+bool SurfaceIntersectionSingleton::GetVisBndBox( BndBox &bbox )
+{
+    bool anyvisible = false;
+
+    vector< DrawObj* > draw_obj_vec;
+    LoadDrawObjs( draw_obj_vec );
+
+    for(int j = 0; j < (int)draw_obj_vec.size(); j++)
+    {
+        if(draw_obj_vec[j]->m_Visible)
+        {
+            bbox.Update( draw_obj_vec[j]->m_PntVec );
+            bbox.Update( draw_obj_vec[j]->m_PntMesh );
+            anyvisible = true;
+        }
+    }
+
+    return anyvisible;
 }
 
 void SurfaceIntersectionSingleton::UpdateWakes()
