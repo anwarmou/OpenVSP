@@ -4122,6 +4122,8 @@ void Vehicle::WritePMARCFile( const string & file_name, int write_set )
     }
 
     vector < int > idpat( ntotal );
+    vector < int > wstart( ntotal );
+    vector < int > wend( ntotal );
 
     int ipatch = 0;
     //==== Write surface boundary points ====//
@@ -4139,7 +4141,7 @@ void Vehicle::WritePMARCFile( const string & file_name, int write_set )
     {
         if ( geom_vec[i]->GetSetFlag( write_set ) )
         {
-            geom_vec[i]->WritePMARCGeomFile(fp, ipatch, idpat);
+            geom_vec[i]->WritePMARCGeomFile(fp, ipatch, idpat, wstart, wend);
         }
     }
 
@@ -4149,7 +4151,7 @@ void Vehicle::WritePMARCFile( const string & file_name, int write_set )
     {
         if ( geom_vec[i]->GetSetFlag( write_set ) )
         {
-            geom_vec[i]->WritePMARCWakeFile(fp, ipatch, idpat);
+            geom_vec[i]->WritePMARCWakeFile(fp, ipatch, idpat, wstart, wend);
         }
     }
 
@@ -4669,16 +4671,24 @@ string Vehicle::MassProps( int set, int numSlices, int idir, bool hidegeom, bool
             Geom* geom_ptr = FindGeom( geom_vec[i] );
             if ( geom_ptr )
             {
-                if ( geom_ptr->GetSetFlag( set ) && geom_ptr->GetType().m_Type == BLANK_GEOM_TYPE )
+                if ( geom_ptr->GetSetFlag( set ) )
                 {
-                    BlankGeom* BGeom = ( BlankGeom* ) geom_ptr;
-
-                    if ( BGeom->m_PointMassFlag() )
+                    if ( geom_ptr->m_PointMass() != 0.0 )
                     {
-                        TetraMassProp* pm = new TetraMassProp(); // Deleted by mesh_ptr
-                        pm->SetPointMass( BGeom->m_PointMass(), BGeom->getModelMatrix().getTranslation() );
-                        pm->m_CompId = BGeom->GetID();
-                        mesh_ptr->AddPointMass( pm );
+                        vector <Matrix4d> tmv = geom_ptr->GetTransMatVec();
+
+                        for ( int j = 0; j < tmv.size(); j++ )
+                        {
+                            TetraMassProp *pm = new TetraMassProp(); // Deleted by mesh_ptr
+
+                            pm->SetDistributedMass( geom_ptr->m_PointMass(),
+                                                    vec3d( geom_ptr->m_CGx(), geom_ptr->m_CGy(), geom_ptr->m_CGz()),
+                                                    geom_ptr->m_Ixx(), geom_ptr->m_Iyy(), geom_ptr->m_Izz(),
+                                                    geom_ptr->m_Ixy(), geom_ptr->m_Ixz(), geom_ptr->m_Iyz(), tmv[ j ] );
+                            pm->m_CompId = geom_ptr->GetID();
+                            pm->m_Name = geom_ptr->GetName() + "_pm";
+                            mesh_ptr->AddPointMass( pm );
+                        }
                         
                     }
                 }
@@ -5347,7 +5357,7 @@ void Vehicle::CreateDegenGeom( int set )
             if( geom_vec[i]->GetType().m_Type == BLANK_GEOM_TYPE )
             {
                 BlankGeom *g = (BlankGeom*) geom_vec[i];
-                if( g->m_PointMassFlag() )
+                if( g->m_PointMass() != 0.0 )
                 {
                     DegenPtMass pm;
                     pm.name = g->GetName();
@@ -5384,7 +5394,7 @@ void Vehicle::CreateDegenGeom( int set )
         MeshGeom* mesh_ptr = dynamic_cast<MeshGeom*> ( FindGeom( id ) );
         if ( mesh_ptr != NULL )
         {
-            mesh_ptr->MassSlice( m_DegenGeomVec, true, 250, vsp::X_DIR, false );
+            mesh_ptr->MassSlice( m_DegenGeomVec, true, 25, vsp::X_DIR, false );
             DeleteGeom( id );
         }
     }

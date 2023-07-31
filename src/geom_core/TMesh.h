@@ -31,11 +31,31 @@
 #include <list>
 using namespace std;            //jrg windows??
 
+//#ifndef DEBUG_TMESH
+//#define DEBUG_TMESH
+//#endif
+
+//#ifndef COMPARE_TRIANGLE
+//#define COMPARE_TRIANGLE
+//#endif
+
 class TEdge;
 class TTri;
 class TBndBox;
 class NBndBox;
 class TMesh;
+
+struct dba_point
+{
+    double x, y;
+};
+
+struct dba_edge
+{
+    int a, b;
+};
+
+int dba_errlog( void* stream, const char* fmt, ...);
 
 class TetraMassProp
 {
@@ -56,7 +76,9 @@ public:
     }
     ~TetraMassProp()        {}
 
-    void SetPointMass( double massIn, const vec3d& posIn );           // For Point Mass
+    void SetDistributedMass( double massIn, const vec3d& cgIn, const double & IxxIn, const double & IyyIn, const double & IzzIn,
+                                                               const double & IxyIn, const double & IxzIn, const double & IyzIn,
+                                                               Matrix4d transMatIn );
 
     vec3d m_v0;
     vec3d m_v1;
@@ -64,6 +86,7 @@ public:
     vec3d m_v3;
 
     string m_CompId;
+    string m_Name;
 
     vec3d m_CG;
 
@@ -217,8 +240,19 @@ public:
 
     virtual bool CleanupEdgeVec();
     virtual void CopyFrom( const TTri* tri );
-    virtual void SplitTri();              // Split Tri to Fit ISect Edges
-    virtual void TriangulateSplit( int flattenAxis );
+    virtual bool SplitTri( bool dumpCase );              // Split Tri to Fit ISect Edges
+
+    virtual void OrientTri( vector < int > & tri );
+    virtual void OrientConnList( vector < vector < int > > & cl );
+    virtual bool CompConnList( const vector < vector < int > > & cla, const vector < vector < int > > & clb );
+    virtual void SortTri( vector < int > & tri );
+    virtual void SortConnList( vector < vector < int > > & cl );
+
+    virtual bool TriangulateSplit( int flattenAxis, const vector < vec3d > &ptvec, bool dumpCase );
+    virtual void TriangulateSplit_TRI( int flattenAxis, const vector < vec3d > &ptvec, bool dumpCase,
+                                       vector < vector < int > > & connlist );
+    virtual void TriangulateSplit_DBA( int flattenAxis, const vector < vec3d > &ptvec, bool dumpCase,
+                                       vector < vector < int > > & connlist, const vector < vector < int > > & otherconnlist );
     virtual vec3d ComputeCenter()
     {
         return ( m_N0->m_Pnt + m_N1->m_Pnt + m_N2->m_Pnt ) / 3.0;
@@ -266,6 +300,7 @@ public:
 
     virtual void BuildPermEdges();
 
+    virtual bool InTri( const vec3d & p );
     virtual int OnEdge( const vec3d & p, TEdge* e, double onEdgeTol, double * t = NULL );
     virtual vec3d CompPnt( const vec3d & uw_pnt );
     virtual vec3d CompUW( const vec3d & pnt );

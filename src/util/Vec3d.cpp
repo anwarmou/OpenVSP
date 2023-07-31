@@ -12,7 +12,9 @@
 
 #include "Defines.h"
 #include <cfloat> //For DBL_EPSILON
+#include <cmath>
 #include "Vec3d.h"
+#include "VspUtil.h"
 
 using std::cout;
 using std::endl;
@@ -423,6 +425,42 @@ int vec3d::minor_comp() const
         c = std::abs( v[i] );
     }
     return i;
+}
+
+bool vec3d::isnan() const
+{
+    for ( int i = 0; i < 3; i++ )
+    {
+        if ( std::isnan( v[ i ] ) )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool vec3d::isinf() const
+{
+    for ( int i = 0; i < 3; i++ )
+    {
+        if ( std::isinf( v[ i ] ) )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool vec3d::isfinite() const
+{
+    for ( int i = 0; i < 3; i++ )
+    {
+        if ( !std::isfinite( v[ i ] ) )
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 //******* Dot Product:  x = a.dot(b) ******//
@@ -959,9 +997,9 @@ int plane_ray_intersect( vec3d& orig, vec3d& norm, vec3d& D, vec3d& E, double& t
 //*******       Three Vecs From Common Pnt        ******//
 double tetra_volume( vec3d& A, vec3d& B, vec3d& C )
 {
-    double determ = A.v[0] * B.v[1] * C.v[2] + B.v[0] * C.v[1] * A.v[2]
-                    + C.v[0] * A.v[1] * B.v[2] - C.v[0] * B.v[1] * A.v[2]
-                    - B.v[0] * A.v[1] * C.v[2] - A.v[0] * C.v[1] * B.v[2];
+    vector < double > dt = { A.v[0] * B.v[1] * C.v[2], B.v[0] * C.v[1] * A.v[2], C.v[0] * A.v[1] * B.v[2], - C.v[0] * B.v[1] * A.v[2], - B.v[0] * A.v[1] * C.v[2], - A.v[0] * C.v[1] * B.v[2] };
+
+    double determ = compsum( dt );
 
     return( determ / 6.0 );
 }
@@ -1485,6 +1523,33 @@ double poly_area( const vector< vec3d > & pnt_vec )
     }
 
     return std::abs( total_area );
+}
+
+bool PtInTri( const vec3d & v0, const vec3d & v1, const vec3d & v2, const vec3d & p )
+{
+    double tol = 1e-6;
+    vec3d w = BarycentricWeights( v0, v1, v2, p );
+
+    double sum = 0;
+    for ( int i = 0; i < 3; i++ )
+    {
+        if ( w[i] < -tol )
+        {
+            return false;
+        }
+        if ( w[i] > ( 1.0 + tol ) )
+        {
+            return false;
+        }
+        sum += w[i];
+    }
+
+    if ( sum > ( 1.0 + tol ) )
+    {
+        return false;
+    }
+
+    return true;
 }
 
 vec3d BarycentricWeights( const vec3d & v0, const vec3d & v1, const vec3d & v2, const vec3d & p )

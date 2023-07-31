@@ -532,8 +532,8 @@ public:
     virtual void WritePLOT3DFileXYZ( FILE* dump_file );
 
     virtual void SetupPMARCFile( int &ipatch, vector < int > &idpat );
-    virtual void WritePMARCGeomFile(FILE *dump_file, int &ipatch, vector<int> &idpat);
-    virtual void WritePMARCWakeFile(FILE *dump_file, int &ipatch, vector<int> &idpat);
+    virtual void WritePMARCGeomFile(FILE *dump_file, int &ipatch, vector<int> &idpat, vector < int > &wstart, vector < int > &wend);
+    virtual void WritePMARCWakeFile(FILE *dump_file, int &ipatch, vector<int> &idpat, vector < int > &wstart, vector < int > &wend);
     virtual void WriteStl( FILE* fid ) {};
     virtual void WriteX3D( xmlNodePtr node );
     virtual void WritePovRay( FILE* fid, int comp_num );
@@ -601,6 +601,16 @@ public:
     Parm     m_Density;
     Parm     m_MassArea;
     BoolParm m_ShellFlag;
+    Parm     m_PointMass;
+    Parm     m_CGx;
+    Parm     m_CGy;
+    Parm     m_CGz;
+    Parm     m_Ixx;
+    Parm     m_Iyy;
+    Parm     m_Izz;
+    Parm     m_Ixy;
+    Parm     m_Ixz;
+    Parm     m_Iyz;
 
     //==== Negative Volume Properties (GUI Purposes) ====//
     BoolParm m_NegativeVolumeFlag;
@@ -782,6 +792,7 @@ protected:
     vector<DrawObj> m_WireShadeDrawObj_vec;
     vector<DrawObj> m_FeatureDrawObj_vec;
     DrawObj m_HighlightDrawObj;
+    DrawObj m_PtMassCGDrawObj;
     vector<DrawObj> m_AxisDrawObj_vec;
     vector<DrawObj> m_DegenPlateDrawObj_vec;
     vector<DrawObj> m_DegenSurfDrawObj_vec;

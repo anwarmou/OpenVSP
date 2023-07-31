@@ -1194,6 +1194,18 @@ Geom::Geom( Vehicle* vehicle_ptr ) : GeomXForm( vehicle_ptr )
     m_ShellFlag.Init( "Shell_Flag", "Mass_Props", this, false, 0, 1 );
     m_ShellFlag.SetDescript("Flag to turn on/off area-based mass contribution");
 
+    m_PointMass.Init( "PointMass", "Mass_Props", this, 0, 0,1e12 );
+    m_CGx.Init( "CGx", "Mass_Props", this, 0, -1e12, 1e12 );
+    m_CGy.Init( "CGy", "Mass_Props", this, 0, -1e12, 1e12 );
+    m_CGz.Init( "CGz", "Mass_Props", this, 0, -1e12, 1e12 );
+    m_Ixx.Init( "Ixx", "Mass_Props", this, 0, 0, 1e12 );
+    m_Iyy.Init( "Iyy", "Mass_Props", this, 0, 0, 1e12 );
+    m_Izz.Init( "Izz", "Mass_Props", this, 0, 0, 1e12 );
+    m_Ixy.Init( "Ixy", "Mass_Props", this, 0, -1e12, 1e12 );
+    m_Ixz.Init( "Ixz", "Mass_Props", this, 0, -1e12, 1e12 );
+    m_Iyz.Init( "Iyz", "Mass_Props", this, 0, -1e12, 1e12 );
+
+
     // Negative Volume Properties
     m_NegativeVolumeFlag.Init( "Negative_Volume_Flag", "Negative_Volume_Props", this, false, 0, 1);
 
@@ -2656,6 +2668,17 @@ void Geom::UpdateDrawObj()
     //==== Bounding Box ====//
     m_HighlightDrawObj.m_PntVec = m_BBox.GetBBoxDrawLines();
 
+    m_PtMassCGDrawObj.m_PntVec.clear();
+    m_PtMassCGDrawObj.m_GeomChanged = true;
+    if ( m_PointMass() > 0.0 )
+    {
+        for ( int j = 0; j < m_TransMatVec.size(); j++ )
+        {
+            vec3d cg = m_TransMatVec[ j ].xform( vec3d( m_CGx(), m_CGy(), m_CGz() ) );
+            m_PtMassCGDrawObj.m_PntVec.push_back( cg );
+        }
+    }
+
     //=== Axis ===//
     m_AxisDrawObj_vec.clear();
     m_AxisDrawObj_vec.resize( 3 );
@@ -3621,6 +3644,14 @@ void Geom::LoadDrawObjs( vector< DrawObj* > & draw_obj_vec )
         m_HighlightDrawObj.m_LineColor = vec3d( 1.0, 0., 0.0 );
         m_HighlightDrawObj.m_Type = DrawObj::VSP_LINES;
         draw_obj_vec.push_back( &m_HighlightDrawObj );
+
+        m_PtMassCGDrawObj.m_Screen = DrawObj::VSP_MAIN_SCREEN;
+        m_PtMassCGDrawObj.m_GeomID = m_ID + string( "PtMassCG" );
+        m_PtMassCGDrawObj.m_Visible = GetSetFlag( vsp::SET_SHOWN );
+        m_PtMassCGDrawObj.m_PointSize = 10.0;
+        m_PtMassCGDrawObj.m_PointColor = vec3d( 0, 0, 1 );
+        m_PtMassCGDrawObj.m_Type = DrawObj::VSP_POINTS;
+        draw_obj_vec.push_back( &m_PtMassCGDrawObj );
 
         for ( int i = 0; i < m_AxisDrawObj_vec.size(); i++ )
         {
@@ -4856,7 +4887,7 @@ void Geom::SetupPMARCFile( int &ipatch, vector < int > &idpat )
     }
 }
 
-void Geom::WritePMARCGeomFile(FILE *fp, int &ipatch, vector<int> &idpat)
+void Geom::WritePMARCGeomFile(FILE *fp, int &ipatch, vector<int> &idpat, vector < int > &wstart, vector < int > &wend)
 {
     bool pmtippatch = false; // WARNING: Always false
 
@@ -4867,6 +4898,22 @@ void Geom::WritePMARCGeomFile(FILE *fp, int &ipatch, vector<int> &idpat)
         vector< vector< vec3d > > norms;
 
         UpdateTesselate( i, pnts, norms, false );
+
+        wstart[ipatch] = 0;
+        wend[ipatch] = 0;
+
+        if ( idpat[ipatch] == 1 ) // WING_SURF
+        {
+            if( m_CapUMinOption()!=NO_END_CAP && m_CapUMinSuccess[ m_SurfIndxVec[i] ] )
+            {
+                wstart[ipatch] = m_CapUMinTess();
+            }
+
+            if( m_CapUMaxOption()!=NO_END_CAP && m_CapUMaxSuccess[ m_SurfIndxVec[i] ] )
+            {
+                wend[ipatch] = pnts.size() - m_CapUMinTess();
+            }
+        }
 
         int irev = 0;
         if ( !GetFlipNormal(i) )
@@ -4938,7 +4985,7 @@ void Geom::WritePMARCGeomFile(FILE *fp, int &ipatch, vector<int> &idpat)
     }
 }
 
-void Geom::WritePMARCWakeFile( FILE *fp, int &ipatch, vector<int> &idpat )
+void Geom::WritePMARCWakeFile( FILE *fp, int &ipatch, vector<int> &idpat, vector < int > &wstart, vector < int > &wend )
 {
     int ilastwake = -1;
     for ( int i = 0; i < idpat.size(); i++ )
@@ -4963,9 +5010,9 @@ void Geom::WritePMARCWakeFile( FILE *fp, int &ipatch, vector<int> &idpat )
             fprintf(fp," &WAKE1   IDWAK=1,  IFLXW= 0,   ITRFTZ=1,  INTRW=1,  &END\n" );
             fprintf(fp," Wing Wake\n");
             // Wake separation information.  Patch 1, side 2.
-            fprintf(fp," &WAKE2   KWPACH=%d, KWSIDE=2, KWLINE=0,  KWPAN1=0,\n", ipatch + 1 );
+            fprintf(fp," &WAKE2   KWPACH=%d, KWSIDE=2, KWLINE=0,  KWPAN1=%d,\n", ipatch + 1, wstart[ipatch] );
             // More wakes to follow. (NODEW)
-            fprintf(fp,"          KWPAN2=0, NODEW=%d,  INITIAL=0,             &END\n", nodew);
+            fprintf(fp,"          KWPAN2=%d, NODEW=%d,  INITIAL=0,             &END\n", wend[ipatch], nodew);
         }
 
         ipatch++;

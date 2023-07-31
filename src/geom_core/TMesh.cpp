@@ -29,6 +29,10 @@
 #include "triangle.h"
 #include "triangle_api.h"
 
+#include "VspUtil.h"
+
+#include "delabella.h"
+#include "StlHelper.h"
 
 #include <math.h>
 
@@ -184,55 +188,73 @@ TetraMassProp::TetraMassProp( const string& id, double denIn, const vec3d& p0, c
     m_Vol  = tetra_volume( m_v1, m_v2, m_v3 );
     m_Mass = m_Density * m_Vol;
 
-    double Ix = m_Mass / 10.0 * ( m_v1.x() * m_v1.x() + m_v2.x() * m_v2.x() + m_v3.x() * m_v3.x() +
-                                  m_v1.x() * m_v2.x() + m_v1.x() * m_v3.x() + m_v2.x() * m_v3.x() );
+    vector < double > vx = { m_v1.x() * m_v1.x(), m_v2.x() * m_v2.x(), m_v3.x() * m_v3.x(), m_v1.x() * m_v2.x(), m_v1.x() * m_v3.x(), m_v2.x() * m_v3.x() };
+    double Ix = m_Mass / 10.0 * compsum( vx );
 
-    double Iy = m_Mass / 10.0 * ( m_v1.y() * m_v1.y() + m_v2.y() * m_v2.y() + m_v3.y() * m_v3.y() +
-                                  m_v1.y() * m_v2.y() + m_v1.y() * m_v3.y() + m_v2.y() * m_v3.y() );
+    vector < double > vy = { m_v1.y() * m_v1.y(), m_v2.y() * m_v2.y(), m_v3.y() * m_v3.y(), m_v1.y() * m_v2.y(), m_v1.y() * m_v3.y(), m_v2.y() * m_v3.y() };
+    double Iy = m_Mass / 10.0 * compsum( vy );
 
-    double Iz = m_Mass / 10.0 * ( m_v1.z() * m_v1.z() + m_v2.z() * m_v2.z() + m_v3.z() * m_v3.z() +
-                                  m_v1.z() * m_v2.z() + m_v1.z() * m_v3.z() + m_v2.z() * m_v3.z() );
+    vector < double > vz = { m_v1.z() * m_v1.z(), m_v2.z() * m_v2.z(), m_v3.z() * m_v3.z(), m_v1.z() * m_v2.z(), m_v1.z() * m_v3.z(), m_v2.z() * m_v3.z() };
+    double Iz = m_Mass / 10.0 * compsum( vz );
 
     m_Ixx = Iy + Iz;
     m_Iyy = Ix + Iz;
     m_Izz = Ix + Iy;
 
-    m_Ixy = m_Mass / 20.0 * ( 2.0 * ( m_v1.x() * m_v1.y() + m_v2.x() * m_v2.y() + m_v3.x() * m_v3.y() ) +
-                              m_v1.x() * m_v2.y() + m_v2.x() * m_v1.y() + m_v1.x() * m_v3.y() + m_v3.x() * m_v1.y() + m_v2.x() * m_v3.y() + m_v3.x() * m_v2.y() );
+    vector < double > vxy1 = { m_v1.x() * m_v1.y(), m_v2.x() * m_v2.y(), m_v3.x() * m_v3.y() };
+    vector < double > vxy2 = { m_v1.x() * m_v2.y(), m_v2.x() * m_v1.y(), m_v1.x() * m_v3.y(), m_v3.x() * m_v1.y(), m_v2.x() * m_v3.y(), m_v3.x() * m_v2.y() };
+    m_Ixy = m_Mass / 20.0 * ( 2.0 * compsum( vxy1 ) + compsum( vxy2 ) );
 
-    m_Iyz = m_Mass / 20.0 * ( 2.0 * ( m_v1.y() * m_v1.z() + m_v2.y() * m_v2.z() + m_v3.y() * m_v3.z() ) +
-                              m_v1.y() * m_v2.z() + m_v2.y() * m_v1.z() + m_v1.y() * m_v3.z() + m_v3.y() * m_v1.z() + m_v2.y() * m_v3.z() + m_v3.y() * m_v2.z() );
+    vector < double > vyz1 = { m_v1.y() * m_v1.z(), m_v2.y() * m_v2.z(), m_v3.y() * m_v3.z() };
+    vector < double > vyz2 = { m_v1.y() * m_v2.z(), m_v2.y() * m_v1.z(), m_v1.y() * m_v3.z(), m_v3.y() * m_v1.z(), m_v2.y() * m_v3.z(), m_v3.y() * m_v2.z() };
+    m_Iyz = m_Mass / 20.0 * ( 2.0 * compsum( vyz1 ) + compsum( vyz2 ) );
 
-    m_Ixz = m_Mass / 20.0 * ( 2.0 * ( m_v1.x() * m_v1.z() + m_v2.x() * m_v2.z() + m_v3.x() * m_v3.z() ) +
-                              m_v1.x() * m_v2.z() + m_v2.x() * m_v1.z() + m_v1.x() * m_v3.z() + m_v3.x() * m_v1.z() + m_v2.x() * m_v3.z() + m_v3.x() * m_v2.z() );
+    vector < double > vxz1 = { m_v1.x() * m_v1.z(), m_v2.x() * m_v2.z(), m_v3.x() * m_v3.z()};
+    vector < double > vxz2 = { m_v1.x() * m_v2.z(), m_v2.x() * m_v1.z(), m_v1.x() * m_v3.z(), m_v3.x() * m_v1.z(), m_v2.x() * m_v3.z(), m_v3.x() * m_v2.z() };
+    m_Ixz = m_Mass / 20.0 * ( 2.0 * compsum( vxz1 ) + compsum( vxz2 ) );
 
 }
 
-
-void TetraMassProp::SetPointMass( double massIn, const vec3d& pos )
+void TetraMassProp::SetDistributedMass( double massIn, const vec3d& cgIn, const double & IxxIn, const double & IyyIn, const double & IzzIn,
+                                                                          const double & IxyIn, const double & IxzIn, const double & IyzIn, Matrix4d transMatIn )
 {
     m_CompId = "NONE";
     m_Density = 0.0;
-    m_CG = pos;
+    m_CG = transMatIn.xform( cgIn );
     m_Vol  = 0.0;
     m_Mass = massIn;
 
-    m_Ixx = 0.0;
-    m_Iyy = 0.0;
-    m_Izz = 0.0;
+    double Idat[16];
+    Matrix4d::setIdentity( Idat );
 
-    m_Ixy = 0.0;
-    m_Iyz = 0.0;
-    m_Ixz = 0.0;
+    Idat[0] = IxxIn;
+    Idat[5] = IyyIn;
+    Idat[10] = IzzIn;
 
+    Idat[4] = Idat[1] = -IxyIn;
+    Idat[8] = Idat[2] = -IxzIn;
+    Idat[9] = Idat[6] = -IyzIn;
+
+    Matrix4d Imat;
+    Imat.initMat( Idat );
+
+    transMatIn.zeroTranslations();
+    transMatIn.affineInverse();
+
+    Imat.matMult( transMatIn );
+    transMatIn.affineInverse();
+    Imat.postMult( transMatIn );
+
+    Imat.getMat( Idat );
+
+    m_Ixx = Idat[0];
+    m_Iyy = Idat[5];
+    m_Izz = Idat[10];
+
+    m_Ixy = -Idat[1];
+    m_Ixz = -Idat[2];
+    m_Iyz = -Idat[6];
 }
-
-
-
-
-
-
-
 
 //=======================================================================//
 //=======================================================================//
@@ -253,27 +275,30 @@ TriShellMassProp::TriShellMassProp( const string& id, double mass_area_in, const
 
     m_Mass = m_TriArea * m_MassArea;
 
-    double Ix = m_Mass / 10.0 * ( m_v0.x() * m_v0.x() + m_v1.x() * m_v1.x() + m_v2.x() * m_v2.x() +
-                                  m_v0.x() * m_v1.x() + m_v0.x() * m_v2.x() + m_v1.x() * m_v2.x() );
+    vector < double > vx = { m_v0.x() * m_v0.x(), m_v1.x() * m_v1.x(), m_v2.x() * m_v2.x(), m_v0.x() * m_v1.x(), m_v0.x() * m_v2.x(), m_v1.x() * m_v2.x() };
+    double Ix = m_Mass / 10.0 * compsum( vx );
 
-    double Iy = m_Mass / 10.0 * ( m_v0.y() * m_v0.y() + m_v1.y() * m_v1.y() + m_v2.y() * m_v2.y() +
-                                  m_v0.y() * m_v1.y() + m_v0.y() * m_v2.y() + m_v1.y() * m_v2.y() );
+    vector < double > vy = { m_v0.y() * m_v0.y(), m_v1.y() * m_v1.y(), m_v2.y() * m_v2.y(), m_v0.y() * m_v1.y(), m_v0.y() * m_v2.y(), m_v1.y() * m_v2.y() };
+    double Iy = m_Mass / 10.0 * compsum( vy );
 
-    double Iz = m_Mass / 10.0 * ( m_v0.z() * m_v0.z() + m_v1.z() * m_v1.z() + m_v2.z() * m_v2.z() +
-                                  m_v0.z() * m_v1.z() + m_v0.z() * m_v2.z() + m_v1.z() * m_v2.z() );
+    vector < double > vz = {m_v0.z() * m_v0.z(), m_v1.z() * m_v1.z(), m_v2.z() * m_v2.z(), m_v0.z() * m_v1.z(), m_v0.z() * m_v2.z(), m_v1.z() * m_v2.z() };
+    double Iz = m_Mass / 10.0 * compsum( vz );
 
     m_Ixx = Iy + Iz;
     m_Iyy = Ix + Iz;
     m_Izz = Ix + Iy;
 
-    m_Ixy = m_Mass / 20.0 * ( 2.0 * ( m_v0.x() * m_v0.y() + m_v1.x() * m_v1.y() + m_v2.x() * m_v2.y() ) +
-                              m_v0.x() * m_v1.y() + m_v1.x() * m_v0.y() + m_v0.x() * m_v2.y() + m_v2.x() * m_v0.y() + m_v1.x() * m_v2.y() + m_v2.x() * m_v1.y() );
+    vector < double > vxy1 = { m_v0.x() * m_v0.y(), m_v1.x() * m_v1.y(), m_v2.x() * m_v2.y() };
+    vector < double > vxy2 = { m_v0.x() * m_v1.y(), m_v1.x() * m_v0.y(), m_v0.x() * m_v2.y(), m_v2.x() * m_v0.y(), m_v1.x() * m_v2.y(), m_v2.x() * m_v1.y() };
+    m_Ixy = m_Mass / 20.0 * ( 2.0 * compsum( vxy1 ) + compsum( vxy2 ) );
 
-    m_Iyz = m_Mass / 20.0 * ( 2.0 * ( m_v0.y() * m_v0.z() + m_v1.y() * m_v1.z() + m_v2.y() * m_v2.z() ) +
-                              m_v0.y() * m_v1.z() + m_v1.y() * m_v0.z() + m_v0.y() * m_v2.z() + m_v2.y() * m_v0.z() + m_v1.y() * m_v2.z() + m_v2.y() * m_v1.z() );
+    vector < double > vyz1 = { m_v0.y() * m_v0.z(), m_v1.y() * m_v1.z(), m_v2.y() * m_v2.z() };
+    vector < double > vyz2 = { m_v0.y() * m_v1.z(), m_v1.y() * m_v0.z(), m_v0.y() * m_v2.z(), m_v2.y() * m_v0.z(), m_v1.y() * m_v2.z(), m_v2.y() * m_v1.z() };
+    m_Iyz = m_Mass / 20.0 * ( 2.0 * compsum( vyz1 ) + compsum( vyz2 ) );
 
-    m_Ixz = m_Mass / 20.0 * ( 2.0 * ( m_v0.x() * m_v0.z() + m_v1.x() * m_v1.z() + m_v2.x() * m_v2.z() ) +
-                              m_v0.x() * m_v1.z() + m_v1.x() * m_v0.z() + m_v0.x() * m_v2.z() + m_v2.x() * m_v0.z() + m_v1.x() * m_v2.z() + m_v2.x() * m_v1.z() );
+    vector < double > vxz1 = { m_v0.x() * m_v0.z(), m_v1.x() * m_v1.z(), m_v2.x() * m_v2.z() };
+    vector < double > vxz2 = { m_v0.x() * m_v1.z(), m_v1.x() * m_v0.z(), m_v0.x() * m_v2.z(), m_v2.x() * m_v0.z(), m_v1.x() * m_v2.z(), m_v2.x() * m_v1.z() };
+    m_Ixz = m_Mass / 20.0 * ( 2.0 * compsum( vxz1 ) + compsum( vxz2 ) );
 
 
 }
@@ -709,7 +734,17 @@ void TMesh::Split()
     int t;
     for ( t = 0 ; t < ( int )m_TVec.size() ; t++ )
     {
-        m_TVec[t]->SplitTri();
+        //printf( "Splitting tri %d\n", t );
+        bool dumpCase = false;
+        if ( false && t == 198 )
+        {
+            dumpCase = true;
+        }
+        bool erf = m_TVec[ t ]->SplitTri( dumpCase );
+        if ( !erf )
+        {
+//            printf( "Fail in triangle %d\n", t );
+        }
     }
 }
 
@@ -1544,8 +1579,9 @@ bool TTri::MatchEdge( TNode* n0, TNode* n1, TNode* nA, TNode* nB, double tol )
 #define ON_EDGE_TOL 1e-5
 
 //==== Split A Triangle Along Edges in ISectEdges Vec =====//
-void TTri::SplitTri()
+bool TTri::SplitTri( bool dumpCase )
 {
+    bool erflag = true;
     int i, j;
     double onEdgeTol = ON_EDGE_TOL; // was 1e-5
     double uvMinTol  = 1e-3; // was 1e-3
@@ -1554,7 +1590,7 @@ void TTri::SplitTri()
     //==== No Need To Split ====//
     if ( m_ISectEdgeVec.size() == 0 )
     {
-        return;
+        return erflag;
     }
 
     //==== Delete Duplicate Edges ====//
@@ -1584,6 +1620,33 @@ void TTri::SplitTri()
         }
     }
     m_ISectEdgeVec = noDupVec;
+
+    vector< TEdge* > keepVec;
+    for ( i = 0 ; i < ( int )m_ISectEdgeVec.size(); i++ )
+    {
+        bool keep = true;
+        if ( !m_ISectEdgeVec[i]->m_N0->GetXYZPnt().isfinite() )
+        {
+            keep = false;
+        }
+
+        if ( !m_ISectEdgeVec[i]->m_N1->GetXYZPnt().isfinite() )
+        {
+            keep = false;
+        }
+
+        if ( keep )
+        {
+            keepVec.push_back( m_ISectEdgeVec[i] );
+        }
+        else
+        {
+            delete m_ISectEdgeVec[i]->m_N0;
+            delete m_ISectEdgeVec[i]->m_N1;
+            delete m_ISectEdgeVec[i];
+        }
+    }
+    m_ISectEdgeVec = keepVec;
 
     //==== Add Corners of Triangle ====//           //jrg figure who should allocate data...
     m_NVec.push_back( m_N0 );
@@ -1623,6 +1686,7 @@ void TTri::SplitTri()
     {
         pVec[i * 2] = m_ISectEdgeVec[i]->m_N0->GetXYZPnt();
         pVec[i * 2 + 1] = m_ISectEdgeVec[i]->m_N1->GetXYZPnt();
+
         uwVec[i * 2] =  m_ISectEdgeVec[i]->m_N0->GetUWPnt();
         uwVec[i * 2 + 1] =  m_ISectEdgeVec[i]->m_N1->GetUWPnt();
     }
@@ -1653,6 +1717,14 @@ void TTri::SplitTri()
                 m_NVec.push_back( sn );
                 matchNodeIndex[i] = m_NVec.size() - 1;
                 sn->SetXYZPnt( pVec[i] );
+
+#ifdef DEBUG_TMESH
+                if ( !PtInTri( m_NVec[0]->m_Pnt, m_NVec[1]->m_Pnt, m_NVec[2]->m_Pnt, sn->m_Pnt ) )
+                {
+                    printf( "Outlier point added %s : %d.\n", __FILE__, __LINE__ );
+                }
+#endif
+
                 sn->SetUWPnt( uwVec[i] );
                 if ( uwflag )
                 {
@@ -1702,6 +1774,14 @@ void TTri::SplitTri()
             m_NVec.push_back( sn );
             matchNodeIndex[i] = m_NVec.size() - 1;
             sn->SetXYZPnt( pVec[i] );
+
+#ifdef DEBUG_TMESH
+            if ( !PtInTri( m_NVec[0]->m_Pnt, m_NVec[1]->m_Pnt, m_NVec[2]->m_Pnt, sn->m_Pnt ) )
+            {
+                printf( "Outlier point added %s : %d.\n", __FILE__, __LINE__ );
+            }
+#endif
+
             sn->SetUWPnt( uwVec[i] );
             if ( uwflag )
             {
@@ -1848,6 +1928,13 @@ void TTri::SplitTri()
                                 sn->SetXYZPnt( crossing_node );
                             }
 
+#ifdef DEBUG_TMESH
+                            if ( !PtInTri( m_NVec[0]->m_Pnt, m_NVec[1]->m_Pnt, m_NVec[2]->m_Pnt, sn->m_Pnt ) )
+                            {
+                                printf( "Outlier point added %s : %d.\n", __FILE__, __LINE__ );
+                            }
+#endif
+
                             TEdge* se0 = new TEdge();       // New Edge
                             se0->m_N0 = en0;
                             se0->m_N1 = sn;
@@ -1877,12 +1964,19 @@ void TTri::SplitTri()
         }
     }
 
+    vector < vec3d > ptvec( m_NVec.size() );
+
     //==== Determine Which Axis to Flatten ====//
     Matrix4d rot_mat;
     int flattenAxis = 0;
     if ( uwflag )
     {
         flattenAxis = 2;
+
+        for ( unsigned int n=0; n < m_NVec.size(); n++ )
+        {
+            ptvec[n] = m_NVec[n]->m_Pnt;
+        }
     }
     else
     {
@@ -1898,24 +1992,23 @@ void TTri::SplitTri()
 
         for ( unsigned int n=0; n < m_NVec.size(); n++ )
         {
-            m_NVec[n]->m_Pnt = rot_mat.xform(m_NVec[n]->m_Pnt);
+            ptvec[n] = rot_mat.xform(m_NVec[n]->m_Pnt);
         }
     }
 
+    if ( m_EVec.size() <= 3 )
+    {
+        return erflag;
+    }
+
+
     //==== Use Triangle to Split Tri ====//
-    TriangulateSplit( flattenAxis );
+    bool match = TriangulateSplit( flattenAxis, ptvec, dumpCase );
+
+    erflag = !match;
 
     CleanupEdgeVec();
 
-    if ( !uwflag )
-    {
-        // Rotate Points Back
-        rot_mat.affineInverse();
-        for ( unsigned int n=0; n < m_NVec.size(); n++ )
-        {
-            m_NVec[n]->m_Pnt = rot_mat.xform(m_NVec[n]->m_Pnt);
-        }
-    }
 
     //=== Orient Tris to Match Normal ====//
     for ( i = 0 ; i < ( int )m_SplitVec.size() ; i++ )
@@ -1933,11 +2026,156 @@ void TTri::SplitTri()
             t->m_N2 = tmp;
         }
     }
+    return erflag;
 }
 
-void TTri::TriangulateSplit( int flattenAxis )
+void TTri::OrientTri( vector < int > & tri )
+{
+    vec3d n0 = m_NVec[ tri[0] ]->GetXYZPnt();
+    vec3d n1 = m_NVec[ tri[1] ]->GetXYZPnt();
+    vec3d n2 = m_NVec[ tri[2] ]->GetXYZPnt();
+
+    vec3d d01 = n0 - n1;
+    vec3d d21 = n2 - n1;
+
+    vec3d cx = cross( d21, d01 );
+
+    if ( dot( cx, m_Norm ) < 0.0 )
+    {
+        int tmp = tri[1];
+        tri[1] = tri[2];
+        tri[2] = tmp;
+    }
+}
+
+void TTri::OrientConnList( vector < vector < int > > & cl )
+{
+    for ( int i = 0; i < cl.size(); i++ )
+    {
+        OrientTri( cl[i] );
+    }
+}
+
+bool TTri::CompConnList( const vector < vector < int > > & cla, const vector < vector < int > > & clb )
+{
+    if ( cla.size() != clb.size() )
+    {
+        return false;
+    }
+
+    for ( int i = 0; i < cla.size(); i++ )
+    {
+        if ( cla[i].size() != clb[i].size() )
+        {
+            return false;
+        }
+
+        for ( int j = 0; j < cla[i].size(); j++ )
+        {
+            if ( cla[i][j] != clb[i][j] )
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+void TTri::SortTri( vector < int > & tri )
+{
+    int imin = vector_find_minimum( tri );
+    std::rotate( tri.begin(), tri.begin() + imin, tri.end() );
+}
+
+bool clcmp( const vector < int > & a, const vector < int > & b )
+{
+    if ( a.size() == b.size() )
+    {
+        for ( int i = 0; i < a.size(); i++ )
+        {
+            if ( a[i] != b[i] )
+            {
+                return a[i] < b[i];
+            }
+        }
+    }
+    else
+    {
+        return a.size() < b.size();
+    }
+    return a < b;
+}
+
+void TTri::SortConnList( vector < vector < int > > & cl )
+{
+    int ntri = cl.size();
+
+    for ( int itri = 0; itri < ntri; itri++ )
+    {
+        SortTri( cl[itri] );
+    }
+
+    std::sort( cl.begin(), cl.end(), clcmp );
+
+}
+
+bool TTri::TriangulateSplit( int flattenAxis, const vector < vec3d > &ptvec, bool dumpCase )
+{
+    vector < vector < int > > othercl;
+    vector < vector < int > > cl_DBA;
+    TriangulateSplit_DBA( flattenAxis, ptvec, false, cl_DBA, othercl );
+    OrientConnList( cl_DBA );
+    SortConnList( cl_DBA );
+
+    bool match = true;
+#ifdef DEBUG_TMESH
+#ifdef COMPARE_TRIANGLE
+    vector < vector < int > > cl_TRI;
+    TriangulateSplit_TRI( flattenAxis, ptvec, false, cl_TRI );
+    OrientConnList( cl_TRI );
+    SortConnList( cl_TRI );
+
+    match = CompConnList( cl_TRI, cl_DBA );
+
+    if ( !match )
+    {
+        vector < vector < int > > cl_DBA2;
+        TriangulateSplit_DBA( flattenAxis, ptvec, true, cl_DBA2, cl_TRI );
+
+        bool match2 = CompConnList( cl_DBA, cl_DBA2 );
+        if ( !match2 )
+        {
+            printf( "Subsequent calls to DBA don't match!\n" );
+        }
+    }
+    else
+    {
+        // printf( "Matching result!\n" );
+    }
+#endif
+#endif
+
+    int ntri = cl_DBA.size();
+    for ( int i = 0; i < ntri; i++ )
+    {
+        TTri* t = new TTri( m_TMesh );
+        t->m_N0 = m_NVec[ cl_DBA[i][0] ];
+        t->m_N1 = m_NVec[ cl_DBA[i][1] ];
+        t->m_N2 = m_NVec[ cl_DBA[i][2] ];
+        t->m_Tags = m_Tags; // Set split tri to have same tags as original triangle
+        t->m_Norm = m_Norm;
+        m_SplitVec.push_back( t );
+    }
+
+    return match;
+}
+
+void TTri::TriangulateSplit_TRI( int flattenAxis, const vector < vec3d > &ptvec, bool dumpCase,
+                                 vector < vector < int > > & connlist )
 {
     int i, j;
+
+    int npt = ptvec.size();
 
     //==== Dump Into Triangle ====//
     context* ctx;
@@ -1977,9 +2215,9 @@ void TTri::TriangulateSplit( int flattenAxis )
 
     //==== Find Bounds of NVec ====//
     BndBox box;
-    for ( j = 0 ; j < ( int )m_NVec.size() ; j++ )
+    for ( j = 0 ; j < npt ; j++ )
     {
-        box.Update( m_NVec[j]->m_Pnt );
+        box.Update( ptvec[j] );
     }
 
     vec3d center = box.GetCenter();
@@ -1990,9 +2228,9 @@ void TTri::TriangulateSplit( int flattenAxis )
     double sz = max( box.GetMax( 2 ) - box.GetMin( 2 ), min_s );
 
     int cnt = 0;
-    for ( j = 0 ; j < ( int )m_NVec.size() ; j++ )
+    for ( j = 0 ; j < npt ; j++ )
     {
-        vec3d pnt = m_NVec[j]->m_Pnt - center;
+        vec3d pnt = ptvec[j] - center;
         pnt.scale_x( 1.0 / sx );
         pnt.scale_y( 1.0 / sy );
         pnt.scale_z( 1.0 / sz );
@@ -2104,21 +2342,19 @@ void TTri::TriangulateSplit( int flattenAxis )
     {
         triangle_mesh_copy( ctx, &out, 1, 1 );
 
+        connlist.resize( out.numberoftriangles );
+
         //==== Load Triangles if No New Point Created ====//
         cnt = 0;
         for ( i = 0; i < out.numberoftriangles; i++ )
         {
-            if ( out.trianglelist[cnt] < (int)m_NVec.size() &&
-                out.trianglelist[cnt + 1] < (int)m_NVec.size() &&
-                out.trianglelist[cnt + 2] < (int)m_NVec.size() )
+            if ( out.trianglelist[cnt] < npt &&
+                out.trianglelist[cnt + 1] < npt &&
+                out.trianglelist[cnt + 2] < npt )
             {
-                TTri* t = new TTri( m_TMesh );
-                t->m_N0 = m_NVec[out.trianglelist[cnt]];
-                t->m_N1 = m_NVec[out.trianglelist[cnt + 1]];
-                t->m_N2 = m_NVec[out.trianglelist[cnt + 2]];
-                t->m_Tags = m_Tags; // Set split tri to have same tags as original triangle
-                t->m_Norm = m_Norm;
-                m_SplitVec.push_back( t );
+                connlist[i].push_back( out.trianglelist[cnt] );
+                connlist[i].push_back( out.trianglelist[cnt + 1] );
+                connlist[i].push_back( out.trianglelist[cnt + 2] );
             }
             else
             {
@@ -2194,6 +2430,173 @@ void TTri::TriangulateSplit( int flattenAxis )
 
     // cleanup
     triangle_context_destroy( ctx );
+}
+
+int dba_errlog( void* stream, const char* fmt, ...)
+{
+    va_list arg;
+    va_start(arg,fmt);
+    int ret = vfprintf((FILE*)stream, fmt, arg);
+    va_end(arg);
+    //fflush((FILE*)stream);
+    return ret;
+}
+
+void TTri::TriangulateSplit_DBA( int flattenAxis, const vector < vec3d > &ptvec, bool dumpCase,
+                                 vector < vector < int > > & connlist, const vector < vector < int > > & otherconnlist  )
+{
+    static int idump = 0;
+
+    int npt = ptvec.size();
+
+    dba_point* cloud = new dba_point[npt];
+
+
+    //==== Find Bounds of NVec ====//
+    BndBox box;
+    for ( int i = 0 ; i < npt ; i++ )
+    {
+        box.Update( ptvec[i] );
+        m_NVec[i]->m_ID = i;
+    }
+
+    vec3d center = box.GetCenter();
+
+    double min_s = 0.0001;
+    double sx = max( box.GetMax( 0 ) - box.GetMin( 0 ), min_s );
+    double sy = max( box.GetMax( 1 ) - box.GetMin( 1 ), min_s );
+    double sz = max( box.GetMax( 2 ) - box.GetMin( 2 ), min_s );
+
+    for ( int i = 0 ; i < npt ; i++ )
+    {
+        vec3d pnt = ptvec[i] - center;
+        pnt.scale_x( 1.0 / sx );
+        pnt.scale_y( 1.0 / sy );
+        pnt.scale_z( 1.0 / sz );
+
+        if ( flattenAxis == 0 )
+        {
+            cloud[i].x = pnt.y();
+            cloud[i].y = pnt.z();
+        }
+        else if ( flattenAxis == 1 )
+        {
+            cloud[i].x = pnt.x();
+            cloud[i].y = pnt.z();
+        }
+        else if ( flattenAxis == 2 )
+        {
+            cloud[i].x = pnt.x();
+            cloud[i].y = pnt.y();
+        }
+    }
+
+    int nedg = m_EVec.size();
+
+    dba_edge* bounds = new dba_edge[nedg];
+
+    for ( int i = 0 ; i < ( int )nedg ; i++ )
+    {
+        bounds[i].a = m_EVec[i]->m_N0->m_ID;
+        bounds[i].b = m_EVec[i]->m_N1->m_ID;
+    }
+
+#ifdef DEBUG_TMESH
+    if ( dumpCase )
+    {
+        FILE *fpdump = NULL;
+
+        string fname = string( "dlbtest_" ) + to_string( idump ) + string( ".txt" );
+        fpdump = fopen( fname.c_str(), "w" );
+        idump++;
+
+        fprintf( fpdump, "%d\n", npt );
+        for ( int i = 0; i < npt; i++ )
+        {
+            fprintf( fpdump, "%d %.18e %.18e\n", i, cloud[ i ].x, cloud[ i ].y );
+        }
+
+        fprintf( fpdump, "%d\n", nedg );
+        for ( int i = 0; i < ( int ) nedg; i++ )
+        {
+            fprintf( fpdump, "%d %d %d\n", i, bounds[ i ].a, bounds[ i ].b );
+        }
+        // fclose( fpdump );
+    }
+#endif
+
+    IDelaBella2 < double > * idb = IDelaBella2 < double > ::Create();
+#ifdef DEBUG_TMESH
+    idb->SetErrLog( dba_errlog, stdout );
+#endif
+
+    int verts = idb->Triangulate( npt, &cloud->x, &cloud->y, sizeof( dba_point ) );
+
+    if ( verts > 0 )
+    {
+        idb->ConstrainEdges( nedg, &bounds->a, &bounds->b, sizeof( dba_edge ) );
+
+        int tris = idb->FloodFill( false, 0, 1 );
+
+        const IDelaBella2<double>::Simplex* dela = idb->GetFirstDelaunaySimplex();
+
+        connlist.clear();
+        connlist.resize( tris );
+        for ( int i = 0; i < tris; i++ )
+        {
+            // Note winding order!
+            connlist[i].push_back( dela->v[ 0 ]->i );
+            connlist[i].push_back( dela->v[ 1 ]->i );
+            connlist[i].push_back( dela->v[ 2 ]->i );
+
+            dela = dela->next;
+        }
+    }
+    else
+    {
+        printf( "DLB Error! %d\n", verts );
+    }
+
+    for ( int i = 0 ; i < npt; i++ )
+    {
+        m_NVec[i]->m_ID = -1;
+    }
+
+
+#ifdef DEBUG_TMESH
+    if ( dumpCase )
+    {
+        OrientConnList( connlist );
+        SortConnList( connlist );
+
+        fprintf( fpdump, "DLB\n" );
+        fprintf( fpdump, "%d\n", connlist.size() );
+        for ( int i = 0; i < connlist.size(); i++ )
+        {
+            fprintf( fpdump, "%d %d %d %d\n", i, connlist[i][0], connlist[i][1], connlist[i][2] );
+        }
+
+        fprintf( fpdump, "TRI\n" );
+        fprintf( fpdump, "%d\n", otherconnlist.size() );
+        for ( int i = 0; i < otherconnlist.size(); i++ )
+        {
+            fprintf( fpdump, "%d %d %d %d\n", i, otherconnlist[i][0], otherconnlist[i][1], otherconnlist[i][2] );
+        }
+
+
+        fclose( fpdump );
+    }
+#endif
+
+    delete[] cloud;
+    delete[] bounds;
+
+    idb->Destroy();
+}
+
+bool TTri::InTri( const vec3d & p )
+{
+    return PtInTri( m_N0->m_Pnt, m_N1->m_Pnt, m_N2->m_Pnt, p );
 }
 
 int TTri::OnEdge( const vec3d & p, TEdge* e, double onEdgeTol, double * t )
@@ -2535,6 +2938,10 @@ double TBndBox::MinDistance( TBndBox* iBox, double curr_min_dist )
 
 void TBndBox::Intersect( TBndBox* iBox, bool UWFlag )
 {
+#ifdef DEBUG_TMESH
+    static int fig = 0;
+#endif
+
     int i;
 
     double tol = 1e-6; // was 1e-6
@@ -2628,6 +3035,41 @@ void TBndBox::Intersect( TBndBox* iBox, bool UWFlag )
                             t0->m_ISectEdgeVec.push_back( ie0 );
                             t1->m_ISectEdgeVec.push_back( ie1 );
 
+#ifdef DEBUG_TMESH
+                            if ( !t0->InTri( e0xyz ) || !t0->InTri( e1xyz ) || !t1->InTri( e0xyz ) || !t1->InTri( e1xyz ) )
+                            {
+                                printf( "%% Outlier point created %s : %d\n", __FILE__, __LINE__ );
+
+                                printf( "t0 = [%.24e %.24e %.24e;\n", t0->m_N0->m_Pnt.x(), t0->m_N0->m_Pnt.y(), t0->m_N0->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e;\n", t0->m_N1->m_Pnt.x(), t0->m_N1->m_Pnt.y(), t0->m_N1->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e;\n", t0->m_N2->m_Pnt.x(), t0->m_N2->m_Pnt.y(), t0->m_N2->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e];\n", t0->m_N0->m_Pnt.x(), t0->m_N0->m_Pnt.y(), t0->m_N0->m_Pnt.z() );
+
+                                printf( "t1 = [%.24e %.24e %.24e;\n", t1->m_N0->m_Pnt.x(), t1->m_N0->m_Pnt.y(), t1->m_N0->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e;\n", t1->m_N1->m_Pnt.x(), t1->m_N1->m_Pnt.y(), t1->m_N1->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e;\n", t1->m_N2->m_Pnt.x(), t1->m_N2->m_Pnt.y(), t1->m_N2->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e];\n", t1->m_N0->m_Pnt.x(), t1->m_N0->m_Pnt.y(), t1->m_N0->m_Pnt.z() );
+
+                                printf( "e0 = [%.24e %.24e %.24e;\n", e0.x(), e0.y(), e0.z() );
+                                printf( "      %.24e %.24e %.24e];\n", e1.x(), e1.y(), e1.z() );
+
+                                printf( "figure( %d );\n", fig + 2 );
+                                printf( "plot3( t0(:,1), t0(:,2), t0(:,3) )\n" );
+                                printf( "hold on;\n" );
+                                printf( "plot3( t1(:,1), t1(:,2), t1(:,3) )\n" );
+                                printf( "plot3( e0(:,1), e0(:,2), e0(:,3), '-o' )\n" );
+                                printf( "hold off;\n\n" );
+
+                                printf( "figure( 1 );\n" );
+                                printf( "plot3( t0(:,1), t0(:,2), t0(:,3) )\n" );
+                                printf( "hold on;\n" );
+                                printf( "plot3( t1(:,1), t1(:,2), t1(:,3) )\n" );
+                                printf( "plot3( e0(:,1), e0(:,2), e0(:,3), '-o' )\n" );
+
+                                fig++;
+                            }
+#endif
+
                             if ( tri->GetTMeshPtr() )
                             {
                                 tri->GetTMeshPtr()->SplitAliasEdges( tri, tri->m_ISectEdgeVec.back() );
@@ -2662,6 +3104,41 @@ void TBndBox::Intersect( TBndBox* iBox, bool UWFlag )
 
                             t0->m_ISectEdgeVec.push_back( ie0 );
                             t1->m_ISectEdgeVec.push_back( ie1 );
+
+#ifdef DEBUG_TMESH
+                            if ( !t0->InTri( e0 ) || !t0->InTri( e1 ) || !t1->InTri( e0 ) || !t1->InTri( e1 ) && false )
+                            {
+                                printf( "%% Outlier point created %s : %d\n", __FILE__, __LINE__ );
+
+                                printf( "t0 = [%.24e %.24e %.24e;\n", t0->m_N0->m_Pnt.x(), t0->m_N0->m_Pnt.y(), t0->m_N0->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e;\n", t0->m_N1->m_Pnt.x(), t0->m_N1->m_Pnt.y(), t0->m_N1->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e;\n", t0->m_N2->m_Pnt.x(), t0->m_N2->m_Pnt.y(), t0->m_N2->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e];\n", t0->m_N0->m_Pnt.x(), t0->m_N0->m_Pnt.y(), t0->m_N0->m_Pnt.z() );
+
+                                printf( "t1 = [%.24e %.24e %.24e;\n", t1->m_N0->m_Pnt.x(), t1->m_N0->m_Pnt.y(), t1->m_N0->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e;\n", t1->m_N1->m_Pnt.x(), t1->m_N1->m_Pnt.y(), t1->m_N1->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e;\n", t1->m_N2->m_Pnt.x(), t1->m_N2->m_Pnt.y(), t1->m_N2->m_Pnt.z() );
+                                printf( "      %.24e %.24e %.24e];\n", t1->m_N0->m_Pnt.x(), t1->m_N0->m_Pnt.y(), t1->m_N0->m_Pnt.z() );
+
+                                printf( "e0 = [%.24e %.24e %.24e;\n", e0.x(), e0.y(), e0.z() );
+                                printf( "      %.24e %.24e %.24e];\n", e1.x(), e1.y(), e1.z() );
+
+                                printf( "figure( %d );\n", fig + 2 );
+                                printf( "plot3( t0(:,1), t0(:,2), t0(:,3) )\n" );
+                                printf( "hold on;\n" );
+                                printf( "plot3( t1(:,1), t1(:,2), t1(:,3) )\n" );
+                                printf( "plot3( e0(:,1), e0(:,2), e0(:,3), '-o' )\n" );
+                                printf( "hold off;\n\n" );
+
+                                printf( "figure( 1 );\n" );
+                                printf( "plot3( t0(:,1), t0(:,2), t0(:,3) )\n" );
+                                printf( "hold on;\n" );
+                                printf( "plot3( t1(:,1), t1(:,2), t1(:,3) )\n" );
+                                printf( "plot3( e0(:,1), e0(:,2), e0(:,3), '-o' )\n" );
+
+                                fig++;
+                            }
+#endif
                         }
                     }
                 }
@@ -3653,8 +4130,8 @@ void TMesh::StressTest()
                 t1->m_ISectEdgeVec.push_back( ie1 );
             }
         }
-        t0->SplitTri();
-        t1->SplitTri();
+        t0->SplitTri( false );
+        t1->SplitTri( false );
 
         delete t0->m_N0;
         delete t0->m_N1;

@@ -9661,6 +9661,25 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
 
     doc_struct.comment = R"(
 /*!
+    Get the description of the specified Parm
+    \code{.cpp}
+    string pod_id = AddGeom( "POD" );
+
+    string length = FindParm( pod_id, "Length", "Design" );
+
+    SetParmValLimits( length, 10.0, 0.001, 1.0e12 );
+
+    string desc = GetParmDescript( length );
+    Print( desc );
+    \endcode
+    \param [in] parm_id Parm ID
+    \return desc Parm description
+*/)";
+    r = se->RegisterGlobalFunction( "string GetParmDescript( const string & in parm_id )", vspFUNCTION( vsp::GetParmDescript ), vspCALL_CDECL, doc_struct );
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
     Find a Parm ID given the Parm Container ID, Parm name, and Parm group
     \code{.cpp}
     //==== Add Wing Geometry ====//
@@ -9834,6 +9853,110 @@ void ScriptMgrSingleton::RegisterAPI( asIScriptEngine* se )
     \return Vehicle ID
 */)";
     r = se->RegisterGlobalFunction( "string GetVehicleID()", vspFUNCTION( vsp::GetVehicleID ), vspCALL_CDECL, doc_struct);
+    assert( r >= 0 );
+
+    //=== Register User Parm Functions ====//
+    doc_struct.comment = R"(
+/*!
+    Get the number of user parameters
+    \code{.cpp}
+    int n = GetNumUserParms();
+
+    \endcode
+    \return Number of user Parms
+*/)";
+    r = se->RegisterGlobalFunction( "int GetNumUserParms()", vspFUNCTION( vsp::GetNumUserParms ), vspCALL_CDECL, doc_struct);
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the number of pre-defined user parameters
+    \code{.cpp}
+    int n = GetNumPredefinedUserParms();
+
+    \endcode
+    \return Number of pre-defined user Parms
+*/)";
+    r = se->RegisterGlobalFunction( "int GetNumPredefinedUserParms()", vspFUNCTION( vsp::GetNumPredefinedUserParms ), vspCALL_CDECL, doc_struct);
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the vector of id's for all user parameters
+    \code{.cpp}
+    array<string> @id_arr = GetAllUserParms();
+
+    Print( "---> User Parm IDs: " );
+
+    for ( int i = 0; i < int( id_arr.size() ); i++ )
+    {
+        string message = "\t" + id_arr[i] + "\n";
+
+        Print( message );
+    }
+    \endcode
+    \return Array of user parameter ids
+*/)";
+    r = se->RegisterGlobalFunction( "array<string>@ GetAllUserParms()", vspMETHOD( ScriptMgrSingleton, GetAllUserParms ), vspCALL_THISCALL_ASGLOBAL, &ScriptMgr, doc_struct);
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the user parm container ID
+    \code{.cpp}
+    string up_id = GetUserParmContainer();
+    \endcode
+    \return User parm container ID
+*/)";
+    r = se->RegisterGlobalFunction( "string GetUserParmContainer()", vspFUNCTION( vsp::GetUserParmContainer ), vspCALL_CDECL, doc_struct);
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+  /*!
+    Function to add a new user Parm of input type, name, and group
+    \code{.cpp}
+    string length = AddUserParm( PARM_DOUBLE_TYPE, "Length", "Design" );
+
+    SetParmValLimits( length, 10.0, 0.001, 1.0e12 );
+
+    SetParmDescript( length, "Length user parameter" );
+    \endcode
+    \sa PARM_TYPE
+    \param [in] type Parm type enum (i.e. PARM_DOUBLE_TYPE)
+    \param [in] name Parm name
+    \param [in] group Parm group
+    \return Parm ID
+  */)";
+
+    r = se->RegisterGlobalFunction( "string AddUserParm( int type, const string & in name, const string & in group )",
+                                    vspFUNCTION( vsp::AddUserParm ), vspCALL_CDECL, doc_struct );
+    assert( r );
+
+    doc_struct.comment = R"(
+/*!
+    Get the user parm container ID
+    \code{.cpp}
+
+    int n = GetNumPredefinedUserParms();
+    array<string> @id_arr = GetAllUserParms();
+
+    if ( id_arr.size() > n )
+    {
+        DeleteUserParm( id_arr[n] );
+    }
+    \endcode
+*/)";
+    r = se->RegisterGlobalFunction( "void DeleteUserParm( const string & in parm_id)", vspFUNCTION( vsp::DeleteUserParm ), vspCALL_CDECL, doc_struct);
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the user parm container ID
+    \code{.cpp}
+    DeleteAllUserParm();
+    \endcode
+*/)";
+    r = se->RegisterGlobalFunction( "void DeleteAllUserParm()", vspFUNCTION( vsp::DeleteAllUserParm ), vspCALL_CDECL, doc_struct);
     assert( r >= 0 );
 
     //=== Register Snap To Functions ====//
@@ -12930,6 +13053,57 @@ void ScriptMgrSingleton::RegisterUtility( asIScriptEngine* se )
 
     doc_struct.comment = R"(
 /*!
+    Get the major version of the OpenVSP instance currently running as an integer
+    \code{.cpp}
+    Print( "The current OpenVSP version is: ", false );
+
+    int major = GetVSPVersionMajor();
+    int minor = GetVSPVersionMinor();
+    int change = GetVSPVersionChange();
+
+    Print( formatInt(major) + "." + formatInt(minor) + "." + formatInt(change) );
+    \endcode
+    \return OpenVSP major version number (i.e. 3 in 3.X.Y)
+*/)";
+    r = se->RegisterGlobalFunction( "int GetVSPVersionMajor( )", vspFUNCTION( vsp::GetVSPVersionMajor ), vspCALL_CDECL, doc_struct);
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the minor version of the OpenVSP instance currently running as an integer
+    \code{.cpp}
+    Print( "The current OpenVSP version is: ", false );
+
+    int major = GetVSPVersionMajor();
+    int minor = GetVSPVersionMinor();
+    int change = GetVSPVersionChange();
+
+    Print( formatInt(major) + "." + formatInt(minor) + "." + formatInt(change) );
+    \endcode
+    \return OpenVSP minor version number (i.e. X in 3.X.Y)
+*/)";
+    r = se->RegisterGlobalFunction( "int GetVSPVersionMinor( )", vspFUNCTION( vsp::GetVSPVersionMinor ), vspCALL_CDECL, doc_struct);
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
+    Get the change version of the OpenVSP instance currently running as an integer
+    \code{.cpp}
+    Print( "The current OpenVSP version is: ", false );
+
+    int major = GetVSPVersionMajor();
+    int minor = GetVSPVersionMinor();
+    int change = GetVSPVersionChange();
+
+    Print( formatInt(major) + "." + formatInt(minor) + "." + formatInt(change) );
+    \endcode
+    \return OpenVSP change version number (i.e. Y in 3.X.Y)
+*/)";
+    r = se->RegisterGlobalFunction( "int GetVSPVersionChange( )", vspFUNCTION( vsp::GetVSPVersionChange ), vspCALL_CDECL, doc_struct);
+    assert( r >= 0 );
+
+    doc_struct.comment = R"(
+/*!
     Get the path to the OpenVSP executable. OpenVSP will assume that the VSPAERO, VSPSLICER, and VSPVIEWER are in the same directory unless 
     instructed otherwise.
     \code{.cpp}
@@ -13399,6 +13573,12 @@ CScriptArray* ScriptMgrSingleton::FindContainerGroupNames( const string & parm_c
 CScriptArray* ScriptMgrSingleton::FindContainerParmIDs( const string & parm_container_id )
 {
     m_ProxyStringArray = vsp::FindContainerParmIDs( parm_container_id );
+    return GetProxyStringArray();
+}
+
+CScriptArray* ScriptMgrSingleton::GetAllUserParms()
+{
+    m_ProxyStringArray = vsp::GetAllUserParms();
     return GetProxyStringArray();
 }
 

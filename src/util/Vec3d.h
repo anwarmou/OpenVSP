@@ -243,6 +243,10 @@ public:
     int major_comp() const;
     int minor_comp() const;
 
+    bool isnan() const;
+    bool isinf() const;
+    bool isfinite() const;
+
     friend double dot( const vec3d& a, const vec3d& b ); // x = dot(a,b)
     friend vec3d cross( const vec3d& a, const vec3d& b ); // a = cross(b,c)
     friend double angle( const vec3d& a, const vec3d& b );
@@ -285,6 +289,7 @@ public:
 
     friend vec3d RotateArbAxis( const vec3d & p, double theta, const vec3d & r );
 
+    friend bool PtInTri( const vec3d & v0, const vec3d & v1, const vec3d & v2, const vec3d & p );
     friend vec3d BarycentricWeights( const vec3d & v0, const vec3d & v1, const vec3d & v2, const vec3d & p );
     friend void BilinearWeights( const vec3d & p0, const vec3d & p1, const vec3d & p, std::vector< double > & weights );
     friend double tri_tri_min_dist( vec3d & v0, vec3d & v1, vec3d & v2, vec3d & v3, vec3d & v4, vec3d & v5 );

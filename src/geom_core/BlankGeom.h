@@ -27,10 +27,12 @@ public:
     virtual void UpdateDrawObj();
     virtual void LoadDrawObjs(vector< DrawObj* > & draw_obj_vec);
 
+    virtual void UpdateSymmAttach();
+
     virtual void ReadV2File( xmlNodePtr &root );
 
-    BoolParm m_PointMassFlag;
-    Parm     m_PointMass;
+    BoolParm m_BlankPointMassFlag;
+    Parm     m_BlankPointMass;
 
 protected:
 

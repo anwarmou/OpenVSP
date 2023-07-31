@@ -63,5 +63,7 @@ protected:
     SliderAdjRangeInput m_UpperLimitSlider;
 
     ColResizeBrowser* m_LinkBrowser;
+private:
+    set < int > m_SelectedLinks;
 };
 #endif

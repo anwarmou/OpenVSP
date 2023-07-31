@@ -435,18 +435,18 @@ void Results::WriteMassProp( const string & file_name )
         fprintf( fid, "%d Total Num Meshes\n", Find( "Num_Total_Meshes" ).GetInt( 0 ) );
         fprintf( fid, "%d Total Num Tris\n", Find( "Num_Total_Tris" ).GetInt( 0 ) );
         fprintf( fid, "\n" );
-        fprintf( fid, "%f             Total Mass\n", Find( "Total_Mass" ).GetDouble( 0 ) );
+        fprintf( fid, "%.15e             Total Mass\n", Find( "Total_Mass" ).GetDouble( 0 ) );
         vec3d total_cg = Find( "Total_CG" ).GetVec3d( 0 );
-        fprintf( fid, "%f %f %f       Center of Gravity\n", total_cg.x(), total_cg.y(), total_cg.z() );
+        fprintf( fid, "%.15e %.15e %.15e       Center of Gravity\n", total_cg.x(), total_cg.y(), total_cg.z() );
         double ixx =  Find( "Total_Ixx" ).GetDouble( 0 );
         double iyy =  Find( "Total_Iyy" ).GetDouble( 0 );
         double izz =  Find( "Total_Izz" ).GetDouble( 0 );
-        fprintf( fid, "%f %f %f       Ixx, Iyy, Izz\n", ixx, iyy, izz );
+        fprintf( fid, "%.15e %.15e %.15e       Ixx, Iyy, Izz\n", ixx, iyy, izz );
         double ixy =  Find( "Total_Ixy" ).GetDouble( 0 );
         double ixz =  Find( "Total_Ixz" ).GetDouble( 0 );
         double iyz =  Find( "Total_Iyz" ).GetDouble( 0 );
-        fprintf( fid, "%f %f %f       Ixy, Ixz, Iyz\n", ixy, ixz, iyz );
-        fprintf( fid, "%f             Volume\n", Find( "Total_Volume" ).GetDouble( 0 ) );
+        fprintf( fid, "%.15e %.15e %.15e       Ixy, Ixz, Iyz\n", ixy, ixz, iyz );
+        fprintf( fid, "%.15e             Volume\n", Find( "Total_Volume" ).GetDouble( 0 ) );
 
         fprintf( fid, "\n" );
         fprintf( fid, "Name\tMass\tcgX\tcgY\tcgZ\tIxx\tIyy\tIzz\tIxy\tIxz\tIyz\tVolume\n" );
@@ -465,14 +465,14 @@ void Results::WriteMassProp( const string & file_name )
             double compIxz = Find( "Comp_Ixz" ).GetDouble( i );
             double compVol = Find( "Comp_Vol" ).GetDouble( i );
 
-            fprintf( fid, "%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+            fprintf( fid, "%s\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\n",
                      comp_name.c_str(), comp_mass, comp_cg.x(), comp_cg.y(), comp_cg.z(),
                      compIxx, compIyy, compIzz, compIxy, compIxz, compIyz, compVol );
         }
 
 
         fprintf( fid, "Name\tMass\tcgX\tcgY\tcgZ\tIxx\tIyy\tIzz\tIxy\tIxz\tIyz\tVolume\n" );
-        fprintf( fid, "%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+        fprintf( fid, "%s\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\n",
                  "Totals", Find( "Total_Mass" ).GetDouble( 0 ), total_cg.x(), total_cg.y(), total_cg.z(),
                  ixx, iyy, izz, ixy, ixz, iyz, Find( "Total_Volume" ).GetDouble( 0 ) );
 
@@ -500,7 +500,7 @@ void Results::WriteMassProp( const string & file_name )
             double fillIxz = Find( "Fill_Ixz" ).GetDouble( i );
             double fillVol = Find( "Fill_Vol" ).GetDouble( i );
 
-            fprintf( fid, "%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+            fprintf( fid, "%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\n",
                      fillslice, fillmass, fillcg.x(), fillcg.y(), fillcg.z(),
                      fillIxx, fillIyy, fillIzz, fillIxy, fillIxz, fillIyz, fillVol );
         }
@@ -1250,7 +1250,15 @@ void ResultsMgrSingleton::PrintResults( const string &results_id )
 
 void ResultsMgrSingleton::PrintResults( FILE * outputStream, const string &results_id )
 {
-    fprintf( outputStream, "\n   %-30s%-13s\t%s\t%s\n", "[result_name]", "[type]", "[#]", "[current values-->]" );
+    Results* res_ptr = FindResultsPtr( results_id );
+
+    if ( res_ptr )
+    {
+        fprintf( outputStream, "\n\n%s\n", res_ptr->GetName().c_str() );
+        fprintf( outputStream, "%s\n", res_ptr->GetDoc().c_str() );
+    }
+
+    fprintf( outputStream, "   %-30s%-13s\t%s\t%s\n", "[result_name]", "[type]", "[#]", "[current values-->]" );
 
     vector<string> results_names = GetAllDataNames( results_id );
     for ( unsigned int i_result_name = 0; i_result_name < results_names.size(); i_result_name++ )

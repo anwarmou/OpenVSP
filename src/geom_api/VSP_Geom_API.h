@@ -38,6 +38,9 @@ extern void Update( bool update_managers = true );
 extern void VSPExit( int error_code );
 
 extern std::string GetVSPVersion();
+extern int GetVSPVersionMajor();
+extern int GetVSPVersionMinor();
+extern int GetVSPVersionChange();
 extern std::string GetVSPExePath();
 
 extern bool SetVSPAEROPath( const std::string & path );
@@ -366,6 +369,7 @@ extern std::string GetParmGroupName( const std::string & parm_id );
 extern std::string GetParmDisplayGroupName( const std::string & parm_id );
 extern std::string GetParmContainer( const std::string & parm_id );
 extern void SetParmDescript( const std::string & parm_id, const std::string & desc );
+extern std::string GetParmDescript( const std::string & parm_id );
 extern std::string FindParm( const std::string & parm_container_id, const std::string& parm_name, const std::string& group_name );
 
 //======================== Parm Container Functions ======================//
@@ -377,6 +381,15 @@ extern std::string GetContainerName( const std::string & parm_container_id );
 extern std::vector<std::string> FindContainerGroupNames( const std::string & parm_container_id );
 extern std::vector<std::string> FindContainerParmIDs( const std::string & parm_container_id );
 extern std::string GetVehicleID();
+
+//======================== User Parm Functions ======================//
+extern int GetNumUserParms();
+extern int GetNumPredefinedUserParms();
+extern std::vector < std::string > GetAllUserParms();
+extern std::string GetUserParmContainer();
+extern string AddUserParm(int type, const string & name, const string & group );
+extern void DeleteUserParm( const std::string & id );
+extern void DeleteAllUserParm();
 
 //======================== Snap To Functions ======================//
 extern double ComputeMinClearanceDistance( const std::string & geom_id, int set  = SET_ALL );

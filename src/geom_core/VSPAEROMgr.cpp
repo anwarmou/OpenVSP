@@ -1241,7 +1241,7 @@ string VSPAEROMgrSingleton::ComputeGeometry()
 
     if ( m_AlternateInputFormatFlag() && m_AnalysisMethod() == vsp::VORTEX_LATTICE )
     {
-        m_LastPanelMeshGeomId = veh->WriteVSPGeomFile( m_VSPGeomFileFull, -1, m_GeomSet(), halfFlag, false, true );
+        m_LastPanelMeshGeomId = veh->WriteVSPGeomFile( m_VSPGeomFileFull, vsp::SET_NONE, m_GeomSet(), 0 /*subsFlag*/, halfFlag, false, true );
 
         WaitForFile( m_VSPGeomFileFull );
         if ( !FileExist( m_VSPGeomFileFull ) )
@@ -1273,14 +1273,14 @@ string VSPAEROMgrSingleton::ComputeGeometry()
         if ( !last_mesh )
         {
             // Compute intersected and trimmed geometry
-            m_LastPanelMeshGeomId = veh->CompGeomAndFlatten( m_GeomSet(), halfFlag, 1, vsp::SET_NONE, false, true );
+            m_LastPanelMeshGeomId = veh->CompGeomAndFlatten( m_GeomSet(), halfFlag, 1 /*subsFlag*/, vsp::SET_NONE, false, true );
             mesh_set = vsp::SET_SHOWN; // Only MeshGeom is shown after geometry is computed
         }
 
         if ( !m_AlternateInputFormatFlag() )
         {
             // Write out mesh to *.vspgeom file. Only the MeshGeom is shown
-            veh->WriteVSPGeomFile( m_VSPGeomFileFull, mesh_set, -1, 1 );
+            veh->WriteVSPGeomFile( m_VSPGeomFileFull, mesh_set, vsp::SET_NONE, 1 /*subsFlag*/ );
             WaitForFile( m_VSPGeomFileFull );
             if ( !FileExist( m_VSPGeomFileFull ) )
             {
@@ -1290,7 +1290,7 @@ string VSPAEROMgrSingleton::ComputeGeometry()
         else
         {
             // After CompGeomAndFlatten() is run all the geometry is hidden and the intersected & trimmed mesh is the only one shown
-            veh->WriteTRIFile( m_CompGeomFileFull, mesh_set, 1 );
+            veh->WriteTRIFile( m_CompGeomFileFull, mesh_set, 1 /*subsFlag*/ );
             WaitForFile( m_CompGeomFileFull );
             if ( !FileExist( m_CompGeomFileFull ) )
             {
@@ -2000,6 +2000,11 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
         // Set stability run arguments
         if ( stabilityType != vsp::STABILITY_OFF )
         {
+// Disable "enumeration values not handled in switch" warning
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wswitch"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch"
             switch ( stabilityType )
             {
                 case vsp::STABILITY_DEFAULT:
@@ -2035,6 +2040,8 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
                     args.push_back( "-acstab" );
                     break;
             }
+#pragma GCC diagnostic pop
+#pragma clang diagnostic pop
         }
 
         if ( m_FromSteadyState() )
@@ -2128,7 +2135,8 @@ string VSPAEROMgrSingleton::ComputeSolverBatch( FILE * logFile )
         // CpSlice *.adb File and slices are defined
         if ( m_CpSliceFlag() && m_CpSliceVec.size() > 0 )
         {
-            ComputeCpSlices();
+            string slice_res_id = ComputeCpSlices();
+            res_id_vector.push_back( slice_res_id );
         }
 
         if ( unsteady_flag )

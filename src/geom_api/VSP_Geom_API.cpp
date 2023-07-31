@@ -6567,6 +6567,19 @@ void SetParmDescript( const string & parm_id, const string & desc )
     return p->SetDescript( desc );
 }
 
+/// Get the parm description
+string GetParmDescript( const string & parm_id )
+{
+    Parm* p = ParmMgr.FindParm( parm_id );
+    if ( !p )
+    {
+        ErrorMgr.AddError( VSP_CANT_FIND_PARM, "GetParmDescript::Can't Find Parm " + parm_id );
+        return string();
+    }
+    ErrorMgr.NoError();
+    return p->GetDescript();
+}
+
 ///  Find a parm id given parm container, name and group
 string FindParm( const string & parm_container_id, const string& parm_name, const string& group_name )
 {
@@ -6724,6 +6737,83 @@ string GetVehicleID()
 
     ErrorMgr.NoError();
     return veh->GetID();
+}
+
+//===================================================================//
+//===============         User Parm  Functions         ==============//
+//===================================================================//
+
+int GetNumUserParms()
+{
+    int nup = LinkMgr.GetNumUserParms();
+
+    ErrorMgr.NoError();
+
+    return nup;
+}
+
+int GetNumPredefinedUserParms()
+{
+    int npdup = LinkMgr.GetNumPredefinedUserParms();
+
+    ErrorMgr.NoError();
+
+    return npdup;
+}
+
+vector < std::string > GetAllUserParms()
+{
+    vector < string > ret = LinkMgr.GetAllUserParms();
+
+    ErrorMgr.NoError();
+
+    return ret;
+}
+
+string GetUserParmContainer()
+{
+    ParmContainer *pc = LinkMgr.GetUserParmContainer();
+
+    if ( !pc )
+    {
+        ErrorMgr.AddError( VSP_INVALID_PTR, "GetUserParmContainer::Invalid UserParmContainer " );
+        return string();
+    }
+
+    ErrorMgr.NoError();
+
+    return pc->GetID();
+}
+
+string AddUserParm(int type, const string & name, const string & group )
+{
+    string ret = LinkMgr.AddUserParm( type, name, group );
+
+    ErrorMgr.NoError();
+
+    return ret;
+}
+
+void DeleteUserParm( const std::string & id )
+{
+    int indx = LinkMgr.GetUserParmIndex( id );
+
+    if ( indx < 0 )
+    {
+        ErrorMgr.AddError( VSP_CANT_FIND_PARM, "DeleteUserParm::Invalid UserParm ID " );
+        return;
+    }
+
+    LinkMgr.DeleteUserParm( indx );
+
+    ErrorMgr.NoError();
+}
+
+void DeleteAllUserParm()
+{
+    LinkMgr.DeleteAllUserParm();
+
+    ErrorMgr.NoError();
 }
 
 //===================================================================//
@@ -8544,7 +8634,22 @@ void DeleteAllProbes()
 
 string GetVSPVersion()
 {
-    return VSPVERSION4;
+    return string( VSPVERSION4 );
+}
+
+int GetVSPVersionMajor()
+{
+    return VSP_VERSION_MAJOR;
+}
+
+int GetVSPVersionMinor()
+{
+    return VSP_VERSION_MINOR;
+}
+
+int GetVSPVersionChange()
+{
+    return VSP_VERSION_CHANGE;
 }
 
 string GetVSPExePath()

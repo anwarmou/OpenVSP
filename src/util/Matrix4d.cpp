@@ -15,7 +15,7 @@ void Matrix4d::loadIdentity()
     setIdentity( mat );
 }
 
-void Matrix4d::setIdentity( double* m ) const
+void Matrix4d::setIdentity( double* m )
 {
     for ( int i = 0 ; i < 4 ; i++ )
         for ( int j = 0 ; j < 4 ; j++ )
@@ -217,6 +217,17 @@ void Matrix4d::rotatealongX( const vec3d & dir )
     }
 
     matMult( tmat );
+}
+
+void Matrix4d::zeroTranslations()
+{
+    mat[3] = 0.0;
+    mat[7] = 0.0;
+    mat[11] = 0.0;
+    mat[12] = 0.0;
+    mat[13] = 0.0;
+    mat[14] = 0.0;
+    mat[15] = 1.0;
 }
 
 void Matrix4d::affineInverse()

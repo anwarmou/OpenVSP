@@ -116,6 +116,9 @@
    - [exprparse](http://github.com/amgary/exprparse) - A simple c++ library to
     compute values from simple math expressions stored as strings.
 
+   - [delabella](https://github.com/msokalski/delabella) - A c++ Delaunay
+   triangulation library.
+
 ##### Bundled with OpenVSP.
 
    - [AngelScript](http://www.angelcode.com/angelscript) - Embedded scripting
@@ -250,18 +253,20 @@
      not use these variables with `VSP_LIBRARY_PATH`, it will
      overwrite them.  Acceptable versions of this variable are:
 
-      - `FLTK_INSTALL_DIR`
-      - `CPPTEST_INSTALL_DIR`
-      - `LIBXML2_INSTALL_DIR`
-      - `GLM_INSTALL_DIR`
-      - `GLEW_INSTALL_DIR`
-      - `EIGEN_INSTALL_DIR`
-      - `CODEELI_INSTALL_DIR`
-      - `CMINPACK_INSTALL_DIR`
-      - `LIBIGES_INSTALL_DIR`
-      - `STEPCODE_INSTALL_DIR`
-      - `EXPRPARSE_INSTALL_DIR`
-      - `TRIANGLE_INSTALL_DIR`
+      - 'Adept2_INSTALL_DIR'
+      - 'CMINPACK_INSTALL_DIR'
+      - 'CODEELI_INSTALL_DIR'
+      - 'CPPTEST_INSTALL_DIR'
+      - 'DELABELLA_INSTALL_DIR'
+      - 'EIGEN_INSTALL_DIR'
+      - 'EXPRPARSE_INSTALL_DIR'
+      - 'FLTK_INSTALL_DIR'
+      - 'GLEW_INSTALL_DIR'
+      - 'GLM_INSTALL_DIR'
+      - 'LIBIGES_INSTALL_DIR'
+      - 'LIBXML2_INSTALL_DIR'
+      - 'STEPCODE_INSTALL_DIR'
+      - 'TRIANGLE_INSTALL_DIR'
 
    - `VSP_ENABLE_MATLAB_API` -- Set this variable to ON to compile the OpenVSP MATLAB API. To be successful, `SWIG_EXECUTABLE` must be set to the swig executable compiled off of the unreleased MATLAB branch of SWIG. 
 
@@ -271,18 +276,20 @@
      particular library rather than use the bundled versions.
      Acceptable versions of this variable are:
 
-      - `VSP_USE_SYSTEM_CPPTEST`
-      - `VSP_USE_SYSTEM_LIBXML2`
-      - `VSP_USE_SYSTEM_EIGEN`
-      - `VSP_USE_SYSTEM_CODEELI`
-      - `VSP_USE_SYSTEM_FLTK`
-      - `VSP_USE_SYSTEM_GLM`
-      - `VSP_USE_SYSTEM_GLEW`
-      - `VSP_USE_SYSTEM_CMINPACK`
-      - `VSP_USE_SYSTEM_LIBIGES`
-      - `VSP_USE_SYSTEM_STEPCODE`
-      - `VSP_USE_SYSTEM_EXPRPARSE`
-      - `VSP_USE_SYSTEM_TRIANGLE`
+      - 'VSP_USE_SYSTEM_ADEPT2'
+      - 'VSP_USE_SYSTEM_CMINPACK'
+      - 'VSP_USE_SYSTEM_CODEELI'
+      - 'VSP_USE_SYSTEM_CPPTEST'
+      - 'VSP_USE_SYSTEM_DELABELLA'
+      - 'VSP_USE_SYSTEM_EIGEN'
+      - 'VSP_USE_SYSTEM_EXPRPARSE'
+      - 'VSP_USE_SYSTEM_FLTK'
+      - 'VSP_USE_SYSTEM_GLEW'
+      - 'VSP_USE_SYSTEM_GLM'
+      - 'VSP_USE_SYSTEM_LIBIGES'
+      - 'VSP_USE_SYSTEM_LIBXML2'
+      - 'VSP_USE_SYSTEM_STEPCODE'
+      - 'VSP_USE_SYSTEM_TRIANGLE'
 
 
 ### Build Instructions for Windows 10 and Visual Studio Express 2017
